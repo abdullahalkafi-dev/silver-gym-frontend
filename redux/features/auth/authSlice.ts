@@ -1,107 +1,48 @@
 // redux/features/auth/authSlice.ts
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import type {
-  User,
-  AuthState,
-  LoginCredentials,
-  LoginResponse,
-} from "../../types/auth";
-import { cookieUtils } from "../../utils/cookies";
+import type { ApiSuccessResponse, AuthState, LoginResponse, User } from "@/redux/types/auth";
+import { cookieUtils } from "@/redux/utils/cookies";
 
-// Initial state
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+
 const initialState: AuthState = {
   user: null,
   accessToken: null,
   refreshToken: null,
   isAuthenticated: false,
+  role: null,
   isLoading: false,
   error: null,
   permissions: [],
   customRoleId: undefined,
 };
 
-// Async thunks
-export const loginUser = createAsyncThunk(
-  "auth/loginUser",
-  async (credentials: LoginCredentials, { rejectWithValue }) => {
-    try {
-      // Simulate API call with dummy data
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+const refreshAccessToken = async (refreshToken: string) => {
+  const response = await fetch(`${API_BASE_URL}/auth/refresh-access-token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refreshToken }),
+  });
 
-      // Dummy user data based on role (you can modify this logic)
-      const dummyUsers: Record<string, LoginResponse> = {
-        "admin@gmail.com": {
-          user: {
-            id: "1",
-            role: "admin",
-            email: "admin@gmail.com",
-            name: "Admin User",
-            loginTime: new Date().toISOString(),
-          },
-          accessToken: "dummy-access-token-admin",
-          refreshToken: "dummy-refresh-token-admin",
-        },
-        "manager@gmail.com": {
-          user: {
-            id: "2",
-            role: "manager",
-            email: "manager@gmail.com",
-            name: "Manager User",
-            loginTime: new Date().toISOString(),
-          },
-          accessToken: "dummy-access-token-manager",
-          refreshToken: "dummy-refresh-token-manager",
-        },
-        // Additional test emails
-        "member@gmail.com": {
-          user: {
-            id: "3",
-            role: "member",
-            email: "member@gmail.com",
-            name: "User",
-            loginTime: new Date().toISOString(),
-          },
-          accessToken: "dummy-access-token-member",
-          refreshToken: "dummy-refresh-token-member",
-        },
-      };
+  const payload = (await response.json()) as ApiSuccessResponse<{
+    accessToken: string;
+  }> & { message?: string };
 
-      console.log("Login attempt with email:", credentials.email);
-      const userData = dummyUsers[credentials.email];
-      if (!userData) {
-        console.log("Available emails:", Object.keys(dummyUsers));
-        throw new Error("Invalid credentials");
-      }
-
-      // Set cookies
-      console.log("Setting cookies for user:", userData.user);
-      cookieUtils.setAccessToken(userData.accessToken, credentials.rememberMe);
-      cookieUtils.setRefreshToken(
-        userData.refreshToken,
-        credentials.rememberMe
-      );
-      cookieUtils.setUserData(
-        userData.user as unknown as Record<string, unknown>,
-        credentials.rememberMe
-      );
-      cookieUtils.setUserRole(userData.user.role, credentials.rememberMe);
-      console.log("All cookies set successfully");
-
-      return userData;
-    } catch (err) {
-      return rejectWithValue(
-        err instanceof Error ? err.message : "Login failed"
-      );
-    }
+  if (!response.ok || !payload?.data?.accessToken) {
+    throw new Error(payload?.message || "Session expired. Please login again.");
   }
-);
+
+  return payload.data.accessToken;
+};
 
 export const logoutUser = createAsyncThunk(
   "auth/logoutUser",
   async (_, { rejectWithValue }) => {
     try {
-      // Clear cookies
       cookieUtils.clearAll();
       return true;
     } catch {
@@ -114,20 +55,26 @@ export const checkAuthStatus = createAsyncThunk<LoginResponse>(
   "auth/checkAuthStatus",
   async (_, { rejectWithValue }) => {
     try {
-      const accessToken = cookieUtils.getAccessToken();
-      const userData = cookieUtils.getUserData();
+      let accessToken = cookieUtils.getAccessToken();
       const refreshToken = cookieUtils.getRefreshToken();
+      const userData = cookieUtils.getUserData();
 
-      if (accessToken && userData && refreshToken) {
-        return {
-          user: userData as unknown as User,
-          accessToken,
-          refreshToken,
-        };
+      if (!refreshToken || !userData) {
+        throw new Error("No valid authentication found");
       }
 
-      throw new Error("No valid authentication found");
+      if (!accessToken) {
+        accessToken = await refreshAccessToken(refreshToken);
+        cookieUtils.setAccessToken(accessToken, true);
+      }
+
+      return {
+        user: userData as unknown as User,
+        accessToken,
+        refreshToken,
+      };
     } catch (error) {
+      cookieUtils.clearAll();
       return rejectWithValue(
         error instanceof Error ? error.message : "Auth check failed"
       );
@@ -135,81 +82,108 @@ export const checkAuthStatus = createAsyncThunk<LoginResponse>(
   }
 );
 
-// Auth slice
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
+    setSession: (
+      state,
+      action: PayloadAction<{ session: LoginResponse; rememberMe?: boolean }>
+    ) => {
+      const { session, rememberMe = false } = action.payload;
+
+      cookieUtils.setAccessToken(session.accessToken, rememberMe);
+      cookieUtils.setRefreshToken(session.refreshToken, rememberMe);
+      cookieUtils.setUserData(session.user as unknown as Record<string, unknown>, rememberMe);
+      cookieUtils.setUserRole(session.user.role, rememberMe);
+
+      state.user = session.user;
+      state.accessToken = session.accessToken;
+      state.refreshToken = session.refreshToken;
+      state.isAuthenticated = true;
+      state.role = session.user.role;
+      state.permissions = session.user.permissions || [];
+      state.customRoleId = session.user.customRoleId;
+      state.error = null;
+      state.isLoading = false;
+    },
+
+    clearSession: (state) => {
+      cookieUtils.clearAll();
+      state.user = null;
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.isAuthenticated = false;
+      state.role = null;
+      state.permissions = [];
+      state.customRoleId = undefined;
+      state.error = null;
+      state.isLoading = false;
+    },
+
+    setAccessToken: (state, action: PayloadAction<string>) => {
+      state.accessToken = action.payload;
+      cookieUtils.setAccessToken(action.payload, true);
+    },
+
     clearError: (state) => {
       state.error = null;
     },
+
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
   },
   extraReducers: (builder) => {
     builder
-      // Login cases
-      .addCase(loginUser.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(loginUser.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.user = action.payload.user;
-        state.accessToken = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken;
-        state.isAuthenticated = true;
-        state.error = null;
-        // Set permissions from user
-        state.permissions = action.payload.user.permissions || [];
-        state.customRoleId = action.payload.user.customRoleId;
-      })
-      .addCase(loginUser.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-        state.isAuthenticated = false;
-      })
-      // Logout cases
       .addCase(logoutUser.fulfilled, (state) => {
         state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
         state.isAuthenticated = false;
-        state.error = null;
+        state.role = null;
         state.permissions = [];
         state.customRoleId = undefined;
+        state.error = null;
       })
       .addCase(logoutUser.rejected, (state, action) => {
         state.error = action.payload as string;
       })
-      // Check auth status cases
       .addCase(checkAuthStatus.pending, (state) => {
         state.isLoading = true;
+        state.error = null;
       })
       .addCase(checkAuthStatus.fulfilled, (state, action) => {
-        state.isLoading = false;
         state.user = action.payload.user;
         state.accessToken = action.payload.accessToken;
         state.refreshToken = action.payload.refreshToken;
         state.isAuthenticated = true;
-        state.error = null;
-        // Set permissions from user
+        state.role = action.payload.user.role;
         state.permissions = action.payload.user.permissions || [];
         state.customRoleId = action.payload.user.customRoleId;
+        state.error = null;
+        state.isLoading = false;
       })
       .addCase(checkAuthStatus.rejected, (state, action) => {
-        state.isLoading = false;
         state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
         state.isAuthenticated = false;
-        state.error = action.payload as string;
+        state.role = null;
         state.permissions = [];
         state.customRoleId = undefined;
+        state.error = (action.payload as string) || "Authentication failed";
+        state.isLoading = false;
       });
   },
 });
 
-export const { clearError, setLoading } = authSlice.actions;
+export const {
+  setSession,
+  clearSession,
+  setAccessToken,
+  clearError,
+  setLoading,
+} = authSlice.actions;
+
 export default authSlice.reducer;

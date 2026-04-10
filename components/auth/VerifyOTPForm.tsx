@@ -6,35 +6,50 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import type { PasswordResetUser } from "@/types/auth";
+import { toast } from "sonner";
+import {
+  useResendOtpMutation,
+  useVerifyResetOtpMutation,
+} from "@/redux/features/auth/authApi";
+import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
+
+function getInitialPasswordResetUser(): PasswordResetUser | null {
+  if (typeof window === "undefined") return null;
+
+  const storedData = sessionStorage.getItem("passwordResetUser");
+  if (!storedData) return null;
+
+  try {
+    return JSON.parse(storedData) as PasswordResetUser;
+  } catch {
+    return null;
+  }
+}
 
 export default function VerifyOTPForm() {
   const router = useRouter();
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
-  const [userData, setUserData] = useState<PasswordResetUser | null>(null);
+  const [userData, setUserData] = useState<PasswordResetUser | null>(
+    getInitialPasswordResetUser
+  );
   const [error, setError] = useState("");
   const [isVerified, setIsVerified] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  const [verifyResetOtpMutation, { isLoading: isVerifying }] =
+    useVerifyResetOtpMutation();
+  const [resendOtpMutation, { isLoading: isResending }] = useResendOtpMutation();
+
   useEffect(() => {
-    // Get user data from sessionStorage
-    const storedData = sessionStorage.getItem("passwordResetUser");
-    if (!storedData) {
+    if (!userData) {
       router.push("/forgot-password");
       return;
     }
 
-    try {
-      const parsedData = JSON.parse(storedData) as PasswordResetUser;
-      if (!parsedData.verificationMethod) {
-        router.push("/verification-method");
-        return;
-      }
-      setUserData(parsedData);
-    } catch (error) {
-      console.error("Failed to parse user data:", error);
-      router.push("/forgot-password");
+    if (!userData.verificationMethod) {
+      router.push("/verification-method");
     }
-  }, [router]);
+  }, [router, userData]);
 
   const handleChange = (index: number, value: string) => {
     // Only allow numbers
@@ -77,27 +92,34 @@ export default function VerifyOTPForm() {
     inputRefs.current[nextIndex]?.focus();
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (!userData) return;
 
-    // Generate new OTP
-    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    const updatedData: PasswordResetUser = {
-      ...userData,
-      otp: newOtp,
-      otpTimestamp: Date.now(),
-    };
+    const method = userData.verificationMethod;
+    const identifier = method === "email" ? userData.email : userData.phone;
 
-    sessionStorage.setItem("passwordResetUser", JSON.stringify(updatedData));
-    setUserData(updatedData);
-    setOtp(["", "", "", "", "", ""]);
-    setError("");
-    setIsVerified(false);
+    if (!method || !identifier) {
+      setError("Verification channel not found. Please restart the process.");
+      return;
+    }
 
-    console.log(`Resending OTP ${newOtp} to ${userData.verificationMethod}`);
+    try {
+      await resendOtpMutation(
+        method === "email"
+          ? { email: identifier.toLowerCase(), type: "password_reset" }
+          : { phone: identifier, type: "password_reset" }
+      ).unwrap();
+
+      setOtp(["", "", "", "", "", ""]);
+      setError("");
+      setIsVerified(false);
+      toast.success("OTP resent successfully");
+    } catch (apiError) {
+      setError(extractApiErrorMessage(apiError));
+    }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const enteredOtp = otp.join("");
 
     if (enteredOtp.length !== 6) {
@@ -105,26 +127,41 @@ export default function VerifyOTPForm() {
       return;
     }
 
-    if (!userData || !userData.otp) return;
+    if (!userData || !userData.verificationMethod) {
+      setError("Verification session expired. Please start again.");
+      return;
+    }
 
-    // Verify OTP
-    if (enteredOtp === userData.otp) {
-      setIsVerified(true);
-      setError("");
+    const method = userData.verificationMethod;
+    const identifier = method === "email" ? userData.email : userData.phone;
 
-      // Update verification status
+    if (!identifier) {
+      setError("Verification channel not found. Please restart the process.");
+      return;
+    }
+
+    try {
+      const response = await verifyResetOtpMutation(
+        method === "email"
+          ? { email: identifier.toLowerCase(), otp: enteredOtp }
+          : { phone: identifier, otp: enteredOtp }
+      ).unwrap();
+
       const updatedData: PasswordResetUser = {
         ...userData,
         otpVerified: true,
+        resetToken: response.data.resetToken,
       };
-      sessionStorage.setItem("passwordResetUser", JSON.stringify(updatedData));
 
-      // Navigate to reset password
-      setTimeout(() => {
-        router.push("/reset-password");
-      }, 500);
-    } else {
-      setError("Incorrect code. Please try again.");
+      sessionStorage.setItem("passwordResetUser", JSON.stringify(updatedData));
+      setUserData(updatedData);
+      setIsVerified(true);
+      setError("");
+      toast.success("OTP verified successfully");
+
+      router.push("/reset-password");
+    } catch (apiError) {
+      setError(extractApiErrorMessage(apiError));
       setIsVerified(false);
     }
   };
@@ -133,9 +170,9 @@ export default function VerifyOTPForm() {
 
   const isComplete = otp.every((digit) => digit !== "");
   const displayContact =
-    userData.verificationMethod === "email"
-      ? userData.maskedEmail
-      : userData.maskedPhone;
+    (userData.verificationMethod === "email"
+      ? userData.maskedEmail || userData.email
+      : userData.maskedPhone || userData.phone) || userData.identifier;
 
   return (
     <div className="flex items-center justify-center min-h-screen p-4 relative w-full overflow-hidden bg-white">
@@ -168,9 +205,9 @@ export default function VerifyOTPForm() {
               {/* Description */}
               <div className="flex flex-col items-center justify-center">
                 <p className="w-full max-w-lg font-normal text-gray-medium text-base text-center leading-6">
-                  We&apos;ve sent a reset link to your{" "}
-                  <span className="font-semibold">{displayContact}</span> email.
-                  Please check your inbox
+                  We&apos;ve sent a 6-digit OTP to{" "}
+                  <span className="font-semibold">{displayContact}</span>.
+                  Please enter the code to continue.
                 </p>
               </div>
 
@@ -208,9 +245,10 @@ export default function VerifyOTPForm() {
                   Don&apos;t received the code?{" "}
                   <button
                     onClick={handleResend}
+                    disabled={isResending}
                     className="text-purple hover:underline font-medium"
                   >
-                    Resend
+                    {isResending ? "Resending..." : "Resend"}
                   </button>
                 </p>
               </div>
@@ -218,15 +256,15 @@ export default function VerifyOTPForm() {
               {/* Verify Button */}
               <Button
                 onClick={handleVerify}
-                disabled={!isComplete}
+                disabled={!isComplete || isVerifying || isResending}
                 className={`w-full h-14 rounded-lg text-xl font-medium transition-colors duration-300 
                   ${
-                    isComplete
+                    isComplete && !isVerifying && !isResending
                       ? "bg-[#E97451] hover:bg-[#d66542] text-white"
                       : "bg-[#D9D9D9] text-[#9CA3AF] cursor-not-allowed hover:bg-[#D9D9D9]"
                   }`}
               >
-                Verify
+                {isVerifying ? "Verifying..." : "Verify"}
               </Button>
 
               {/* Error Message */}

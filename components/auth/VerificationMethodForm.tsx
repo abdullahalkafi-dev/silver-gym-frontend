@@ -6,6 +6,9 @@ import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import type { PasswordResetUser, VerificationMethod } from "@/types/auth";
 import { ImageIcon } from "../utils/ImageIcon";
+import { toast } from "sonner";
+import { useForgotPasswordMutation } from "@/redux/features/auth/authApi";
+import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
 
 interface SelectionCardProps {
   activeImage: string;
@@ -14,6 +17,7 @@ interface SelectionCardProps {
   subtitle: string;
   value: VerificationMethod;
   selected: boolean;
+  disabled?: boolean;
   onSelect: (value: VerificationMethod) => void;
 }
 
@@ -24,13 +28,19 @@ function SelectionCard({
   subtitle,
   value,
   selected,
+  disabled = false,
   onSelect,
 }: SelectionCardProps) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={() => onSelect(value)}
       className={`w-full p-5 rounded-lg border-2 transition-all text-left flex items-center gap-4 outline-none ${
+        disabled
+          ? "opacity-50 cursor-not-allowed bg-gray-100"
+          : ""
+      } ${
         selected
           ? "border-[#E97451]  shadow-[0_0_0_3px_#FCF0ED]"
           : "border-border-2 hover:border-[#d1d1d1] hover:bg-gray-50/50"
@@ -72,38 +82,60 @@ function getInitialUserData(): PasswordResetUser | null {
 
 export default function VerificationMethodForm() {
   const router = useRouter();
-  const [selectedMethod, setSelectedMethod] = useState<VerificationMethod | "">(
-    ""
-  );
   const [userData] = useState<PasswordResetUser | null>(getInitialUserData);
+  const [selectedMethod, setSelectedMethod] = useState<VerificationMethod | "">(
+    () => {
+      if (userData?.email) return "email";
+      if (userData?.phone) return "phone";
+      return "";
+    }
+  );
+  const [forgotPasswordMutation, { isLoading }] = useForgotPasswordMutation();
 
   useEffect(() => {
     if (!userData) {
       router.push("/forgot-password");
+      return;
+    }
+
+    if (!userData.email && !userData.phone) {
+      toast.error("No valid contact method found for this account.");
+      router.push("/forgot-password");
     }
   }, [userData, router]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedMethod || !userData) return;
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const selectedIdentifier =
+      selectedMethod === "email" ? userData.email : userData.phone;
 
-    const updatedData: PasswordResetUser = {
-      ...userData,
-      verificationMethod: selectedMethod,
-      otp,
-      otpTimestamp: Date.now(),
-    };
+    if (!selectedIdentifier) {
+      toast.error("Selected verification method is not available.");
+      return;
+    }
 
-    sessionStorage.setItem("passwordResetUser", JSON.stringify(updatedData));
+    try {
+      await forgotPasswordMutation(
+        selectedMethod === "email"
+          ? { email: selectedIdentifier.toLowerCase() }
+          : { phone: selectedIdentifier }
+      ).unwrap();
 
-    console.log(
-      `Sending OTP ${otp} to ${selectedMethod}: ${
-        selectedMethod === "email" ? updatedData.email : updatedData.phone
-      }`
-    );
+      const updatedData: PasswordResetUser = {
+        ...userData,
+        verificationMethod: selectedMethod,
+        otpVerified: false,
+        resetToken: undefined,
+      };
 
-    router.push("/verify-otp");
+      sessionStorage.setItem("passwordResetUser", JSON.stringify(updatedData));
+
+      toast.success("OTP sent successfully");
+      router.push("/verify-otp");
+    } catch (apiError) {
+      toast.error(extractApiErrorMessage(apiError));
+    }
   };
 
   if (!userData) return null;
@@ -150,9 +182,10 @@ export default function VerificationMethodForm() {
                   activeImage="/icons/mail.svg"
                   inactiveImage="/icons/mail.svg"
                   title="Send Code to Email"
-                  subtitle={userData.maskedEmail}
+                  subtitle={userData.maskedEmail || "Email not available"}
                   value="email"
                   selected={selectedMethod === "email"}
+                  disabled={!userData.email}
                   onSelect={setSelectedMethod}
                 />
 
@@ -160,9 +193,10 @@ export default function VerificationMethodForm() {
                   activeImage="/icons/phone.svg"
                   inactiveImage="/icons/phone.svg"
                   title="Send Code to Phone"
-                  subtitle={userData.maskedPhone}
+                  subtitle={userData.maskedPhone || "Phone not available"}
                   value="phone"
                   selected={selectedMethod === "phone"}
+                  disabled={!userData.phone}
                   onSelect={setSelectedMethod}
                 />
               </div>
@@ -170,15 +204,15 @@ export default function VerificationMethodForm() {
               {/* Submit Button */}
               <Button
                 onClick={handleSubmit}
-                disabled={!selectedMethod}
+                disabled={!selectedMethod || isLoading}
                 className={`w-full h-14 rounded-lg text-xl font-medium transition-colors duration-300 
                   ${
-                    selectedMethod
+                    selectedMethod && !isLoading
                       ? "bg-[#E97451] hover:bg-[#d66542] text-white"
                       : "bg-[#D9D9D9] text-[#9CA3AF] cursor-not-allowed hover:bg-[#D9D9D9]"
                   }`}
               >
-                Next
+                {isLoading ? "Sending..." : "Next"}
               </Button>
             </div>
           </CardContent>

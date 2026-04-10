@@ -14,16 +14,18 @@ export const useUser = () => {
     user,
     isAuthenticated,
     isLoading,
-    role,
+    role: stateRole,
     error,
     permissions,
     customRoleId,
   } = useAppSelector((state) => state.auth);
 
+  const role = user?.role || stateRole || "member";
+
   // Derived role checks for convenience
   const isAdmin = role === "admin";
   const isManager = role === "manager";
-  const isUser = role === "user";
+  const isUser = role === "member";
 
   // Permission helper functions
   const hasPermission = (permission: string): boolean => {

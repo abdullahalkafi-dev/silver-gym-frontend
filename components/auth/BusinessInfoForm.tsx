@@ -13,9 +13,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Image from "next/image";
 
+const BUSINESS_TYPES = ["gym", "fitness", "studio", "other"] as const;
+
 const schema = z.object({
   businessName: z.string().min(1, "Business name is required"),
-  businessType: z.string().min(1, "Please select a business type"),
+  businessType: z
+    .string()
+    .refine(
+      (value) => BUSINESS_TYPES.includes(value as (typeof BUSINESS_TYPES)[number]),
+      "Please select a business type"
+    ),
   registrationNumber: z.string().optional(),
   logo: z.any().optional(),
 });
@@ -100,9 +107,6 @@ export default function BusinessInfoForm() {
       };
 
       localStorage.setItem("businessInfo", JSON.stringify(businessInfo));
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Navigate to contact info page
       router.push("/contact-info");
@@ -232,10 +236,9 @@ export default function BusinessInfoForm() {
                   >
                     <option value="">Select your business</option>
                     <option value="gym">Gym</option>
-                    <option value="fitness-center">Fitness Center</option>
-                    <option value="yoga-studio">Yoga Studio</option>
-                    <option value="crossfit">CrossFit Box</option>
-                    <option value="sports-club">Sports Club</option>
+                    <option value="fitness">Fitness Center</option>
+                    <option value="studio">Studio</option>
+                    <option value="other">Other</option>
                   </select>
                   {errors.businessType && (
                     <span className="text-sm text-[#FC5555]">

@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,13 @@ import VerificationModal from "@/components/auth/VerificationModal";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useAppDispatch } from "@/redux/hooks";
+import { setSession } from "@/redux/features/auth/authSlice";
+import {
+  useLoginUserMutation,
+  useRegisterMutation,
+} from "@/redux/features/auth/authApi";
+import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
 
 const schema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -45,14 +53,23 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+const SIGNUP_DATA_KEY = "signupData";
+
 export default function SignUpForm() {
-  const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useAppDispatch();
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [verificationType, setVerificationType] = useState<"email" | "phone">(
     "email"
   );
   const [contactInfo, setContactInfo] = useState("");
   const router = useRouter();
+
+  const [registerMutation, { isLoading: isRegisterLoading }] =
+    useRegisterMutation();
+  const [loginUserMutation, { isLoading: isLoginLoading }] =
+    useLoginUserMutation();
+
+  const isSubmitting = isRegisterLoading || isLoginLoading;
 
   const {
     register,
@@ -80,8 +97,9 @@ export default function SignUpForm() {
       const verificationComplete = localStorage.getItem(
         "verification_complete"
       );
+      const signupData = localStorage.getItem(SIGNUP_DATA_KEY);
 
-      if (verificationState && verificationComplete !== "true") {
+      if (verificationState && verificationComplete !== "true" && signupData) {
         const { expiresAt, contact, type } = JSON.parse(verificationState);
         const now = Date.now();
 
@@ -102,42 +120,70 @@ export default function SignUpForm() {
   }, []);
 
   const onSubmit = async (data: FormData) => {
-    setIsLoading(true);
     try {
-      // Determine if input is email or phone
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const isEmail = emailRegex.test(data.emailOrPhone);
 
-      setVerificationType(isEmail ? "email" : "phone");
-      setContactInfo(data.emailOrPhone);
+      const normalizedEmailOrPhone = data.emailOrPhone.trim();
 
-      // Store signup data in localStorage
+      await registerMutation({
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        password: data.password,
+        loginProvider: isEmail ? "email" : "phone",
+        ...(isEmail
+          ? { email: normalizedEmailOrPhone.toLowerCase() }
+          : { phone: normalizedEmailOrPhone }),
+      }).unwrap();
+
       localStorage.setItem(
-        "signupData",
+        SIGNUP_DATA_KEY,
         JSON.stringify({
-          firstName: data.firstName,
-          lastName: data.lastName,
-          emailOrPhone: data.emailOrPhone,
+          firstName: data.firstName.trim(),
+          lastName: data.lastName.trim(),
           password: data.password,
+          ...(isEmail
+            ? { email: normalizedEmailOrPhone.toLowerCase() }
+            : { phone: normalizedEmailOrPhone }),
         })
       );
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Open verification modal
+      setVerificationType(isEmail ? "email" : "phone");
+      setContactInfo(normalizedEmailOrPhone);
       setVerificationOpen(true);
-    } catch (error) {
-      console.error("Submission failed:", error);
-      // Add toast notification here
-    } finally {
-      setIsLoading(false);
+      toast.success("Account created. Verify your OTP to continue.");
+    } catch (apiError) {
+      toast.error(extractApiErrorMessage(apiError));
     }
   };
 
-  const handleVerificationSuccess = () => {
-    // Navigate to business info page
-    router.push("/business-info");
+  const handleVerificationSuccess = async () => {
+    const storedSignupData = localStorage.getItem(SIGNUP_DATA_KEY);
+
+    if (!storedSignupData) {
+      toast.error("Signup session expired. Please register again.");
+      router.push("/sign-up");
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(storedSignupData) as {
+        email?: string;
+        phone?: string;
+        password: string;
+      };
+
+      const session = await loginUserMutation({
+        ...(parsed.email ? { email: parsed.email } : { phone: parsed.phone }),
+        password: parsed.password,
+      }).unwrap();
+
+      dispatch(setSession({ session, rememberMe: false }));
+      toast.success("Verification successful");
+      router.push("/business-info");
+    } catch (apiError) {
+      toast.error(extractApiErrorMessage(apiError));
+    }
   };
 
   return (
@@ -150,7 +196,7 @@ export default function SignUpForm() {
               <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-3 leading-tight">
                 Create Your Account
               </h1>
-              <p className="text-secondary text-lg">
+              <p className="text-foreground  text-lg">
                 Set up your account to start managing memberships, packages,
                 billing, and analytics — all in one place.
               </p>
@@ -271,9 +317,9 @@ export default function SignUpForm() {
               <Button
                 onClick={handleSubmit(onSubmit)}
                 className="btn-primary h-14 text-base rounded-lg w-full"
-                disabled={isLoading}
+                disabled={isSubmitting}
               >
-                {isLoading ? "Signing Up..." : "Sign Up"}
+                {isSubmitting ? "Signing Up..." : "Sign Up"}
               </Button>
 
               {/* Divider */}
@@ -292,7 +338,7 @@ export default function SignUpForm() {
 
             {/* Sign In Link */}
             <p className="mt-8 text-center text-base text-foreground">
-              Don&apos;t have an account?{" "}
+              Already have an account?{" "}
               <Link
                 href="/sign-in"
                 className="text-[#8b5cf6] font-medium hover:underline"

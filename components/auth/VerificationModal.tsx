@@ -12,6 +12,12 @@ import {
 } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { ImageIcon } from "@/components/utils/ImageIcon";
+import {
+  useResendOtpMutation,
+  useVerifyAccountMutation,
+} from "@/redux/features/auth/authApi";
+import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
+import { toast } from "sonner";
 
 interface VerificationModalProps {
   open: boolean;
@@ -33,9 +39,12 @@ export default function VerificationModal({
 }: VerificationModalProps) {
   const [code, setCode] = useState<string[]>(["", "", "", "", "", ""]);
   const [timeLeft, setTimeLeft] = useState(COUNTDOWN_DURATION);
-  const [isVerifying, setIsVerifying] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [verifyAccountMutation, { isLoading: isVerifying }] =
+    useVerifyAccountMutation();
+  const [resendOtpMutation, { isLoading: isResending }] = useResendOtpMutation();
 
   // Load state from localStorage on mount or when modal opens
   useEffect(() => {
@@ -159,15 +168,19 @@ export default function VerificationModal({
 
   const handleVerify = async () => {
     const verificationCode = code.join("");
-    setIsVerifying(true);
+
+    if (verificationCode.length !== 6) {
+      toast.error("Please enter all 6 digits.");
+      return;
+    }
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // For demo purposes, accept any 6-digit code
-      // In production, verify with backend
-      console.log("Verification code:", verificationCode);
+      await verifyAccountMutation({
+        ...(type === "email"
+          ? { email: contact.trim().toLowerCase() }
+          : { phone: contact.trim() }),
+        otp: verificationCode,
+      }).unwrap();
 
       // Clear timer and storage
       if (timerRef.current) {
@@ -180,24 +193,28 @@ export default function VerificationModal({
 
       // Call success callback
       onVerificationSuccess();
-    } catch (error) {
-      console.error("Verification failed:", error);
-      // Add toast notification here
-    } finally {
-      setIsVerifying(false);
+    } catch (apiError) {
+      toast.error(extractApiErrorMessage(apiError));
     }
   };
 
-  const handleResend = () => {
-    console.log("Resending code...");
-    setCode(["", "", "", "", "", ""]);
-    inputRefs.current[0]?.focus();
+  const handleResend = async () => {
+    try {
+      await resendOtpMutation({
+        ...(type === "email"
+          ? { email: contact.trim().toLowerCase() }
+          : { phone: contact.trim() }),
+        type: "account_verification",
+      }).unwrap();
 
-    // Reset timer
-    initializeTimer();
-    setTimeLeft(COUNTDOWN_DURATION);
-
-    // Add toast notification here
+      setCode(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
+      initializeTimer();
+      setTimeLeft(COUNTDOWN_DURATION);
+      toast.success("OTP resent successfully");
+    } catch (apiError) {
+      toast.error(extractApiErrorMessage(apiError));
+    }
   };
 
   const handleManualClose = () => {
@@ -307,7 +324,7 @@ export default function VerificationModal({
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   className="w-14 h-14 text-center text-2xl font-semibold border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                  disabled={isVerifying}
+                  disabled={isVerifying || isResending}
                   aria-label={`Digit ${index + 1}`}
                 />
               ))}
@@ -333,14 +350,14 @@ export default function VerificationModal({
               <button
                 type="button"
                 onClick={handleResend}
-                disabled={timeLeft > 0}
+                disabled={timeLeft > 0 || isResending}
                 className={`transition-colors underline ${
-                  timeLeft > 0
+                  timeLeft > 0 || isResending
                     ? "text-gray-400 cursor-not-allowed"
                     : "text-primary hover:text-primary/80"
                 }`}
               >
-                Resend
+                {isResending ? "Resending..." : "Resend"}
               </button>
             </p>
 

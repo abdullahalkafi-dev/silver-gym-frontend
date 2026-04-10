@@ -14,6 +14,22 @@ import {
   PasswordValidationIcon,
   Alert02Icon,
 } from "@hugeicons/core-free-icons";
+import { useResetPasswordMutation } from "@/redux/features/auth/authApi";
+import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
+import { toast } from "sonner";
+
+function getInitialPasswordResetUser(): PasswordResetUser | null {
+  if (typeof window === "undefined") return null;
+
+  const storedData = sessionStorage.getItem("passwordResetUser");
+  if (!storedData) return null;
+
+  try {
+    return JSON.parse(storedData) as PasswordResetUser;
+  } catch {
+    return null;
+  }
+}
 
 interface PasswordValidation {
   length: boolean;
@@ -24,7 +40,9 @@ interface PasswordValidation {
 
 export default function ResetPasswordForm() {
   const router = useRouter();
-  const [userData, setUserData] = useState<PasswordResetUser | null>(null);
+  const [userData] = useState<PasswordResetUser | null>(
+    getInitialPasswordResetUser
+  );
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -35,27 +53,19 @@ export default function ResetPasswordForm() {
     number: false,
     special: false,
   });
+  const [resetPasswordMutation, { isLoading: isResetting }] =
+    useResetPasswordMutation();
 
   useEffect(() => {
-    // Get user data from sessionStorage
-    const storedData = sessionStorage.getItem("passwordResetUser");
-    if (!storedData) {
+    if (!userData) {
       router.push("/forgot-password");
       return;
     }
 
-    try {
-      const parsedData = JSON.parse(storedData) as PasswordResetUser;
-      if (!parsedData.otpVerified) {
-        router.push("/verify-otp");
-        return;
-      }
-      setUserData(parsedData);
-    } catch (error) {
-      console.error("Failed to parse user data:", error);
-      router.push("/forgot-password");
+    if (!userData.otpVerified || !userData.resetToken) {
+      router.push("/verify-otp");
     }
-  }, [router]);
+  }, [router, userData]);
 
   const validatePassword = (password: string): PasswordValidation => {
     return {
@@ -72,7 +82,12 @@ export default function ResetPasswordForm() {
     setError("");
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!userData?.resetToken) {
+      setError("Reset session expired. Please verify OTP again.");
+      return;
+    }
+
     // Validate new password
     const validation = validatePassword(newPassword);
     const isValid = Object.values(validation).every((v) => v);
@@ -88,14 +103,18 @@ export default function ResetPasswordForm() {
       return;
     }
 
-    // Password reset successful
-    console.log("Password reset successful for:", userData?.identifier);
+    try {
+      await resetPasswordMutation({
+        resetToken: userData.resetToken,
+        newPassword,
+      }).unwrap();
 
-    // Clear session data
-    sessionStorage.removeItem("passwordResetUser");
-
-    // Show success modal
-    setShowSuccessModal(true);
+      sessionStorage.removeItem("passwordResetUser");
+      toast.success("Password reset successful");
+      setShowSuccessModal(true);
+    } catch (apiError) {
+      setError(extractApiErrorMessage(apiError));
+    }
   };
 
   const handleSignIn = () => {
@@ -204,15 +223,15 @@ export default function ResetPasswordForm() {
                 {/* Submit Button */}
                 <Button
                   onClick={handleSubmit}
-                  disabled={!isFormValid || showMatchError}
+                  disabled={!isFormValid || showMatchError || isResetting}
                   className={`w-full h-14 rounded-lg text-xl font-medium transition-colors duration-300 
                     ${
-                      isFormValid && !showMatchError
+                      isFormValid && !showMatchError && !isResetting
                         ? "bg-[#E97451] hover:bg-[#d66542] text-white"
                         : "bg-[#D9D9D9] text-text-secondary cursor-not-allowed hover:bg-[#D9D9D9]"
                     }`}
                 >
-                  Next
+                  {isResetting ? "Updating..." : "Next"}
                 </Button>
 
                 {/* Error Message */}

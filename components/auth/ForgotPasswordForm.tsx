@@ -6,6 +6,19 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
+import type { PasswordResetUser } from "@/types/auth";
+
+const maskEmail = (email: string) => {
+  const [name, domain] = email.split("@");
+  if (!name || !domain) return email;
+  return `${name.slice(0, 2)}.....@${domain}`;
+};
+
+const maskPhone = (phone: string) => {
+  const cleaned = phone.replace(/\D/g, "");
+  if (cleaned.length < 4) return phone;
+  return `${cleaned.slice(0, 3)}••••••${cleaned.slice(-2)}`;
+};
 
 export default function ForgotPasswordForm() {
   const router = useRouter();
@@ -18,31 +31,34 @@ export default function ForgotPasswordForm() {
       return;
     }
 
-    // Basic validation
-    const isEmail = /\S+@\S+\.\S+/.test(emailOrPhone);
-    const isPhone = /^[+]?[\d\s-()]+$/.test(emailOrPhone);
+    const normalizedInput = emailOrPhone.trim();
+    const isEmail = /\S+@\S+\.\S+/.test(normalizedInput);
+    const isPhone = /^[+]?[\d\s-()]+$/.test(normalizedInput);
 
     if (!isEmail && !isPhone) {
       setError("Please enter a valid email or phone number");
       return;
     }
 
-    // Store in memory (simulating account lookup)
-    const userData = {
-      identifier: emailOrPhone,
-      email: isEmail ? emailOrPhone : "sm.....m@gmail.com",
-      phone: isPhone ? emailOrPhone : "+880 16••••••56",
-      maskedEmail: isEmail
-        ? emailOrPhone.replace(/(.{2})(.*)(@.*)/, "$1.....$3")
-        : "sm.....m@gmail.com",
-      maskedPhone: "+880 16••••••56",
-      timestamp: Date.now(),
+    setError("");
+
+    const userData: PasswordResetUser = {
+      identifier: normalizedInput,
+      ...(isEmail
+        ? {
+            email: normalizedInput.toLowerCase(),
+            maskedEmail: maskEmail(normalizedInput.toLowerCase()),
+            verificationMethod: "email" as const,
+          }
+        : {
+            phone: normalizedInput,
+            maskedPhone: maskPhone(normalizedInput),
+            verificationMethod: "phone" as const,
+          }),
+      otpVerified: false,
     };
 
-    // Store user data in sessionStorage (better than localStorage for sensitive flows)
     sessionStorage.setItem("passwordResetUser", JSON.stringify(userData));
-
-    // Navigate to verification method selection
     router.push("/verification-method");
   };
 

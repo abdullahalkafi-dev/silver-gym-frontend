@@ -2,14 +2,13 @@
 
 export interface PasswordResetUser {
   identifier: string;
-  email: string;
-  phone: string;
-  maskedEmail: string;
-  maskedPhone: string;
+  email?: string;
+  phone?: string;
+  maskedEmail?: string;
+  maskedPhone?: string;
   verificationMethod?: "email" | "phone";
-  otp?: string;
-  otpTimestamp?: number;
   otpVerified?: boolean;
+  resetToken?: string;
 }
 
 export type VerificationMethod = "email" | "phone";

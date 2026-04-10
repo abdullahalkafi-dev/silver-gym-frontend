@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { ChevronDown } from "lucide-react";
 import { getPackagesAnalyticsData, availableYears } from "@/data/analyticsData";
+import type { PackageTypeData } from "@/types/analytics";
 
 const packageTypes = [
   "All",
@@ -20,7 +21,10 @@ const packageTypes = [
   "Quarter Yearly",
   "Yearly",
   "Weekly",
-];
+] as const;
+
+type PackageFilterType = (typeof packageTypes)[number];
+type PackageMetricKey = Exclude<PackageFilterType, "All">;
 
 const packageColors = {
   Weekly: "#B7B976",
@@ -31,19 +35,29 @@ const packageColors = {
 };
 
 const PackagesAnalytics = () => {
-  const [selectedType, setSelectedType] = useState("All");
+  const [selectedType, setSelectedType] = useState<PackageFilterType>("All");
   const [selectedYear, setSelectedYear] = useState(2025);
   const [isYearOpen, setIsYearOpen] = useState(false);
 
   const data = getPackagesAnalyticsData(selectedYear);
 
+  const toSingleTypeData = (
+    item: PackageTypeData,
+    type: PackageMetricKey
+  ): PackageTypeData => ({
+    month: item.month,
+    Weekly: type === "Weekly" ? item.Weekly : 0,
+    Monthly: type === "Monthly" ? item.Monthly : 0,
+    "Quarter Yearly": type === "Quarter Yearly" ? item["Quarter Yearly"] : 0,
+    "Half Yearly": type === "Half Yearly" ? item["Half Yearly"] : 0,
+    Yearly: type === "Yearly" ? item.Yearly : 0,
+  });
+
   // Filter chart data based on selected type
-  const filteredChartData = selectedType === "All" 
-    ? data.chartData 
-    : data.chartData.map(item => ({
-        month: item.month,
-        [selectedType]: item[selectedType as keyof typeof item]
-      }));
+  const filteredChartData: PackageTypeData[] =
+    selectedType === "All"
+      ? data.chartData
+      : data.chartData.map((item) => toSingleTypeData(item, selectedType));
 
   return (
     <div className="bg-white rounded-2xl p-6">

@@ -81,7 +81,8 @@ export const ProtectedRoute = ({
                 Access Denied
               </h1>
               <p className="text-gray-600">
-                You don&apos;t have permission to access this page.
+                You do not have permission for this page. Please contact your
+                admin to request access.
               </p>
             </div>
           </div>

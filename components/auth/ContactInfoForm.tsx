@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,8 @@ import StepIndicator from "@/components/auth/StepIndicator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useCreateBusinessProfileMutation } from "@/redux/features/auth/authApi";
+import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
 
 const schema = z.object({
   country: z.string().min(1, "Please select a country"),
@@ -27,8 +30,9 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function ContactInfoForm() {
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const [createBusinessProfileMutation, { isLoading }] =
+    useCreateBusinessProfileMutation();
 
   const {
     register,
@@ -66,37 +70,37 @@ export default function ContactInfoForm() {
   }, [router, setValue]);
 
   const onSubmit = async (data: FormData) => {
-    setIsLoading(true);
     try {
-      // Save contact info to localStorage
       localStorage.setItem("contactInfo", JSON.stringify(data));
 
-      // Combine all data
-      const signupData = JSON.parse(localStorage.getItem("signupData") || "{}");
       const businessInfo = JSON.parse(
         localStorage.getItem("businessInfo") || "{}"
-      );
-
-      const completeData = {
-        ...signupData,
-        ...businessInfo,
-        ...data,
+      ) as {
+        businessName?: string;
+        businessType?: string;
+        registrationNumber?: string;
       };
 
-      console.log("Complete registration data:", completeData);
+      if (!businessInfo.businessName || !businessInfo.businessType) {
+        toast.error("Business information is missing. Please complete step 1.");
+        router.push("/business-info");
+        return;
+      }
 
-      // Here you would make API call to create account
-      // await api.register(completeData);
+      await createBusinessProfileMutation({
+        businessName: businessInfo.businessName,
+        businessType: businessInfo.businessType,
+        registrationNumber: businessInfo.registrationNumber,
+        businessAddress: data.businessAddress,
+        country: data.country,
+        businessPhoneNumber: data.businessPhone,
+        businessEmail: data.businessEmail.toLowerCase(),
+      }).unwrap();
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Navigate to success page
+      toast.success("Business profile created successfully");
       router.push("/success");
-    } catch (error) {
-      console.error("Submission failed:", error);
-    } finally {
-      setIsLoading(false);
+    } catch (apiError) {
+      toast.error(extractApiErrorMessage(apiError));
     }
   };
 

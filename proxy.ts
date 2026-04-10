@@ -14,9 +14,6 @@ export function proxy(request: NextRequest) {
     "/reset-password",
     "/verify-otp",
     "/verification-method",
-    "/business-info",
-    "/contact-info",
-    "/success",
   ];
 
   // Check if the current path is a public route
@@ -31,7 +28,7 @@ export function proxy(request: NextRequest) {
   }
 
   // If user is not authenticated and tries to access protected routes, redirect to sign-in
-  if (!accessToken && !isPublicRoute && pathname.startsWith("/dashboard")) {
+  if (!accessToken && !isPublicRoute) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 

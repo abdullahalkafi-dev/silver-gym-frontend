@@ -25,6 +25,8 @@ const STAFF_PERMISSION_MAP: Record<string, string[]> = {
   canExportAnalytics: ["analytics:export"],
   canViewSMS: ["sms:view"],
   canSendSMS: ["sms:send"],
+  canViewEmail: ["email:view"],
+  canSendEmail: ["email:send"],
 };
 
 const OWNER_DEFAULT_PERMISSIONS = Object.keys(PERMISSION_DEFINITIONS);

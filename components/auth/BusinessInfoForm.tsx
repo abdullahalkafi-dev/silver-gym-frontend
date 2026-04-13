@@ -82,6 +82,17 @@ export default function BusinessInfoForm() {
       return;
     }
 
+    // Clear old business logo data from previous sessions to prevent data leak
+    // Only clear if this is a fresh load (not a refresh with existing data)
+    const existingBusinessInfo = localStorage.getItem("businessInfo");
+    if (!existingBusinessInfo) {
+      sessionStorage.removeItem("businessLogo_data");
+      sessionStorage.removeItem("businessLogo_name");
+      sessionStorage.removeItem("businessLogo_type");
+      setLogoPreview("");
+      setLogo(null);
+    }
+
     const savedData = localStorage.getItem("businessInfo");
     if (savedData) {
       const parsed = JSON.parse(savedData);

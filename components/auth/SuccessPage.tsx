@@ -38,12 +38,18 @@ export default function SuccessPage() {
   }, [isAuthenticated, router, user]);
 
   const handleGoToDashboard = () => {
-    // Clear all temporary data
+    // Clear all temporary data from localStorage
     localStorage.removeItem("signupData");
     localStorage.removeItem("businessInfo");
     localStorage.removeItem("contactInfo");
     localStorage.removeItem("verification_complete");
     localStorage.removeItem("verification_state");
+
+    // Clear all temporary data from sessionStorage
+    sessionStorage.removeItem("businessLogo_data");
+    sessionStorage.removeItem("businessLogo_name");
+    sessionStorage.removeItem("businessLogo_type");
+    sessionStorage.removeItem("passwordResetUser");
 
     // Navigate to dashboard
     router.push("/dashboard");

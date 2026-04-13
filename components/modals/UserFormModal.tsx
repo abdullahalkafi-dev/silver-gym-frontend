@@ -1,11 +1,7 @@
-// components/modals/UserFormModal.tsx
-
-import React, { useState, useEffect } from "react";
-import { ArrowRight } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -19,99 +15,374 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RoleData } from "@/types/user-access";
+import {
+  BranchRole,
+  StaffFormValues,
+  StaffMember,
+  StaffUpdateValues,
+} from "@/types/staff";
+import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
+import {
+  useLazyCheckStaffUsernameAvailabilityQuery,
+  useLazySuggestStaffUsernamesQuery,
+} from "@/redux/features/staff/staffApi";
+
+const USERNAME_PATTERN = /^[a-z0-9._-]{3,30}$/;
+const USERNAME_LOOKUP_DEBOUNCE_MS = 350;
+
+type UsernameLookupStatus = "idle" | "checking" | "available" | "taken" | "error";
+
+interface UsernameLookupState {
+  value: string;
+  status: UsernameLookupStatus;
+  message: string | null;
+}
 
 interface UserFormData {
-  userName: string;
+  username: string;
+  displayName: string;
   email: string;
   phone: string;
-  role: string;
-  sendByEmail: boolean;
-  sendByPhone: boolean;
+  password: string;
+  roleId: string;
 }
 
 interface UserFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   mode: "add" | "edit";
-  initialData?: Partial<UserFormData>;
-  onSubmit: (data: UserFormData) => void;
-  customRoles: RoleData[];
+  initialData?: StaffMember | null;
+  roles: BranchRole[];
+  onSubmit: (
+    data: StaffFormValues | StaffUpdateValues,
+  ) => Promise<void> | void;
 }
+
+const createInitialFormData = (
+  mode: "add" | "edit",
+  initialData?: StaffMember | null,
+): UserFormData => ({
+  username: mode === "edit" ? initialData?.username || "" : "",
+  displayName: initialData?.displayName || "",
+  email: initialData?.email || "",
+  phone: initialData?.phone || "",
+  password: "",
+  roleId: initialData?.roleId || "",
+});
+
+const createInitialUsernameLookupState = (): UsernameLookupState => ({
+  value: "",
+  status: "idle",
+  message: null,
+});
+
+const normalizeUsername = (value: string): string => value.trim().toLowerCase();
+
+const getUsernameSuggestionBase = (value: string): string => {
+  return normalizeUsername(value).replace(/[^a-z0-9]/g, "").slice(0, 15);
+};
+
+const getUsernameFormatMessage = (username: string): string | null => {
+  if (!username) {
+    return null;
+  }
+
+  if (username.length < 3) {
+    return "Keep typing to check availability.";
+  }
+
+  if (username.length > 30) {
+    return "Username can be at most 30 characters.";
+  }
+
+  if (!USERNAME_PATTERN.test(username)) {
+    return "Use lowercase letters, numbers, dots, underscores, or hyphens only.";
+  }
+
+  return null;
+};
 
 const UserFormModal: React.FC<UserFormModalProps> = ({
   isOpen,
   onClose,
   mode,
   initialData,
+  roles,
   onSubmit,
-  customRoles,
 }) => {
-  const [formData, setFormData] = useState<UserFormData>({
-    userName: "",
-    email: "",
-    phone: "",
-    role: "",
-    sendByEmail: false,
-    sendByPhone: false,
-  });
+  const [formData, setFormData] = useState<UserFormData>(() =>
+    createInitialFormData(mode, initialData),
+  );
 
   const [errors, setErrors] = useState<
     Partial<Record<keyof UserFormData, string>>
   >({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [usernameLookupState, setUsernameLookupState] =
+    useState<UsernameLookupState>(createInitialUsernameLookupState);
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
+  const usernameLookupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const usernameLookupRequestRef = useRef(0);
+  const [triggerSuggestStaffUsernames] = useLazySuggestStaffUsernamesQuery();
+  const [triggerCheckStaffUsernameAvailability] =
+    useLazyCheckStaffUsernameAvailabilityQuery();
 
   useEffect(() => {
-    if (initialData) {
-      setFormData({
-        userName: initialData.userName || "",
-        email: initialData.email || "",
-        phone: initialData.phone || "",
-        role: initialData.role || "",
-        sendByEmail: initialData.sendByEmail || false,
-        sendByPhone: initialData.sendByPhone || false,
+    return () => {
+      if (usernameLookupTimerRef.current !== null) {
+        clearTimeout(usernameLookupTimerRef.current);
+      }
+    };
+  }, []);
+
+  const clearUsernameLookupTimer = () => {
+    if (usernameLookupTimerRef.current !== null) {
+      clearTimeout(usernameLookupTimerRef.current);
+      usernameLookupTimerRef.current = null;
+    }
+  };
+
+  const resetUsernameFeedback = () => {
+    usernameLookupRequestRef.current += 1;
+    clearUsernameLookupTimer();
+    setUsernameLookupState(createInitialUsernameLookupState());
+    setUsernameSuggestions([]);
+  };
+
+  const setSuggestionItems = (suggestions: string[], username: string) => {
+    setUsernameSuggestions(
+      Array.from(
+        new Set(
+          suggestions.filter((item) => item && item.toLowerCase() !== username),
+        ),
+      ).slice(0, 6),
+    );
+  };
+
+  const runUsernameLookup = async (
+    rawValue: string,
+    options: {
+      includeSuggestions?: boolean;
+      showChecking?: boolean;
+    } = {},
+  ): Promise<boolean | null> => {
+    const username = normalizeUsername(rawValue);
+    const suggestionBase = getUsernameSuggestionBase(rawValue);
+    const formatMessage = getUsernameFormatMessage(username);
+    const requestId = ++usernameLookupRequestRef.current;
+
+    if (!username) {
+      if (requestId === usernameLookupRequestRef.current) {
+        setUsernameLookupState(createInitialUsernameLookupState());
+        setUsernameSuggestions([]);
+      }
+      return null;
+    }
+
+    if (formatMessage) {
+      setUsernameLookupState({
+        value: username,
+        status: "idle",
+        message: formatMessage,
       });
-    } else {
-      setFormData({
-        userName: "",
-        email: "",
-        phone: "",
-        role: "",
-        sendByEmail: false,
-        sendByPhone: false,
+    } else if (options.showChecking) {
+      setUsernameLookupState({
+        value: username,
+        status: "checking",
+        message: "Checking availability...",
       });
     }
-    setErrors({});
-  }, [initialData, isOpen]);
+
+    const [suggestionsResult, availabilityResult] = await Promise.allSettled([
+      options.includeSuggestions && suggestionBase.length >= 2
+        ? triggerSuggestStaffUsernames({
+            base: suggestionBase,
+            limit: 6,
+          }).unwrap()
+        : Promise.resolve<string[]>([]),
+      formatMessage
+        ? Promise.resolve<{
+            username: string;
+            isAvailable: boolean;
+          } | null>(null)
+        : triggerCheckStaffUsernameAvailability(username).unwrap(),
+    ]);
+
+    if (requestId !== usernameLookupRequestRef.current) {
+      return null;
+    }
+
+    if (suggestionsResult.status === "fulfilled") {
+      setSuggestionItems(suggestionsResult.value, username);
+    } else {
+      setUsernameSuggestions([]);
+    }
+
+    if (formatMessage) {
+      return null;
+    }
+
+    if (
+      availabilityResult.status === "fulfilled" &&
+      availabilityResult.value
+    ) {
+      const isAvailable = availabilityResult.value.isAvailable;
+
+      setUsernameLookupState({
+        value: username,
+        status: isAvailable ? "available" : "taken",
+        message: isAvailable
+          ? "Username is available."
+          : "Username is already taken.",
+      });
+
+      return isAvailable;
+    }
+
+    setUsernameLookupState({
+      value: username,
+      status: "error",
+      message:
+        availabilityResult.status === "rejected"
+          ? extractApiErrorMessage(availabilityResult.reason)
+          : "Could not verify username availability right now.",
+    });
+
+    return null;
+  };
+
+  const scheduleUsernameLookup = (value: string) => {
+    clearUsernameLookupTimer();
+    usernameLookupRequestRef.current += 1;
+
+    const username = normalizeUsername(value);
+    const formatMessage = getUsernameFormatMessage(username);
+
+    if (!username) {
+      resetUsernameFeedback();
+      return;
+    }
+
+    setUsernameLookupState({
+      value: username,
+      status: formatMessage ? "idle" : "checking",
+      message: formatMessage || "Checking availability...",
+    });
+
+    if (getUsernameSuggestionBase(value).length < 2) {
+      setUsernameSuggestions([]);
+    }
+
+    usernameLookupTimerRef.current = setTimeout(() => {
+      void runUsernameLookup(value, {
+        includeSuggestions: true,
+      });
+    }, USERNAME_LOOKUP_DEBOUNCE_MS);
+  };
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof UserFormData, string>> = {};
 
-    if (!formData.userName.trim()) {
-      newErrors.userName = "User name is required";
+    if (mode === "add") {
+      const normalizedUsername = normalizeUsername(formData.username);
+
+      if (!normalizedUsername) {
+        newErrors.username = "Username is required";
+      } else if (normalizedUsername.length < 3) {
+        newErrors.username = "Username must be at least 3 characters";
+      } else if (normalizedUsername.length > 30) {
+        newErrors.username = "Username can be at most 30 characters";
+      } else if (!USERNAME_PATTERN.test(normalizedUsername)) {
+        newErrors.username =
+          "Use lowercase letters, numbers, dots, underscores, or hyphens only";
+      } else if (
+        usernameLookupState.value === normalizedUsername &&
+        usernameLookupState.status === "taken"
+      ) {
+        newErrors.username = "Username is already taken";
+      }
+
+      if (!formData.password.trim()) {
+        newErrors.password = "Password is required";
+      } else if (formData.password.trim().length < 6) {
+        newErrors.password = "Password must be at least 6 characters";
+      }
     }
 
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (
+      formData.email.trim() &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+    ) {
       newErrors.email = "Invalid email format";
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    }
-
-    if (!formData.role) {
-      newErrors.role = "User role is required";
+    if (!formData.roleId) {
+      newErrors.roleId = "Branch role is required";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (validateForm()) {
-      onSubmit(formData);
+  const buildPayload = (): StaffFormValues | StaffUpdateValues => {
+    const displayName = formData.displayName.trim();
+    const email = formData.email.trim().toLowerCase();
+    const phone = formData.phone.trim();
+    const optionalFields = {
+      ...(displayName ? { displayName } : {}),
+      ...(email ? { email } : {}),
+      ...(phone ? { phone } : {}),
+    };
+
+    if (mode === "add") {
+      return {
+        username: normalizeUsername(formData.username),
+        password: formData.password.trim(),
+        roleId: formData.roleId,
+        ...optionalFields,
+      };
+    }
+
+    return {
+      roleId: formData.roleId,
+      ...optionalFields,
+    };
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      if (mode === "add") {
+        clearUsernameLookupTimer();
+        const usernameAvailable = await runUsernameLookup(formData.username, {
+          includeSuggestions: true,
+          showChecking: true,
+        });
+
+        if (usernameAvailable === false) {
+          setErrors((prev) => ({
+            ...prev,
+            username: "Username is already taken",
+          }));
+          return;
+        }
+      }
+
+      await onSubmit(buildPayload());
       onClose();
+    } catch (error) {
+      setSubmitError(extractApiErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -120,7 +391,39 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
+    if (submitError) {
+      setSubmitError(null);
+    }
   };
+
+  const handleUsernameChange = (value: string) => {
+    const normalizedValue = value.toLowerCase();
+    handleChange("username", normalizedValue);
+    scheduleUsernameLookup(normalizedValue);
+  };
+
+  const handleUsernameSuggestionSelect = (suggestion: string) => {
+    clearUsernameLookupTimer();
+    handleChange("username", suggestion);
+    void runUsernameLookup(suggestion, {
+      includeSuggestions: true,
+      showChecking: true,
+    });
+  };
+
+  const usernameHelperClassName =
+    errors.username || usernameLookupState.status === "taken" || usernameLookupState.status === "error"
+      ? "text-red-500"
+      : usernameLookupState.status === "available"
+        ? "text-emerald-600"
+        : usernameLookupState.status === "checking"
+          ? "text-amber-600"
+          : "text-gray-500";
+
+  const usernameHelperMessage = errors.username
+    ? errors.username
+    : usernameLookupState.message ||
+      "Staff members will use this username to sign in. Use 3-30 lowercase characters.";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -129,41 +432,92 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
           <div className="flex items-start justify-between">
             <div>
               <DialogTitle className="text-xl font-semibold text-gray-900">
-                {mode === "add" ? "Add New User" : "Edit User"}
+                {mode === "add" ? "Add Staff Member" : "Edit Staff Member"}
               </DialogTitle>
               <p className="text-sm text-gray-500 mt-1">
-                Create a new user account with role and permissions
+                {mode === "add"
+                  ? "Create a branch staff account with a role and login credentials."
+                  : "Update staff profile information and role assignment."}
               </p>
             </div>
           </div>
         </DialogHeader>
 
         <div className="px-6 pb-6 space-y-4">
+          {mode === "edit" ? (
+            <div className="space-y-2">
+              <Label htmlFor="username" className="text-sm font-medium text-gray-700">
+                Username
+              </Label>
+              <Input
+                id="username"
+                value={formData.username}
+                disabled
+                className="h-11 bg-gray-100"
+              />
+            </div>
+          ) : null}
+
           <div className="space-y-2">
-            <Label
-              htmlFor="userName"
-              className="text-sm font-medium text-gray-700"
-            >
-              User Name <span className="text-red-500">*</span>
+            <Label htmlFor="displayName" className="text-sm font-medium text-gray-700">
+              Staff Name
             </Label>
             <Input
-              id="userName"
-              placeholder="Type user name"
-              value={formData.userName}
-              onChange={(e) => handleChange("userName", e.target.value)}
-              className={`h-11 ${errors.userName ? "border-red-500" : ""}`}
+              id="displayName"
+              placeholder="Type staff name"
+              value={formData.displayName}
+              onChange={(e) => handleChange("displayName", e.target.value)}
+              className={`h-11 ${errors.displayName ? "border-red-500" : ""}`}
             />
-            {errors.userName && (
-              <p className="text-xs text-red-500">{errors.userName}</p>
+            {errors.displayName && (
+              <p className="text-xs text-red-500">{errors.displayName}</p>
             )}
           </div>
 
+          {mode === "add" ? (
+            <div className="space-y-2">
+              <Label htmlFor="staff-username" className="text-sm font-medium text-gray-700">
+                Username <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="staff-username"
+                placeholder="Type username"
+                value={formData.username}
+                onChange={(e) => handleUsernameChange(e.target.value)}
+                className={`h-11 ${errors.username ? "border-red-500" : ""}`}
+              />
+              <p className={`text-xs ${usernameHelperClassName}`}>
+                {usernameHelperMessage}
+              </p>
+              {usernameSuggestions.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-gray-600">
+                    Suggested available usernames
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {usernameSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => handleUsernameSuggestionSelect(suggestion)}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                          suggestion === normalizeUsername(formData.username)
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                            : "border-gray-200 bg-gray-50 text-gray-700 hover:border-purple hover:text-purple"
+                        }`}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="space-y-2">
-            <Label
-              htmlFor="email"
-              className="text-sm font-medium text-gray-700"
-            >
-              Email <span className="text-red-500">*</span>
+            <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+              Email
             </Label>
             <Input
               id="email"
@@ -179,11 +533,8 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label
-              htmlFor="phone"
-              className="text-sm font-medium text-gray-700"
-            >
-              Phone <span className="text-red-500">*</span>
+            <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
+              Phone
             </Label>
             <Input
               id="phone"
@@ -197,71 +548,74 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
             )}
           </div>
 
+          {mode === "add" ? (
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                Password <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Create a password"
+                value={formData.password}
+                onChange={(e) => handleChange("password", e.target.value)}
+                className={`h-11 ${errors.password ? "border-red-500" : ""}`}
+              />
+              {errors.password ? (
+                <p className="text-xs text-red-500">{errors.password}</p>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  Password must be at least 6 characters.
+                </p>
+              )}
+            </div>
+          ) : null}
+
           <div className="space-y-2">
             <Label htmlFor="role" className="text-sm font-medium text-gray-700">
-              Select User Role <span className="text-red-500">*</span>
+              Select Branch Role <span className="text-red-500">*</span>
             </Label>
             <Select
-              value={formData.role}
-              onValueChange={(value) => handleChange("role", value)}
+              value={formData.roleId}
+              onValueChange={(value) => handleChange("roleId", value)}
             >
               <SelectTrigger
-                className={`h-11 ${errors.role ? "border-red-500" : ""}`}
+                className={`h-11 ${errors.roleId ? "border-red-500" : ""}`}
               >
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="sales">Sales</SelectItem>
-                <SelectItem value="support">Support</SelectItem>
-                {customRoles.map((role) => (
-                  <SelectItem key={role.roleName} value={role.roleName.toLowerCase()}>
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.id}>
                     {role.roleName}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {errors.role && (
-              <p className="text-xs text-red-500">{errors.role}</p>
+            {errors.roleId && (
+              <p className="text-xs text-red-500">{errors.roleId}</p>
             )}
           </div>
 
-          <div className="pt-2">
-            <Label className="text-sm font-medium text-gray-700">
-              Send user name & password by E-mail
-            </Label>
-
-            <div className="mt-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">By E-mail</span>
-                <Switch
-                  checked={formData.sendByEmail}
-                  onCheckedChange={(checked) =>
-                    handleChange("sendByEmail", checked)
-                  }
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">By Phone</span>
-                <Switch
-                  checked={formData.sendByPhone}
-                  onCheckedChange={(checked) =>
-                    handleChange("sendByPhone", checked)
-                  }
-                />
-              </div>
+          {submitError ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {submitError}
             </div>
-          </div>
+          ) : null}
 
           <div className="pt-4">
             <Button
               onClick={handleSubmit}
+              disabled={isSubmitting || !roles.length}
               className="w-full h-11 bg-purple hover:bg-[#6527e0] text-white"
             >
-              Next Step
-              <ArrowRight className="w-4 h-4 ml-2" />
+              {isSubmitting
+                ? mode === "add"
+                  ? "Creating Staff..."
+                  : "Saving Changes..."
+                : mode === "add"
+                  ? "Create Staff"
+                  : "Save Changes"}
             </Button>
           </div>
         </div>

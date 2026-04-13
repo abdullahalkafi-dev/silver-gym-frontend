@@ -1,34 +1,31 @@
-// components/dashboard/UserAccess/RoleStatsCards.tsx
-// ============================================
-
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Settings03Icon } from "@hugeicons/core-free-icons";
 
-interface RoleStatsCardsProps {
-  onCreateRole: () => void;
+interface RoleStatCard {
+  title: string;
+  count: number;
+  description: string;
+  suffix?: string;
 }
 
-const RoleStatsCards: React.FC<RoleStatsCardsProps> = ({ onCreateRole }) => {
-  const roleStats = [
-    {
-      title: "Total Admin",
-      count: 2,
-      description: "Monthly income of your company",
-    },
-    {
-      title: "Total Manager",
-      count: 4,
-      description: "Monthly expense of your company",
-    },
-  ];
+interface RoleStatsCardsProps {
+  stats: RoleStatCard[];
+  onManageRole: () => void;
+  actionDisabled?: boolean;
+}
 
+const RoleStatsCards: React.FC<RoleStatsCardsProps> = ({
+  stats,
+  onManageRole,
+  actionDisabled = false,
+}) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {roleStats.map((stat, index) => (
-        <Card key={index} className="bg-white border-none hover:shadow-md">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      {stats.map((stat) => (
+        <Card key={stat.title} className="bg-white border-none hover:shadow-md">
           <CardContent className="px-6">
             <h3 className="text-gray-900 font-semibold text-base mb-1">
               {stat.title}
@@ -38,7 +35,9 @@ const RoleStatsCards: React.FC<RoleStatsCardsProps> = ({ onCreateRole }) => {
               <span className="text-3xl font-bold text-gray-900">
                 {stat.count}
               </span>
-              <span className="text-gray-500 text-sm">/Person</span>
+              {stat.suffix ? (
+                <span className="text-gray-500 text-sm">{stat.suffix}</span>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -47,18 +46,19 @@ const RoleStatsCards: React.FC<RoleStatsCardsProps> = ({ onCreateRole }) => {
       <Card className="bg-white border-2 border-dashed border-gray-200 hover:border-purple transition-colors cursor-pointer">
         <CardContent className="px-6">
           <h3 className="text-gray-900 font-semibold text-base mb-1">
-            Create Custom Role
+            Manage Role Permissions
           </h3>
           <p className="text-gray-500 text-xs mb-4">
-            Customize the member registration form
+            Update the permission set of existing branch roles.
           </p>
           <Button
-            onClick={onCreateRole}
+            onClick={onManageRole}
             variant="outline"
-            className="w-full bg-gray-100 hover:bg-gray-50 font-semibold"
+            disabled={actionDisabled}
+            className="w-full bg-gray-100 hover:bg-gray-50 font-semibold disabled:cursor-not-allowed"
           >
             <HugeiconsIcon icon={Settings03Icon} size={24} strokeWidth={2} />{" "}
-            Create
+            Edit Permissions
           </Button>
         </CardContent>
       </Card>

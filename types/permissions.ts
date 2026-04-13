@@ -35,6 +35,10 @@ export const PERMISSION_DEFINITIONS = {
   "sms:view": { label: "View SMS", category: "SMS Access" },
   "sms:send": { label: "Send SMS", category: "SMS Access" },
 
+  // Email
+  "email:view": { label: "View Email", category: "Email Access" },
+  "email:send": { label: "Send Email", category: "Email Access" },
+
   // User Access Management
   "access:view-users": { label: "View User Access", category: "User Access" },
   "access:create-role": {
@@ -108,6 +112,7 @@ export const PERMISSION_GROUPS = {
   ],
   ANALYTICS: ["analytics:view", "analytics:export"],
   SMS: ["sms:view", "sms:send"],
+  EMAIL: ["email:view", "email:send"],
   USER_ACCESS: [
     "access:view-users",
     "access:create-role",

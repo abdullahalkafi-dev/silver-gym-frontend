@@ -1,10 +1,7 @@
-// components/modals/PermissionCategoryCard.tsx
-// ============================================
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import PermissionToggle from "./PermissionToggle";
-import { PermissionCategory } from "@/types/user-access";
+import { PermissionCategory } from "@/types/staff";
 
 interface PermissionCategoryCardProps {
   category: PermissionCategory;

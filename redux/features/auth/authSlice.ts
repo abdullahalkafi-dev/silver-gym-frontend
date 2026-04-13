@@ -104,7 +104,21 @@ export const logoutUser = createAsyncThunk(
   "auth/logoutUser",
   async (_, { rejectWithValue }) => {
     try {
+      // Clear cookies
       cookieUtils.clearAll();
+      
+      // Clear business setup related localStorage/sessionStorage
+      localStorage.removeItem("businessInfo");
+      localStorage.removeItem("contactInfo");
+      localStorage.removeItem("verification_state");
+      localStorage.removeItem("verification_complete");
+      localStorage.removeItem("signupData");
+      
+      sessionStorage.removeItem("businessLogo_data");
+      sessionStorage.removeItem("businessLogo_name");
+      sessionStorage.removeItem("businessLogo_type");
+      sessionStorage.removeItem("passwordResetUser");
+      
       return true;
     } catch {
       return rejectWithValue("Logout failed");

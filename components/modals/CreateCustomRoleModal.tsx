@@ -1,81 +1,59 @@
-// components/modals/CreateCustomRoleModal.tsx
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogOverlay,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import PermissionCategoryCard from "./PermissionCategoryCard";
-import { PermissionCategory, RoleData } from "@/types/user-access";
+import {
+  BranchRole,
+  PermissionCategory,
+  RolePermissions,
+  buildPermissionCategories,
+  categoriesToRolePermissions,
+  countEnabledPermissions,
+} from "@/types/staff";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
 
 interface CreateCustomRoleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (roleData: RoleData) => void;
+  roles: BranchRole[];
+  initialRoleId?: string;
+  onSave: (roleId: string, payload: RolePermissions) => Promise<void> | void;
 }
+
+const getInitialRole = (roles: BranchRole[], initialRoleId?: string) => {
+  return roles.find((role) => role.id === initialRoleId) || roles[0] || null;
+};
 
 const CreateCustomRoleModal: React.FC<CreateCustomRoleModalProps> = ({
   isOpen,
   onClose,
+  roles,
+  initialRoleId,
   onSave,
 }) => {
-  const [roleName, setRoleName] = useState("");
-  const [description, setDescription] = useState("");
-  const [categories, setCategories] = useState<PermissionCategory[]>([
-    {
-      title: "Member Access",
-      masterEnabled: false,
-      permissions: [
-        { id: "view-members", label: "View Members", enabled: false },
-        { id: "add-member", label: "Add Member", enabled: false },
-        { id: "edit-member", label: "Edit Member", enabled: false },
-        { id: "delete-member", label: "Delete Member", enabled: false },
-      ],
-    },
-    {
-      title: "Packages Access",
-      masterEnabled: false,
-      permissions: [
-        { id: "view-packages", label: "View Packages", enabled: false },
-        { id: "add-packages", label: "Add Packages", enabled: false },
-        { id: "edit-packages", label: "Edit Packages", enabled: false },
-        { id: "delete-packages", label: "Delete Packages", enabled: false },
-      ],
-    },
-    {
-      title: "Billing Access",
-      masterEnabled: false,
-      permissions: [
-        { id: "view-billing", label: "View Billing", enabled: false },
-        { id: "add-billing", label: "Add Billing", enabled: false },
-        { id: "edit-billing", label: "Edit Billing", enabled: false },
-        { id: "delete-billing", label: "Delete Billing", enabled: false },
-      ],
-    },
-    {
-      title: "Analytics Access",
-      masterEnabled: false,
-      permissions: [
-        { id: "view-analytics", label: "View Analytics", enabled: false },
-        { id: "export-analytics", label: "Export Analytics", enabled: false },
-      ],
-    },
-    {
-      title: "SMS Access",
-      masterEnabled: false,
-      permissions: [
-        { id: "view-sms", label: "View SMS", enabled: false },
-        { id: "send-sms", label: "Send SMS", enabled: false },
-      ],
-    },
-  ]);
+  const initialRole = getInitialRole(roles, initialRoleId);
+  const [selectedRoleId, setSelectedRoleId] = useState(initialRole?.id || "");
+  const [categories, setCategories] = useState<PermissionCategory[]>(() =>
+    buildPermissionCategories(initialRole?.permissions),
+  );
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const selectedRole =
+    roles.find((role) => role.id === selectedRoleId) || initialRole;
 
   const handleCategoryUpdate = (
     index: number,
@@ -86,85 +64,107 @@ const CreateCustomRoleModal: React.FC<CreateCustomRoleModalProps> = ({
     setCategories(newCategories);
   };
 
-  const handleSave = () => {
-    const enabledPermissions = categories
-      .flatMap((cat) => cat.permissions)
-      .filter((p) => p.enabled)
-      .map((p) => p.label);
+  const handleRoleChange = (roleId: string) => {
+    const role = roles.find((item) => item.id === roleId);
+    setSelectedRoleId(roleId);
+    setCategories(buildPermissionCategories(role?.permissions));
+    setErrorMessage(null);
+  };
 
-    onSave({
-      roleName,
-      description,
-      permissions: enabledPermissions,
-    });
+  const handleSave = async () => {
+    if (!selectedRoleId) {
+      setErrorMessage("No branch role is available to update.");
+      return;
+    }
 
-    // Reset form
-    setRoleName("");
-    setDescription("");
-    setCategories(
-      categories.map((cat) => ({
-        ...cat,
-        masterEnabled: false,
-        permissions: cat.permissions.map((p) => ({ ...p, enabled: false })),
-      }))
-    );
+    setIsSaving(true);
+    setErrorMessage(null);
+
+    try {
+      await onSave(selectedRoleId, categoriesToRolePermissions(categories));
+      onClose();
+    } catch (error) {
+      setErrorMessage(extractApiErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogOverlay className="bg-white/30 backdrop-blur-sm" />
       <DialogContent className="w-full md:min-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Custom Role</DialogTitle>
+          <DialogTitle>Manage Role Permissions</DialogTitle>
           <p className="text-sm text-gray-500">
-            Define a new role with custom permissions
+            Update permissions on an existing branch role.
           </p>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="roleName">Role Name <span className="text-red-500">*</span></Label>
-            <Input
-              id="roleName"
-              value={roleName}
-              onChange={(e) => setRoleName(e.target.value)}
-              placeholder="Type category name"
-              className="focus:ring-purple focus:border-purple"
-            />
+        {!roles.length ? (
+          <div className="py-8 text-center text-sm text-gray-500">
+            No branch roles are available yet.
           </div>
+        ) : (
+          <div className="space-y-6 py-4">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px] md:items-end">
+              <div className="space-y-2">
+                <Label htmlFor="role-select">
+                  Select Branch Role <span className="text-red-500">*</span>
+                </Label>
+                <Select value={selectedRoleId} onValueChange={handleRoleChange}>
+                  <SelectTrigger id="role-select" className="focus:ring-purple focus:border-purple">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.roleName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Type about your expense as description..."
-              rows={4}
-              className="focus:ring-purple focus:border-purple resize-x-none border"
-            />
-          </div>
+              <div className="rounded-xl border border-border bg-gray-primary px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  Enabled Permissions
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">
+                  {countEnabledPermissions(categoriesToRolePermissions(categories))}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {selectedRole?.roleName || "Selected role"}
+                </p>
+              </div>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {categories.map((category, index) => (
-              <PermissionCategoryCard
-                key={category.title}
-                category={category}
-                onUpdate={(updatedCategory) =>
-                  handleCategoryUpdate(index, updatedCategory)
-                }
-              />
-            ))}
+            {errorMessage ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {errorMessage}
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {categories.map((category, index) => (
+                <PermissionCategoryCard
+                  key={category.title}
+                  category={category}
+                  onUpdate={(updatedCategory) =>
+                    handleCategoryUpdate(index, updatedCategory)
+                  }
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex justify-end pt-4 border-t">
           <Button
             onClick={handleSave}
-            disabled={!roleName.trim()}
+            disabled={!roles.length || !selectedRoleId || isSaving}
             className="bg-purple hover:bg-[#6527e0] text-white"
           >
-            Next Step →
+            {isSaving ? "Saving..." : "Save Permissions"}
           </Button>
         </div>
       </DialogContent>

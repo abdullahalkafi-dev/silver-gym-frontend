@@ -74,6 +74,8 @@ export default function ContactInfoForm() {
     }
 
     if (!businessInfo) {
+      // Clear contact info if restarting the flow
+      localStorage.removeItem("contactInfo");
       router.push("/business-info");
       return;
     }

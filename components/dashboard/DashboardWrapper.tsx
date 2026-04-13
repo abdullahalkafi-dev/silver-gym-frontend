@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { BranchFeeSetupProvider } from "@/components/dashboard/BranchFeeSetupGuard";
 import DashboardHeader from "@/components/dashboard/Header/DashboardHeader";
 import Sidebar from "@/components/dashboard/Sidebar/Sidebar";
 import { getSidebarForRole } from "@/config/sidebarConfig";
@@ -66,14 +67,16 @@ export default function DashboardWrapper({
 
   return (
     <div className="min-h-screen bg-gray-primary">
-      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-      <div className="md:pl-70">
-        <DashboardHeader
-          onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          isSidebarOpen={isSidebarOpen}
-        />
-        <main className="p-4 md:px-6 pt-24 md:pt-28 ">{children}</main>
-      </div>
+      <BranchFeeSetupProvider>
+        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+        <div className="md:pl-70">
+          <DashboardHeader
+            onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            isSidebarOpen={isSidebarOpen}
+          />
+          <main className="p-4 md:px-6 pt-24 md:pt-28 ">{children}</main>
+        </div>
+      </BranchFeeSetupProvider>
     </div>
   );
 }

@@ -6,29 +6,40 @@ import { useRouter } from "next/navigation";
 import { BaseFeesSetup } from "@/components/accounts/BaseFeesSetup";
 import { AddDetails } from "@/components/accounts/AddDetails";
 import { useUser } from "@/hooks/useUser";
+import { ACCOUNTS_ACCESS_PERMISSIONS } from "@/lib/branchFees";
 
 export default function AccountsPage() {
   const router = useRouter();
-  const { isOwner, hasPermission } = useUser();
-  const [activeTab, setActiveTab] = useState<"package" | "expense">("package");
+  const { isOwner, hasPermission, hasAnyPermission } = useUser();
+  const canViewPackageSection = isOwner || hasPermission("package:view");
+  const canViewBillingSection = isOwner || hasPermission("billing:view");
+  const canViewFeeSection = isOwner || hasAnyPermission(ACCOUNTS_ACCESS_PERMISSIONS);
+  const canAccessAccounts =
+    isOwner || hasAnyPermission(ACCOUNTS_ACCESS_PERMISSIONS);
+  const [activeTab, setActiveTab] = useState<"package" | "expense">(
+    canViewPackageSection ? "package" : "expense"
+  );
 
   useEffect(() => {
-    if (!isOwner && !hasPermission("billing:view")) {
+    if (!canAccessAccounts) {
       router.replace("/dashboard/branch-dashboard");
     }
-  }, [isOwner, hasPermission, router]);
+  }, [canAccessAccounts, router]);
 
-  if (!isOwner && !hasPermission("billing:view")) return null;
+  if (!canAccessAccounts) return null;
 
   return (
-      <div className="min-h-screen">
-        <div className="w-full space-y-6">
-          {/* Base Fees Setup */}
-          <BaseFeesSetup />
+    <div className="min-h-screen">
+      <div className="w-full space-y-6">
+        {canViewFeeSection ? <BaseFeesSetup /> : null}
 
-          {/* Add Details Section */}
-          <AddDetails activeTab={activeTab} setActiveTab={setActiveTab} />
-        </div>
+        <AddDetails
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          showPackageTab={canViewPackageSection}
+          showExpenseTab={canViewBillingSection}
+        />
       </div>
+    </div>
   );
 }

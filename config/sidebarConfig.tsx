@@ -13,6 +13,7 @@ import {
   MailSend01Icon,
 } from "@hugeicons/core-free-icons";
 import { ReactNode } from "react";
+import { ACCOUNTS_ACCESS_PERMISSIONS } from "@/lib/branchFees";
 
 export interface SidebarItem {
   id: string;
@@ -69,7 +70,7 @@ export const sidebarConfig: Record<string, SidebarSection[]> = {
           icon: <HugeiconsIcon icon={UserAccountIcon} size={24} />,
           path: "/dashboard/accounts",
           roles: ["admin"],
-          permissions: ["member:view"],
+          permissions: ACCOUNTS_ACCESS_PERMISSIONS,
         },
         {
           id: "analytics",
@@ -158,7 +159,7 @@ export const sidebarConfig: Record<string, SidebarSection[]> = {
           icon: <HugeiconsIcon icon={UserAccountIcon} size={24} />,
           path: "/dashboard/accounts",
           roles: ["manager"],
-          permissions: ["member:view"],
+          permissions: ACCOUNTS_ACCESS_PERMISSIONS,
         },
         {
           id: "analytics",
@@ -241,7 +242,7 @@ export const sidebarConfig: Record<string, SidebarSection[]> = {
           icon: <HugeiconsIcon icon={UserAccountIcon} size={24} />,
           path: "/dashboard/accounts",
           roles: ["branch"],
-          permissions: ["billing:view"],
+          permissions: ACCOUNTS_ACCESS_PERMISSIONS,
         },
         {
           id: "analytics",

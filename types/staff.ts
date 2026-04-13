@@ -11,6 +11,10 @@ export interface RolePermissions {
   canAddBilling: boolean;
   canEditBilling: boolean;
   canDeleteBilling: boolean;
+  canAddMonthlyFee: boolean;
+  canEditMonthlyFee: boolean;
+  canAddAdmissionFee: boolean;
+  canEditAdmissionFee: boolean;
   canViewAnalytics: boolean;
   canExportAnalytics: boolean;
   canViewSMS: boolean;
@@ -96,6 +100,10 @@ export const ROLE_PERMISSION_META: Record<RolePermissionKey, RolePermissionMeta>
   canAddBilling: { label: "Add Billing", category: "Billing Access" },
   canEditBilling: { label: "Edit Billing", category: "Billing Access" },
   canDeleteBilling: { label: "Delete Billing", category: "Billing Access" },
+  canAddMonthlyFee: { label: "Add Monthly Fee", category: "Branch Fee Access" },
+  canEditMonthlyFee: { label: "Edit Monthly Fee", category: "Branch Fee Access" },
+  canAddAdmissionFee: { label: "Add Admission Fee", category: "Branch Fee Access" },
+  canEditAdmissionFee: { label: "Edit Admission Fee", category: "Branch Fee Access" },
   canViewAnalytics: { label: "View Analytics", category: "Analytics Access" },
   canExportAnalytics: { label: "Export Analytics", category: "Analytics Access" },
   canViewSMS: { label: "View SMS", category: "SMS Access" },
@@ -117,6 +125,10 @@ export const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
   canAddBilling: false,
   canEditBilling: false,
   canDeleteBilling: false,
+  canAddMonthlyFee: false,
+  canEditMonthlyFee: false,
+  canAddAdmissionFee: false,
+  canEditAdmissionFee: false,
   canViewAnalytics: false,
   canExportAnalytics: false,
   canViewSMS: false,
@@ -140,6 +152,10 @@ export const normalizeRolePermissions = (
   canAddBilling: Boolean(permissions?.canAddBilling),
   canEditBilling: Boolean(permissions?.canEditBilling),
   canDeleteBilling: Boolean(permissions?.canDeleteBilling),
+  canAddMonthlyFee: Boolean(permissions?.canAddMonthlyFee),
+  canEditMonthlyFee: Boolean(permissions?.canEditMonthlyFee),
+  canAddAdmissionFee: Boolean(permissions?.canAddAdmissionFee),
+  canEditAdmissionFee: Boolean(permissions?.canEditAdmissionFee),
   canViewAnalytics: Boolean(permissions?.canViewAnalytics),
   canExportAnalytics: Boolean(permissions?.canExportAnalytics),
   canViewSMS: Boolean(permissions?.canViewSMS),

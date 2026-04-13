@@ -1,19 +1,18 @@
-// components/accounts/modals/PackageModal.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogOverlay,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -24,446 +23,260 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { colorPalette } from "@/lib/utils";
+import type {
+  GymPackage,
+  PackageDurationType,
+  PackageFormPayload,
+} from "@/types/package";
 
-interface Package {
-  id: string;
-  title: string;
-  duration: number;
-  durationType: "Days" | "Months";
-  amount: number;
-  color: string;
-  admissionFee: boolean;
-}
+const durationTypeOptions: Array<{
+  value: PackageDurationType;
+  label: string;
+}> = [
+  { value: "day", label: "Days" },
+  { value: "week", label: "Weeks" },
+  { value: "month", label: "Months" },
+  { value: "year", label: "Years" },
+  { value: "custom", label: "Custom Days" },
+];
 
-interface PackageModalProps {
+type PackageModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  package?: Package | null;
-  onSubmit: (data: {
-    title: string;
-    duration: number;
-    durationType: "Days" | "Months";
-    amount: number;
-    color: string;
-    admissionFee: boolean;
-  }) => void;
-  onDelete?: () => void;
-}
+  package?: GymPackage | null;
+  onSubmit: (payload: PackageFormPayload) => void | Promise<void>;
+  isSubmitting?: boolean;
+};
 
-const durationOptions = [
-  { label: "2 Month", value: 2, type: "Months" },
-  { label: "3 Month", value: 3, type: "Months" },
-  { label: "4 Month", value: 4, type: "Months" },
-  { label: "5 Month", value: 5, type: "Months" },
-  { label: "Yearly", value: 12, type: "Months" },
-  { label: "Life Time", value: 99999, type: "Days" },
-];
+type PackageFormState = {
+  title: string;
+  description: string;
+  duration: string;
+  durationType: PackageDurationType;
+  amount: string;
+  color: string;
+  includeAdmissionFee: boolean;
+};
+
+const buildInitialState = (pkg?: GymPackage | null): PackageFormState => ({
+  title: pkg?.title || "",
+  description: pkg?.description || "",
+  duration: pkg ? String(pkg.duration) : "",
+  durationType: pkg?.durationType || "month",
+  amount: pkg ? String(pkg.amount) : "",
+  color: pkg?.color || "#7C3AED",
+  includeAdmissionFee: pkg?.includeAdmissionFee || false,
+});
 
 export const PackageModal = ({
   isOpen,
   onClose,
   package: pkg,
   onSubmit,
-  onDelete,
+  isSubmitting = false,
 }: PackageModalProps) => {
-  const isEditMode = !!pkg;
-
-  const { register, handleSubmit, reset, setValue } = useForm({
-    defaultValues: {
-      title: "",
-      duration: "",
-      amount: "",
-      color: "",
-    },
-  });
-
-  const [formState, setFormState] = useState(() => ({
-    selectedColor: "#7C3AED",
-    durationType: "Months" as "Days" | "Months",
-    selectedDuration: "",
-    admissionFee: false,
-  }));
+  const [formState, setFormState] = useState<PackageFormState>(() =>
+    buildInitialState(pkg),
+  );
   const [isColorSelectOpen, setIsColorSelectOpen] = useState(false);
+  const isEditMode = Boolean(pkg);
 
-  // Reset form when modal opens or package changes
-  useEffect(() => {
-    if (isOpen) {
-      if (pkg) {
-        // Edit mode - populate with existing data
-        const matchingOption = durationOptions.find(
-          (opt) => opt.value === pkg.duration && opt.type === pkg.durationType
-        );
+  const updateField = <T extends keyof PackageFormState>(
+    field: T,
+    value: PackageFormState[T],
+  ) => {
+    setFormState((currentState) => ({
+      ...currentState,
+      [field]: value,
+    }));
+  };
 
-        reset({
-          title: pkg.title,
-          duration: pkg.duration.toString(),
-          amount: pkg.amount.toString(),
-          color: pkg.color,
-        });
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-        setFormState({
-          selectedColor: pkg.color,
-          durationType: pkg.durationType,
-          admissionFee: pkg.admissionFee,
-          selectedDuration: matchingOption ? matchingOption.label : "",
-        });
-      } else {
-        // Create mode - reset to defaults
-        reset({
-          title: "",
-          duration: "",
-          amount: "",
-          color: "#7C3AED",
-        });
-
-        setFormState({
-          selectedColor: "#7C3AED",
-          durationType: "Months",
-          selectedDuration: "",
-          admissionFee: false,
-        });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, pkg]);
-
-  const handleFormSubmit = (formData: Record<string, unknown>) => {
-    const title = formData.title as string;
-    const amount = formData.amount as string;
-
-    if (!title.trim()) {
-      toast.error("Package name is required");
+    if (!formState.title.trim()) {
+      toast.error("Package title is required");
       return;
     }
 
-    let duration: number;
-    let finalDurationType: "Days" | "Months";
-
-    if (isEditMode) {
-      // Edit mode - use manual input
-      const durationInput = formData.duration as string;
-      if (!durationInput || parseInt(durationInput) <= 0) {
-        toast.error("Duration must be greater than 0");
-        return;
-      }
-      duration = parseInt(durationInput);
-      finalDurationType = formState.durationType;
-    } else {
-      // Create mode - use dropdown selection
-      if (!formState.selectedDuration) {
-        toast.error("Duration is required");
-        return;
-      }
-      const selectedOption = durationOptions.find(
-        (opt) => opt.label === formState.selectedDuration
-      );
-      if (!selectedOption) {
-        toast.error("Invalid duration selected");
-        return;
-      }
-      duration = selectedOption.value;
-      finalDurationType = selectedOption.type as "Days" | "Months";
-    }
-
-    if (!amount || parseInt(amount) <= 0) {
-      toast.error("Amount must be greater than 0");
+    const duration = Number(formState.duration);
+    if (!Number.isFinite(duration) || duration < 1) {
+      toast.error("Duration must be at least 1");
       return;
     }
 
-    onSubmit({
-      title,
+    const amount = Number(formState.amount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      toast.error("Amount must be a valid non-negative number");
+      return;
+    }
+
+    await onSubmit({
+      title: formState.title.trim(),
+      description: formState.description.trim() || undefined,
       duration,
-      durationType: finalDurationType,
-      amount: parseInt(amount),
-      color: formState.selectedColor,
-      admissionFee: formState.admissionFee,
+      durationType: formState.durationType,
+      amount,
+      color: formState.color,
+      includeAdmissionFee: formState.includeAdmissionFee,
     });
-
-    toast.success(
-      isEditMode
-        ? "Package updated successfully!"
-        : "Package created successfully!"
-    );
-  };
-
-  const handleColorSelect = (color: string) => {
-    setFormState((prev) => ({
-      ...prev,
-      selectedColor: color,
-    }));
-    setValue("color", color);
-    setIsColorSelectOpen(false);
-  };
-
-  const handleDurationTypeChange = (value: "Days" | "Months") => {
-    setFormState((prev) => ({
-      ...prev,
-      durationType: value,
-    }));
-  };
-
-  const handleDurationChange = (value: string) => {
-    setFormState((prev) => ({
-      ...prev,
-      selectedDuration: value,
-    }));
-    const option = durationOptions.find((opt) => opt.label === value);
-    if (option) {
-      setFormState((prev) => ({
-        ...prev,
-        durationType: option.type as "Days" | "Months",
-      }));
-      setValue("duration", option.value.toString());
-    }
-  };
-
-  const handleAdmissionFeeChange = (checked: boolean) => {
-    setFormState((prev) => ({
-      ...prev,
-      admissionFee: checked,
-    }));
-  };
-
-  const handleClose = () => {
-    onClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogOverlay className="bg-white/30 backdrop-blur-sm" />
-      <DialogContent className="max-w-md">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">
-            {isEditMode ? "Edit Package" : "Create Package"}
-          </DialogTitle>
-          <p className="text-sm text-gray-500 mt-1">
+          <DialogTitle>{isEditMode ? "Edit Package" : "Create Package"}</DialogTitle>
+          <DialogDescription>
             {isEditMode
-              ? "Update gym membership package details."
-              : "Add and manage gym membership packages."}
-          </p>
+              ? "Update the package details used for branch memberships."
+              : "Create a new branch package with pricing, duration, and whether the branch admission fee should apply."}
+          </DialogDescription>
         </DialogHeader>
 
-        <form
-          onSubmit={handleSubmit(handleFormSubmit)}
-          className="space-y-4 mt-4"
-        >
-          {/* Title */}
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label
-              htmlFor="title"
-              className="text-sm font-medium text-gray-900"
-            >
-              Title <span className="text-red-500">*</span>
-            </Label>
+            <Label htmlFor="package-title">Title</Label>
             <Input
-              id="title"
+              id="package-title"
+              value={formState.title}
+              onChange={(event) => updateField("title", event.target.value)}
               placeholder="Type package name"
-              {...register("title")}
               className="mt-1.5"
             />
           </div>
 
-          {/* Duration and Type */}
-          {isEditMode ? (
-            // Edit mode - manual input
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label
-                  htmlFor="duration"
-                  className="text-sm font-medium text-gray-900"
-                >
-                  Duration <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  placeholder="Enter duration"
-                  {...register("duration", { min: 1 })}
-                  className="mt-1.5"
-                />
-              </div>
-
-              <div>
-                <Label
-                  htmlFor="durationType"
-                  className="text-sm font-medium text-gray-900"
-                >
-                  Duration Type <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formState.durationType}
-                  onValueChange={handleDurationTypeChange}
-                >
-                  <SelectTrigger className="mt-1.5 w-full h-10! shadow-none">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Days">Days</SelectItem>
-                    <SelectItem value="Months">Months</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          ) : (
-            // Create mode - dropdown selection
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label
-                  htmlFor="duration"
-                  className="text-sm font-medium text-gray-900"
-                >
-                  Duration <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formState.selectedDuration}
-                  onValueChange={handleDurationChange}
-                >
-                  <SelectTrigger className="mt-1.5 w-full h-10! shadow-none">
-                    <SelectValue placeholder="Select duration" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {durationOptions.map((option) => (
-                      <SelectItem key={option.label} value={option.label}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label
-                  htmlFor="durationType"
-                  className="text-sm font-medium text-gray-900"
-                >
-                  Duration Type <span className="text-red-500">*</span>
-                </Label>
-                <div className="mt-1.5">
-                  <div className="w-full h-10! px-3 py-2 rounded-md border border-input bg-gray-50 flex items-center">
-                    <span className="text-sm font-medium text-gray-700">
-                      {formState.durationType}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Amount */}
           <div>
-            <Label
-              htmlFor="amount"
-              className="text-sm font-medium text-gray-900"
-            >
-              Amount <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="amount"
-              type="number"
-              placeholder="Type package amount"
-              {...register("amount", { min: 1 })}
-              className="mt-1.5"
+            <Label htmlFor="package-description">Description</Label>
+            <Textarea
+              id="package-description"
+              value={formState.description}
+              onChange={(event) => updateField("description", event.target.value)}
+              placeholder="Add a short description for this package"
+              className="mt-1.5 min-h-24"
             />
           </div>
 
-          {/* Color Selection */}
-          <div>
-            <Label className="text-sm font-medium text-gray-900">
-              Select Color
-            </Label>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="package-duration">Duration</Label>
+              <Input
+                id="package-duration"
+                type="number"
+                min="1"
+                value={formState.duration}
+                onChange={(event) => updateField("duration", event.target.value)}
+                placeholder="Enter duration"
+                className="mt-1.5"
+              />
+            </div>
 
-            {/* Hidden input to keep RHF happy */}
-            <Input type="hidden" {...register("color")} />
+            <div>
+              <Label htmlFor="package-duration-type">Duration Type</Label>
+              <Select
+                value={formState.durationType}
+                onValueChange={(value) =>
+                  updateField("durationType", value as PackageDurationType)
+                }
+              >
+                <SelectTrigger id="package-duration-type" className="mt-1.5 w-full">
+                  <SelectValue placeholder="Select duration type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {durationTypeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-            <div className="mt-1.5">
-              <div className="relative">
-                {/* Custom trigger that always shows the current color */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="package-amount">Amount</Label>
+              <Input
+                id="package-amount"
+                type="number"
+                min="0"
+                value={formState.amount}
+                onChange={(event) => updateField("amount", event.target.value)}
+                placeholder="Type package amount"
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label>Select Color</Label>
+              <div className="relative mt-1.5">
                 <button
                   type="button"
-                  onClick={() => setIsColorSelectOpen(!isColorSelectOpen)}
-                  className="w-full h-10! px-3 flex items-center gap-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
+                  onClick={() => setIsColorSelectOpen((open) => !open)}
+                  className="flex h-10 w-full items-center gap-3 rounded-md border border-input bg-background px-3 text-left"
                 >
-                  <div
-                    className="w-5 h-5 rounded border border-gray-300 shrink-0"
-                    style={{ backgroundColor: formState.selectedColor }}
+                  <span
+                    className="inline-flex h-5 w-5 rounded border border-gray-200"
+                    style={{ backgroundColor: formState.color }}
                   />
-                  <span className="text-sm truncate">
-                    {formState.selectedColor}
-                  </span>
-                  <span className="ml-auto">▼</span>
+                  <span className="truncate text-sm">{formState.color}</span>
+                  <span className="ml-auto text-xs text-gray-500">Select</span>
                 </button>
 
-                {/* Dropdown palette */}
-                {isColorSelectOpen && (
-                  <div className="absolute z-50 mt-1 w-full bg-white border rounded-md shadow-lg p-3">
+                {isColorSelectOpen ? (
+                  <div className="absolute z-50 mt-2 w-full rounded-md border bg-white p-3 shadow-lg">
                     <div className="grid grid-cols-9 gap-2">
                       {colorPalette.map((color) => (
                         <button
                           key={color}
                           type="button"
                           onClick={() => {
-                            handleColorSelect(color);
+                            updateField("color", color);
                             setIsColorSelectOpen(false);
                           }}
-                          className={`w-8 h-8 rounded transition-all hover:scale-110 ${
-                            formState.selectedColor === color
-                              ? "ring-2 ring-gray-900 ring-offset-2"
-                              : ""
+                          className={`h-8 w-8 rounded transition-transform hover:scale-110 ${
+                            formState.color === color ? "ring-2 ring-gray-900 ring-offset-2" : ""
                           }`}
                           style={{ backgroundColor: color }}
                         />
                       ))}
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
 
-          {/* Admission Fee Toggle */}
-          <div className="flex items-start justify-between gap-3 pt-2">
-            <div>
-              <Label
-                htmlFor="admissionFee"
-                className="text-sm font-medium text-gray-900"
-              >
-                Admission Fee
-              </Label>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Choose whether this package should include the admission fee
-              </p>
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label htmlFor="include-admission-fee">Include Admission Fee</Label>
+                <p className="mt-1 text-xs text-gray-500">
+                  Choose whether this package should include the admission fee.
+                </p>
+              </div>
+              <Switch
+                id="include-admission-fee"
+                checked={formState.includeAdmissionFee}
+                onCheckedChange={(checked) =>
+                  updateField("includeAdmissionFee", checked)
+                }
+              />
             </div>
-            <Switch
-              id="admissionFee"
-              checked={formState.admissionFee}
-              onCheckedChange={handleAdmissionFeeChange}
-            />
           </div>
 
-          {/* Buttons */}
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
-            {isEditMode && onDelete && (
-              <Button
-                type="button"
-                onClick={onDelete}
-                className="bg-red-50 text-red-600 hover:bg-red-100 sm:mr-auto"
-              >
-                Delete
-              </Button>
-            )}
-            <Button
-              type="button"
-              onClick={handleClose}
-              variant="outline"
-              className="sm:mr-2"
-            >
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="bg-purple hover:bg-[#6D28D9] text-white"
-            >
-              {isEditMode ? "Update" : "Create Package"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting
+                ? isEditMode
+                  ? "Saving..."
+                  : "Creating..."
+                : isEditMode
+                  ? "Save Changes"
+                  : "Create Package"}
             </Button>
           </DialogFooter>
         </form>

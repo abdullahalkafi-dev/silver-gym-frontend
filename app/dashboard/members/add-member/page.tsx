@@ -10,9 +10,13 @@ import {
 } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 import MemberActivitiesCalendar from "@/components/dashboard/Members/MemberActivitiesCalendar";
+import { Button } from "@/components/ui/button";
+import { useBranchFeeSetupGuard } from "@/components/dashboard/BranchFeeSetupGuard";
 
 export default function AddMemberPage() {
   const router = useRouter();
+  const { isFeeStatusKnown, hasMissingFees, canManageFees, requestFeeSetup } =
+    useBranchFeeSetupGuard();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -162,6 +166,44 @@ export default function AddMemberPage() {
     
     return `${baseClass} border-gray-300 focus:ring-purple`;
   };
+
+      if (isFeeStatusKnown && hasMissingFees) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="w-full max-w-2xl rounded-2xl border border-amber-200 bg-white p-8 shadow-sm">
+              <h1 className="text-2xl font-semibold text-gray-900">
+                Complete Branch Fees First
+              </h1>
+              <p className="mt-3 text-sm leading-6 text-gray-600">
+                Member creation stays blocked until the branch monthly fee and admission fee are configured.
+                {canManageFees
+                  ? " Use the fee setup modal to add the missing values, then come back here."
+                  : " Ask an owner or staff member with monthly/admission fee add access to complete the missing setup."}
+              </p>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                {canManageFees ? (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      requestFeeSetup("member-create");
+                    }}
+                  >
+                    Reopen Fee Setup
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push("/dashboard/members")}
+                >
+                  Back to Members
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      }
 
   return (
     <div className="min-h-screen">

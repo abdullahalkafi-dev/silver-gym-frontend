@@ -24,6 +24,24 @@ export const PERMISSION_DEFINITIONS = {
   "billing:edit": { label: "Edit Billing", category: "Billing Access" },
   "billing:delete": { label: "Delete Billing", category: "Billing Access" },
 
+  // Branch Fee Management
+  "monthly-fee:add": {
+    label: "Add Monthly Fee",
+    category: "Branch Fee Access",
+  },
+  "monthly-fee:edit": {
+    label: "Edit Monthly Fee",
+    category: "Branch Fee Access",
+  },
+  "admission-fee:add": {
+    label: "Add Admission Fee",
+    category: "Branch Fee Access",
+  },
+  "admission-fee:edit": {
+    label: "Edit Admission Fee",
+    category: "Branch Fee Access",
+  },
+
   // Analytics
   "analytics:view": { label: "View Analytics", category: "Analytics Access" },
   "analytics:export": {
@@ -109,6 +127,12 @@ export const PERMISSION_GROUPS = {
     "billing:create",
     "billing:edit",
     "billing:delete",
+  ],
+  BRANCH_FEE_MANAGEMENT: [
+    "monthly-fee:add",
+    "monthly-fee:edit",
+    "admission-fee:add",
+    "admission-fee:edit",
   ],
   ANALYTICS: ["analytics:view", "analytics:export"],
   SMS: ["sms:view", "sms:send"],

@@ -1,6 +1,24 @@
 import { baseApi } from "@/redux/api/baseApi";
 import type { ApiSuccessResponse } from "@/redux/types/auth";
-import type { Branch, CreateBranchPayload } from "@/types/branch";
+import type {
+  Branch,
+  BranchAdmissionFee,
+  BranchMonthlyFee,
+  CreateBranchPayload,
+} from "@/types/branch";
+
+type BranchFeeQueryArgs = {
+  businessId: string;
+  branchId: string;
+};
+
+type UpdateBranchMonthlyFeePayload = BranchFeeQueryArgs & {
+  monthlyFeeAmount: number;
+};
+
+type UpdateBranchAdmissionFeePayload = BranchFeeQueryArgs & {
+  admissionFeeAmount: number;
+};
 
 type RawBranch = {
   _id?: string;
@@ -9,12 +27,25 @@ type RawBranch = {
   branchName?: string;
   branchAddress?: string;
   monthlyFeeAmount?: number | null;
+  admissionFeeAmount?: number | null;
   logo?: string | null;
   favicon?: string | null;
   isDefault?: boolean;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
+};
+
+type RawBranchMonthlyFee = {
+  branchId?: string;
+  branchName?: string;
+  monthlyFeeAmount?: number | null;
+};
+
+type RawBranchAdmissionFee = {
+  branchId?: string;
+  branchName?: string;
+  admissionFeeAmount?: number | null;
 };
 
 const normalizeBranch = (rawBranch: RawBranch): Branch => {
@@ -27,6 +58,7 @@ const normalizeBranch = (rawBranch: RawBranch): Branch => {
     branchName: rawBranch.branchName || "Untitled Branch",
     branchAddress: rawBranch.branchAddress,
     monthlyFeeAmount: rawBranch.monthlyFeeAmount ?? null,
+    admissionFeeAmount: rawBranch.admissionFeeAmount ?? null,
     logo: rawBranch.logo ?? null,
     favicon: rawBranch.favicon ?? null,
     isDefault: Boolean(rawBranch.isDefault),
@@ -35,6 +67,22 @@ const normalizeBranch = (rawBranch: RawBranch): Branch => {
     updatedAt: rawBranch.updatedAt,
   };
 };
+
+const normalizeMonthlyFee = (
+  rawFee: RawBranchMonthlyFee,
+): BranchMonthlyFee => ({
+  branchId: String(rawFee.branchId || ""),
+  branchName: rawFee.branchName || "Untitled Branch",
+  monthlyFeeAmount: rawFee.monthlyFeeAmount ?? null,
+});
+
+const normalizeAdmissionFee = (
+  rawFee: RawBranchAdmissionFee,
+): BranchAdmissionFee => ({
+  branchId: String(rawFee.branchId || ""),
+  branchName: rawFee.branchName || "Untitled Branch",
+  admissionFeeAmount: rawFee.admissionFeeAmount ?? null,
+});
 
 export const branchApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -103,6 +151,78 @@ export const branchApi = baseApi.injectEndpoints({
         { type: "Branch", id: `DEFAULT-${businessId}` },
       ],
     }),
+
+    getBranchMonthlyFee: builder.query<BranchMonthlyFee, BranchFeeQueryArgs>({
+      query: ({ businessId, branchId }) => ({
+        url: `/branches/${businessId}/branches/${branchId}/monthly-fee`,
+        method: "GET",
+      }),
+      transformResponse: (response: ApiSuccessResponse<RawBranchMonthlyFee>) => {
+        return normalizeMonthlyFee(response.data);
+      },
+      providesTags: (_result, _error, { branchId }) => [
+        { type: "BranchFee", id: `MONTHLY-${branchId}` },
+        { type: "Branch", id: branchId },
+      ],
+    }),
+
+    updateBranchMonthlyFee: builder.mutation<Branch, UpdateBranchMonthlyFeePayload>({
+      query: ({ businessId, branchId, monthlyFeeAmount }) => ({
+        url: `/branches/${businessId}/branches/${branchId}/monthly-fee`,
+        method: "PATCH",
+        body: {
+          data: { monthlyFeeAmount },
+        },
+      }),
+      transformResponse: (response: ApiSuccessResponse<RawBranch>) => {
+        return normalizeBranch(response.data);
+      },
+      invalidatesTags: (_result, _error, { businessId, branchId }) => [
+        { type: "BranchFee", id: `MONTHLY-${branchId}` },
+        { type: "Branch", id: branchId },
+        { type: "Branch", id: `LIST-${businessId}` },
+        { type: "Branch", id: `DEFAULT-${businessId}` },
+      ],
+    }),
+
+    getBranchAdmissionFee: builder.query<
+      BranchAdmissionFee,
+      BranchFeeQueryArgs
+    >({
+      query: ({ businessId, branchId }) => ({
+        url: `/branches/${businessId}/branches/${branchId}/admission-fee`,
+        method: "GET",
+      }),
+      transformResponse: (response: ApiSuccessResponse<RawBranchAdmissionFee>) => {
+        return normalizeAdmissionFee(response.data);
+      },
+      providesTags: (_result, _error, { branchId }) => [
+        { type: "BranchFee", id: `ADMISSION-${branchId}` },
+        { type: "Branch", id: branchId },
+      ],
+    }),
+
+    updateBranchAdmissionFee: builder.mutation<
+      Branch,
+      UpdateBranchAdmissionFeePayload
+    >({
+      query: ({ businessId, branchId, admissionFeeAmount }) => ({
+        url: `/branches/${businessId}/branches/${branchId}/admission-fee`,
+        method: "PATCH",
+        body: {
+          data: { admissionFeeAmount },
+        },
+      }),
+      transformResponse: (response: ApiSuccessResponse<RawBranch>) => {
+        return normalizeBranch(response.data);
+      },
+      invalidatesTags: (_result, _error, { businessId, branchId }) => [
+        { type: "BranchFee", id: `ADMISSION-${branchId}` },
+        { type: "Branch", id: branchId },
+        { type: "Branch", id: `LIST-${businessId}` },
+        { type: "Branch", id: `DEFAULT-${businessId}` },
+      ],
+    }),
   }),
 });
 
@@ -111,4 +231,13 @@ export const {
   useGetOwnerDefaultBranchQuery,
   useLazyGetOwnerDefaultBranchQuery,
   useCreateOwnerBranchMutation,
+  useGetBranchMonthlyFeeQuery,
+  useUpdateBranchMonthlyFeeMutation,
+  useGetBranchAdmissionFeeQuery,
+  useUpdateBranchAdmissionFeeMutation,
 } = branchApi;
+export type {
+  BranchFeeQueryArgs,
+  UpdateBranchAdmissionFeePayload,
+  UpdateBranchMonthlyFeePayload,
+};

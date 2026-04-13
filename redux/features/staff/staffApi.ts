@@ -39,6 +39,16 @@ type RawStaffPermissionTree = {
     canEdit?: boolean;
     canDelete?: boolean;
   };
+  fees?: {
+    monthly?: {
+      canAdd?: boolean;
+      canEdit?: boolean;
+    };
+    admission?: {
+      canAdd?: boolean;
+      canEdit?: boolean;
+    };
+  };
   analytics?: {
     canView?: boolean;
     canExport?: boolean;
@@ -104,6 +114,10 @@ const normalizePermissionsFromTree = (
     canAddBilling: tree?.billing?.canAdd,
     canEditBilling: tree?.billing?.canEdit,
     canDeleteBilling: tree?.billing?.canDelete,
+    canAddMonthlyFee: tree?.fees?.monthly?.canAdd,
+    canEditMonthlyFee: tree?.fees?.monthly?.canEdit,
+    canAddAdmissionFee: tree?.fees?.admission?.canAdd,
+    canEditAdmissionFee: tree?.fees?.admission?.canEdit,
     canViewAnalytics: tree?.analytics?.canView,
     canExportAnalytics: tree?.analytics?.canExport,
     canViewSMS: tree?.communications?.sms?.canView,

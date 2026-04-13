@@ -1,56 +1,183 @@
 // components/accounts/BaseFeesSetup.tsx
 "use client";
 import { useState } from "react";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { Card } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Settings03Icon } from "@hugeicons/core-free-icons";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import { useUser } from "@/hooks/useUser";
+import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
+import {
+  getBranchFeeAccessState,
+  parseBranchFeeInput,
+  toBranchFeeDisplayValue,
+  type BranchFeeAccessState,
+  type BranchFeeFieldKey,
+} from "@/lib/branchFees";
+import {
+  useGetBranchAdmissionFeeQuery,
+  useGetBranchMonthlyFeeQuery,
+  useUpdateBranchAdmissionFeeMutation,
+  useUpdateBranchMonthlyFeeMutation,
+} from "@/redux/features/branch/branchApi";
 
-interface FeeState {
-  admission: {
-    enabled: boolean;
-    amount: number;
-  };
-  monthly: {
-    enabled: boolean;
-    amount: number;
-  };
-}
+const getAccessHelperText = (access: BranchFeeAccessState) => {
+  if (access.canManage) {
+    return access.isConfigured
+      ? `Your role can edit this ${access.label.toLowerCase()}.`
+      : `Your role can add this ${access.label.toLowerCase()}.`;
+  }
+
+  return access.isConfigured
+    ? `Read only. ${access.requiredPermissionHint}`
+    : `Missing. ${access.requiredPermissionHint}`;
+};
 
 export const BaseFeesSetup = () => {
-  const [fees, setFees] = useState<FeeState>({
-    admission: {
-      enabled: false,
-      amount: 2500,
-    },
-    monthly: {
-      enabled: true,
-      amount: 2500,
-    },
+  const { user, activeBranchId, isOwner, hasPermission } = useUser();
+  const [draftValues, setDraftValues] = useState<
+    Partial<Record<BranchFeeFieldKey, string>>
+  >({});
+  const businessId = user?.businessProfile?.id || null;
+
+  const feeQueryArg =
+    businessId && activeBranchId
+      ? { businessId, branchId: activeBranchId }
+      : skipToken;
+
+  const monthlyFeeQuery = useGetBranchMonthlyFeeQuery(feeQueryArg);
+  const admissionFeeQuery = useGetBranchAdmissionFeeQuery(feeQueryArg);
+  const [updateMonthlyFee, { isLoading: isUpdatingMonthlyFee }] =
+    useUpdateBranchMonthlyFeeMutation();
+  const [updateAdmissionFee, { isLoading: isUpdatingAdmissionFee }] =
+    useUpdateBranchAdmissionFeeMutation();
+
+  const liveMonthlyFee = monthlyFeeQuery.data?.monthlyFeeAmount ?? null;
+  const liveAdmissionFee = admissionFeeQuery.data?.admissionFeeAmount ?? null;
+  const monthlyAccess = getBranchFeeAccessState("monthly", liveMonthlyFee, {
+    isOwner,
+    hasPermission,
   });
+  const admissionAccess = getBranchFeeAccessState("admission", liveAdmissionFee, {
+    isOwner,
+    hasPermission,
+  });
+  const displayedMonthlyFee =
+    draftValues.monthly ?? toBranchFeeDisplayValue(liveMonthlyFee);
+  const displayedAdmissionFee =
+    draftValues.admission ?? toBranchFeeDisplayValue(liveAdmissionFee);
+  const isLoadingFees =
+    monthlyFeeQuery.isLoading ||
+    monthlyFeeQuery.isFetching ||
+    admissionFeeQuery.isLoading ||
+    admissionFeeQuery.isFetching;
+  const isSaving = isUpdatingMonthlyFee || isUpdatingAdmissionFee;
+  const canManageAnyFees = monthlyAccess.canManage || admissionAccess.canManage;
+  const hasChanges =
+    draftValues.monthly !== undefined || draftValues.admission !== undefined;
 
-  const handleFeeToggle = (type: "admission" | "monthly") => {
-    setFees((prev) => ({
-      ...prev,
-      [type]: {
-        ...prev[type],
-        enabled: !prev[type].enabled,
-      },
+  const handleAmountChange = (type: BranchFeeFieldKey, value: string) => {
+    setDraftValues((currentValues) => ({
+      ...currentValues,
+      [type]: value,
     }));
   };
 
-  const handleAmountChange = (type: "admission" | "monthly", value: string) => {
-    const numValue = parseInt(value) || 0;
-    setFees((prev) => ({
-      ...prev,
-      [type]: {
-        ...prev[type],
-        amount: numValue,
-      },
-    }));
+  const handleSave = async () => {
+    if (!businessId || !activeBranchId) {
+      toast.error("Select a branch before editing fees");
+      return;
+    }
+
+    try {
+      const updateRequests: Array<Promise<unknown>> = [];
+
+      if (draftValues.monthly !== undefined) {
+        if (!monthlyAccess.canManage) {
+          throw new Error(monthlyAccess.requiredPermissionHint);
+        }
+
+        const monthlyFeeAmount = parseBranchFeeInput(
+          displayedMonthlyFee,
+          monthlyAccess.label,
+        );
+
+        if (monthlyFeeAmount !== liveMonthlyFee) {
+          updateRequests.push(
+            updateMonthlyFee({
+              businessId,
+              branchId: activeBranchId,
+              monthlyFeeAmount,
+            }).unwrap()
+          );
+        }
+      }
+
+      if (draftValues.admission !== undefined) {
+        if (!admissionAccess.canManage) {
+          throw new Error(admissionAccess.requiredPermissionHint);
+        }
+
+        const admissionFeeAmount = parseBranchFeeInput(
+          displayedAdmissionFee,
+          admissionAccess.label,
+        );
+
+        if (admissionFeeAmount !== liveAdmissionFee) {
+          updateRequests.push(
+            updateAdmissionFee({
+              businessId,
+              branchId: activeBranchId,
+              admissionFeeAmount,
+            }).unwrap()
+          );
+        }
+      }
+
+      if (updateRequests.length === 0) {
+        toast.info("No fee changes to save");
+        return;
+      }
+
+      await Promise.all(updateRequests);
+      setDraftValues({});
+      toast.success("Branch fees updated successfully");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : extractApiErrorMessage(error);
+      toast.error(message);
+    }
   };
+
+  if (isLoadingFees) {
+    return (
+      <Card className="p-5 shadow-none border-none space-y-4">
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-xl" />
+        </div>
+      </Card>
+    );
+  }
+
+  if (!businessId || !activeBranchId) {
+    return (
+      <Card className="p-5 shadow-none border-none">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-gray-900">Base Fees Setup</h2>
+          <p className="text-sm text-gray-600">
+            Select a branch to manage branch-level admission and monthly fees.
+          </p>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-5 shadow-none border-none">
@@ -59,9 +186,11 @@ export const BaseFeesSetup = () => {
           <h2 className="text-lg font-semibold text-gray-900">
             Base Fees Setup
           </h2>
-          <div className="bg-gray-primary rounded p-1">
-            <HugeiconsIcon icon={Settings03Icon} size={20} />
-          </div>
+          {canManageAnyFees ? (
+            <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
+              {isSaving ? "Saving..." : "Save Fee Settings"}
+            </Button>
+          ) : null}
         </div>
         <p className="text-sm text-gray-600 mt-1">
           Easily manage your gym&apos;s admission and monthly fees in one place
@@ -69,21 +198,10 @@ export const BaseFeesSetup = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Admission Fee */}
         <div className="space-y-3 bg-gray-primary p-3 rounded-md">
           <div className="flex items-center justify-between">
-            <Label
-              htmlFor="admission-toggle"
-              className="text-gray-700 font-medium"
-            >
-              Admission Fee
-            </Label>
-            <Switch
-              id="admission-toggle"
-              checked={fees.admission.enabled}
-              onCheckedChange={() => handleFeeToggle("admission")}
-              className="data-[state=checked]:bg-purple"
-            />
+            <h3 className="text-gray-700 font-medium">Admission Fee</h3>
+            <span className="text-xs font-medium text-gray-500">Required</span>
           </div>
           <p className="text-xs text-gray-500">
             This is a one-time fee for new member must pay
@@ -93,32 +211,21 @@ export const BaseFeesSetup = () => {
             <div className="bg-gray-secondary rounded-lg">
               <Input
                 type="number"
-                value={fees.admission.amount}
-                onChange={(e) =>
-                  handleAmountChange("admission", e.target.value)
-                }
+                value={displayedAdmissionFee}
+                onChange={(e) => handleAmountChange("admission", e.target.value)}
                 className="w-28 text-right"
                 min="0"
+                disabled={!admissionAccess.canManage || isSaving}
               />
             </div>
           </div>
+          <p className="text-xs text-gray-500">{getAccessHelperText(admissionAccess)}</p>
         </div>
 
-        {/* Monthly Fee */}
         <div className="space-y-3 bg-gray-primary p-3 rounded-md">
           <div className="flex items-center justify-between">
-            <Label
-              htmlFor="monthly-toggle"
-              className="text-gray-700 font-medium"
-            >
-              Monthly Fee
-            </Label>
-            <Switch
-              id="monthly-toggle"
-              checked={fees.monthly.enabled}
-              onCheckedChange={() => handleFeeToggle("monthly")}
-              className="data-[state=checked]:bg-purple"
-            />
+            <h3 className="text-gray-700 font-medium">Monthly Fee</h3>
+            <span className="text-xs font-medium text-gray-500">Required</span>
           </div>
           <p className="text-xs text-gray-500">
             This fee will apply every month unless a package is selected
@@ -128,13 +235,15 @@ export const BaseFeesSetup = () => {
             <div className="bg-gray-secondary rounded-lg">
               <Input
                 type="number"
-                value={fees.monthly.amount}
+                value={displayedMonthlyFee}
                 onChange={(e) => handleAmountChange("monthly", e.target.value)}
                 className="w-28 text-right"
                 min="0"
+                disabled={!monthlyAccess.canManage || isSaving}
               />
             </div>
           </div>
+          <p className="text-xs text-gray-500">{getAccessHelperText(monthlyAccess)}</p>
         </div>
       </div>
     </Card>

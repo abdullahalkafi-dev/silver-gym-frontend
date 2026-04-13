@@ -56,6 +56,7 @@ type CreateBusinessProfilePayload = {
   zip?: string;
   businessPhoneNumber?: string;
   businessEmail?: string;
+  businessLogo?: File;
 };
 
 export const authApi = baseApi.injectEndpoints({
@@ -173,11 +174,32 @@ export const authApi = baseApi.injectEndpoints({
       ApiSuccessResponse<BusinessProfilePayload>,
       CreateBusinessProfilePayload
     >({
-      query: (payload) => ({
-        url: "/business-profile",
-        method: "POST",
-        body: { data: payload },
-      }),
+      query: (payload) => {
+        // Separate file from payload
+        const { businessLogo, ...dataWithoutLogo } = payload;
+        
+        // If there's a logo file, send as FormData
+        if (businessLogo) {
+          const formData = new FormData();
+          formData.append("image", businessLogo);
+          formData.append("data", JSON.stringify(dataWithoutLogo));
+          
+          return {
+            url: "/business-profile",
+            method: "POST",
+            body: formData,
+            // Don't set Content-Type; let browser set it with multipart boundary
+            headers: undefined,
+          };
+        }
+        
+        // Otherwise send as JSON
+        return {
+          url: "/business-profile",
+          method: "POST",
+          body: { data: dataWithoutLogo },
+        };
+      },
       invalidatesTags: ["Profile"],
     }),
   }),

@@ -42,10 +42,12 @@ const schema = z.object({
   password: z
     .string()
     .min(8, "Password must be at least 8 characters long")
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-      "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
-    ),
+    //TODO : reenable before production release
+    // .regex(
+    //   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+    //   "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
+    // )
+    ,
   terms: z.boolean().refine((val) => val === true, {
     message: "You must agree to the Terms & Privacy",
   }),

@@ -39,6 +39,18 @@ export default function BusinessInfoForm() {
   const router = useRouter();
   const { user, isAuthenticated } = useAppSelector((state) => state.auth);
 
+  // Helper function to convert File to storable format and back
+  const saveLogoToSession = (file: File) => {
+    file.arrayBuffer().then((buffer) => {
+      const bytes = new Uint8Array(buffer);
+      const binaryString = bytes.reduce((str, byte) => str + String.fromCharCode(byte), "");
+      const base64 = btoa(binaryString);
+      sessionStorage.setItem("businessLogo_data", base64);
+      sessionStorage.setItem("businessLogo_name", file.name);
+      sessionStorage.setItem("businessLogo_type", file.type);
+    });
+  };
+
   const {
     register,
     handleSubmit,
@@ -105,6 +117,9 @@ export default function BusinessInfoForm() {
 
       setLogoError("");
       setLogo(file);
+      
+      // Store File to sessionStorage for later retrieval
+      saveLogoToSession(file);
 
       // Create preview
       const reader = new FileReader();

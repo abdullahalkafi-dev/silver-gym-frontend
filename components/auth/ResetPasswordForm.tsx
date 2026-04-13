@@ -13,6 +13,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   PasswordValidationIcon,
   Alert02Icon,
+  CheckmarkBadge01Icon,
 } from "@hugeicons/core-free-icons";
 import { useResetPasswordMutation } from "@/redux/features/auth/authApi";
 import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
@@ -38,6 +39,37 @@ interface PasswordValidation {
   special: boolean;
 }
 
+function RequirementItem({
+  met,
+  label,
+}: {
+  met: boolean;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {met ? (
+        <>
+          <HugeiconsIcon
+            icon={CheckmarkBadge01Icon}
+            size={16}
+            color="#2ecc71"
+            strokeWidth={2}
+          />
+          <span className="text-xs text-gray-700">{label}</span>
+        </>
+      ) : (
+        <>
+          <div className="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center">
+            <span className="text-xs text-gray-400">○</span>
+          </div>
+          <span className="text-xs text-text-secondary">{label}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ResetPasswordForm() {
   const router = useRouter();
   const [userData] = useState<PasswordResetUser | null>(
@@ -47,7 +79,7 @@ export default function ResetPasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [, setValidationErrors] = useState<PasswordValidation>({
+  const [validationErrors, setValidationErrors] = useState<PasswordValidation>({
     length: false,
     uppercase: false,
     number: false,
@@ -213,11 +245,37 @@ export default function ResetPasswordForm() {
                     </div>
                   </div>
 
-                  {/* Password Requirements */}
-                  <div className="text-text-secondary text-sm">
-                    At least 8 characters with 1 uppercase, 1 number, and 1
-                    special character.
-                  </div>
+                  {newPassword.length > 0 && (
+                    <div className="space-y-2 p-4 bg-gray-50 rounded-lg border border-border-2">
+                      <p className="text-text-secondary text-xs font-medium mb-2">
+                        Password Requirements:
+                      </p>
+                      <div className="space-y-1.5">
+                        <RequirementItem
+                          met={validationErrors.length}
+                          label="At least 8 characters"
+                        />
+                        <RequirementItem
+                          met={validationErrors.uppercase}
+                          label="One uppercase letter (A-Z)"
+                        />
+                        <RequirementItem
+                          met={validationErrors.number}
+                          label="One number (0-9)"
+                        />
+                        <RequirementItem
+                          met={validationErrors.special}
+                          label="One special character (!@#$%^&*...)"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {newPassword.length === 0 && (
+                    <div className="text-text-secondary text-xs">
+                      At least 8 characters with 1 uppercase, 1 number, and 1
+                      special character.
+                    </div>
+                  )}
                 </div>
 
                 {/* Submit Button */}

@@ -88,6 +88,26 @@ export default function ContactInfoForm() {
     }
   }, [isAuthenticated, router, setValue, user]);
 
+  // Helper to reconstruct File from sessionStorage
+  const getLogoFileFromSession = (): File | null => {
+    const logoData = sessionStorage.getItem("businessLogo_data");
+    const logoName = sessionStorage.getItem("businessLogo_name");
+    const logoType = sessionStorage.getItem("businessLogo_type");
+
+    if (!logoData || !logoName || !logoType) return null;
+
+    try {
+      const binaryString = atob(logoData);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return new File([bytes], logoName, { type: logoType });
+    } catch {
+      return null;
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
     try {
       localStorage.setItem("contactInfo", JSON.stringify(data));
@@ -106,6 +126,9 @@ export default function ContactInfoForm() {
         return;
       }
 
+      // Retrieve logo file from sessionStorage if available
+      const logoFile = getLogoFileFromSession();
+
       const createdProfileResponse = await createBusinessProfileMutation({
         businessName: businessInfo.businessName,
         businessType: businessInfo.businessType,
@@ -114,6 +137,7 @@ export default function ContactInfoForm() {
         country: data.country,
         businessPhoneNumber: data.businessPhone,
         businessEmail: data.businessEmail.toLowerCase(),
+        ...(logoFile && { businessLogo: logoFile }),
       }).unwrap();
 
       const rawProfileId =
@@ -122,6 +146,11 @@ export default function ContactInfoForm() {
       if (typeof rawProfileId === "string" && rawProfileId.trim()) {
         dispatch(setUserBusinessProfile({ id: rawProfileId.trim() }));
       }
+
+      // Clear session storage after successful submission
+      sessionStorage.removeItem("businessLogo_data");
+      sessionStorage.removeItem("businessLogo_name");
+      sessionStorage.removeItem("businessLogo_type");
 
       toast.success("Business profile created successfully");
       router.push("/success");

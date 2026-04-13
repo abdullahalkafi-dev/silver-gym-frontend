@@ -17,7 +17,7 @@ export default function Error({
         <div className="space-y-2">
           <h1 className="text-2xl font-bold">Something went wrong!</h1>
           <p className="text-muted-foreground">
-            We encountered an error while loading your wedding planner. Please try again.
+            {error?.message || "Something went wrong. Please try refreshing the page."}
           </p>
         </div>
         <div className="flex gap-4 justify-center">

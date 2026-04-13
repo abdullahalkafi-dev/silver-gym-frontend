@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useCreateBusinessProfileMutation } from "@/redux/features/auth/authApi";
 import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { setUserBusinessProfile } from "@/redux/features/auth/authSlice";
 
 const schema = z.object({
   country: z.string().min(1, "Please select a country"),
@@ -31,6 +34,8 @@ type FormData = z.infer<typeof schema>;
 
 export default function ContactInfoForm() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { user, isAuthenticated } = useAppSelector((state) => state.auth);
   const [createBusinessProfileMutation, { isLoading }] =
     useCreateBusinessProfileMutation();
 
@@ -49,16 +54,30 @@ export default function ContactInfoForm() {
     },
   });
 
-  // Check if user has completed business info
+  // Guard route by auth state and enforce onboarding step order.
   useEffect(() => {
     const businessInfo = localStorage.getItem("businessInfo");
-    const verificationComplete = localStorage.getItem("verification_complete");
 
-    if (!businessInfo || verificationComplete !== "true") {
-      router.push("/sign-up");
+    if (!isAuthenticated) {
+      router.push("/sign-in");
+      return;
     }
 
-    // Load saved data if exists
+    if (user?.actorType !== "owner") {
+      router.push("/dashboard");
+      return;
+    }
+
+    if (user.businessProfile?.id) {
+      router.push("/dashboard");
+      return;
+    }
+
+    if (!businessInfo) {
+      router.push("/business-info");
+      return;
+    }
+
     const savedData = localStorage.getItem("contactInfo");
     if (savedData) {
       const parsed = JSON.parse(savedData);
@@ -67,7 +86,7 @@ export default function ContactInfoForm() {
       setValue("businessPhone", parsed.businessPhone || "");
       setValue("businessEmail", parsed.businessEmail || "");
     }
-  }, [router, setValue]);
+  }, [isAuthenticated, router, setValue, user]);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -87,7 +106,7 @@ export default function ContactInfoForm() {
         return;
       }
 
-      await createBusinessProfileMutation({
+      const createdProfileResponse = await createBusinessProfileMutation({
         businessName: businessInfo.businessName,
         businessType: businessInfo.businessType,
         registrationNumber: businessInfo.registrationNumber,
@@ -97,6 +116,13 @@ export default function ContactInfoForm() {
         businessEmail: data.businessEmail.toLowerCase(),
       }).unwrap();
 
+      const rawProfileId =
+        createdProfileResponse.data?._id ?? createdProfileResponse.data?.id;
+
+      if (typeof rawProfileId === "string" && rawProfileId.trim()) {
+        dispatch(setUserBusinessProfile({ id: rawProfileId.trim() }));
+      }
+
       toast.success("Business profile created successfully");
       router.push("/success");
     } catch (apiError) {
@@ -105,7 +131,7 @@ export default function ContactInfoForm() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-4 relative w-full overflow-hidden bg-white">
+    <div className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-white p-3 md:p-6">
       {/* Background decoration */}
       <div className="absolute top-[-65px] left-[1236px] w-[501px] h-[234px] bg-white rounded-[250.46px/117.05px] -rotate-45 blur-[234px]" />
 
@@ -122,20 +148,20 @@ export default function ContactInfoForm() {
         </div>
 
         {/* Main card */}
-        <Card className="relative z-20 bg-white rounded-2xl shadow-[-76px_59px_212px_#ff73001a,-305px_235px_250px_#ff730017,-687px_529px_250px_#ff73000d,-1221px_940px_250px_#ff730003,-1908px_1469px_250px_transparent] border-none m-4">
-          <CardContent className="p-8">
-            <div className="flex flex-col gap-6">
+        <Card className="relative z-20 bg-white rounded-2xl shadow-[-76px_59px_212px_#ff73001a,-305px_235px_250px_#ff730017,-687px_529px_250px_#ff73000d,-1221px_940px_250px_#ff730003,-1908px_1469px_250px_transparent] border-none m-3 md:m-4">
+          <CardContent className="p-6 md:p-7">
+            <div className="flex flex-col gap-4 md:gap-5">
               {/* Step Indicator */}
               <StepIndicator currentStep={2} />
 
               {/* Title and Step Counter */}
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col gap-1">
-                    <h1 className="font-semibold text-gray-medium text-2xl leading-9">
+                    <h1 className="font-semibold text-foreground text-[30px] leading-tight md:text-[32px]">
                       Contact Info
                     </h1>
-                    <p className="font-normal text-gray-medium text-base leading-6">
+                    <p className="font-normal text-muted-foreground text-base leading-6">
                       Provide your official phone number and email for
                       communication
                     </p>
@@ -146,7 +172,7 @@ export default function ContactInfoForm() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4 md:gap-5">
                 {/* Country */}
                 <div className="flex flex-col gap-2">
                   <Label
@@ -155,20 +181,23 @@ export default function ContactInfoForm() {
                   >
                     Country
                   </Label>
-                  <select
-                    id="country"
-                    className="w-full h-14 px-4 py-3 rounded-lg border-2 border-border-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#E97451] focus:ring-opacity-50 focus:border-[#E97451] transition-all text-base text-gray-medium"
-                    {...register("country")}
-                  >
-                    <option value="">Select Your Country</option>
-                    <option value="bd">Bangladesh</option>
-                    <option value="in">India</option>
-                    <option value="pk">Pakistan</option>
-                    <option value="us">United States</option>
-                    <option value="uk">United Kingdom</option>
-                    <option value="ca">Canada</option>
-                    <option value="au">Australia</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      id="country"
+                      className="w-full h-14 appearance-none rounded-lg border-2 border-border-2 bg-white px-4 py-3 pr-11 text-base text-gray-medium transition-all focus:border-[#E97451] focus:outline-none focus:ring-2 focus:ring-[#E97451] focus:ring-opacity-50"
+                      {...register("country")}
+                    >
+                      <option value="">Select Your Country</option>
+                      <option value="bd">Bangladesh</option>
+                      <option value="in">India</option>
+                      <option value="pk">Pakistan</option>
+                      <option value="us">United States</option>
+                      <option value="uk">United Kingdom</option>
+                      <option value="ca">Canada</option>
+                      <option value="au">Australia</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+                  </div>
                   {errors.country && (
                     <span className="text-sm text-[#FC5555]">
                       {errors.country.message}

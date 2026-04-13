@@ -11,7 +11,7 @@ import LogoutConfirmModal from "@/components/modals/LogoutConfirmModal";
 import Link from "next/link";
 import Image from "next/image";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { logoutUser } from "@/redux/features/auth/authSlice";
+import { logoutUser, setActiveBranchId } from "@/redux/features/auth/authSlice";
 import { toast } from "sonner";
 import { useUser } from "@/hooks/useUser";
 
@@ -26,12 +26,20 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useUser();
   const permissions = useAppSelector((state) => state.auth.permissions);
+  const activeBranchId = useAppSelector((state) => state.auth.activeBranchId);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   if (!user) return null;
 
-  // Get sidebar sections with permission filtering
-  const sidebarSections = getSidebarForRole(user.role, permissions);
+  // Owner sees the "owner" sidebar only on the branch-list and analytics pages;
+  // everywhere else (branch context) both owner and staff use the shared "branch" sidebar.
+  const isOwnerModePath =
+    pathname === "/dashboard" || pathname === "/dashboard/analytics";
+  const sidebarRole =
+    user.actorType === "owner" && (isOwnerModePath || !activeBranchId)
+      ? "owner"
+      : "branch";
+  const sidebarSections = getSidebarForRole(sidebarRole, permissions);
 
   const handleNavClick = () => {
     setIsOpen(false);
@@ -66,7 +74,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-screen w-[280px] bg-white  flex flex-col z-50 transition-transform duration-300 md:translate-x-0",
+          "fixed left-0 top-0 h-screen w-70 bg-white  flex flex-col z-50 transition-transform duration-300 md:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
@@ -77,15 +85,32 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-6 px-4">
+          {/* Back to Branches button — shown when owner is inside a specific branch */}
+          {user.actorType === "owner" && sidebarRole === "branch" && (
+            <button
+              type="button"
+              onClick={() => {
+                dispatch(setActiveBranchId(null));
+                router.push("/dashboard");
+                setIsOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-4 py-2.5 mb-4 rounded-lg text-sm font-medium text-[#6C6C6C] hover:bg-primary-200 hover:text-gray-900 transition-all duration-200"
+            >
+              <span className="text-base leading-none">←</span>
+              <span>Back to Branches</span>
+            </button>
+          )}
           <div className="space-y-1">
             {sidebarSections.map((section, sectionIndex) => (
               <div key={sectionIndex}>
                 {section.items.map((item) => {
-                  // For the overview page (/dashboard), use exact match
-                  // For all other pages, use startsWith to match child routes
-                  const isActive = item.path === "/dashboard" 
-                    ? pathname === "/dashboard"
-                    : pathname.startsWith(item.path);
+                  // Exact match for root pages; prefix match for all others
+                  const isActive =
+                    item.path === "/dashboard"
+                      ? pathname === "/dashboard"
+                      : item.path === "/dashboard/branch-dashboard"
+                        ? pathname === "/dashboard/branch-dashboard"
+                        : pathname.startsWith(item.path);
 
                   return (
                     <Link

@@ -13,6 +13,7 @@ const initialState: AuthState = {
   refreshToken: null,
   isAuthenticated: false,
   role: null,
+  activeBranchId: null,
   isLoading: false,
   error: null,
   permissions: [],
@@ -39,6 +40,66 @@ const refreshAccessToken = async (refreshToken: string) => {
   return payload.data.accessToken;
 };
 
+const normalizeStoredBusinessProfile = (
+  businessProfile: unknown
+): { id: string } | null | undefined => {
+  if (businessProfile === undefined) {
+    return undefined;
+  }
+
+  if (businessProfile === null || typeof businessProfile !== "object") {
+    return null;
+  }
+
+  const maybeProfile = businessProfile as { id?: unknown; _id?: unknown };
+  const rawId = maybeProfile.id ?? maybeProfile._id;
+
+  if (typeof rawId !== "string") {
+    return null;
+  }
+
+  const id = rawId.trim();
+  return id ? { id } : null;
+};
+
+const fetchBusinessProfileId = async (
+  accessToken: string
+): Promise<string | null | undefined> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/business-profile`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      return undefined;
+    }
+
+    const payload = (await response.json()) as ApiSuccessResponse<
+      Record<string, unknown>
+    >;
+    const profile = payload?.data;
+    const rawId = profile?._id ?? profile?.id;
+
+    if (typeof rawId !== "string") {
+      return null;
+    }
+
+    const id = rawId.trim();
+    return id || null;
+  } catch {
+    // Non-blocking: fall back to existing session data when reconciliation fails.
+    return undefined;
+  }
+};
+
 export const logoutUser = createAsyncThunk(
   "auth/logoutUser",
   async (_, { rejectWithValue }) => {
@@ -58,6 +119,9 @@ export const checkAuthStatus = createAsyncThunk<LoginResponse>(
       let accessToken = cookieUtils.getAccessToken();
       const refreshToken = cookieUtils.getRefreshToken();
       const userData = cookieUtils.getUserData();
+      const rememberMe = Boolean(
+        (userData as { rememberMe?: unknown } | null)?.rememberMe
+      );
 
       if (!refreshToken || !userData) {
         throw new Error("No valid authentication found");
@@ -65,11 +129,42 @@ export const checkAuthStatus = createAsyncThunk<LoginResponse>(
 
       if (!accessToken) {
         accessToken = await refreshAccessToken(refreshToken);
-        cookieUtils.setAccessToken(accessToken, true);
+        cookieUtils.setAccessToken(accessToken, rememberMe);
+      }
+
+      const storedUser = userData as unknown as User;
+      const initialBusinessProfile = (
+        storedUser as User & { businessProfile?: unknown }
+      ).businessProfile;
+      let normalizedUser: User = {
+        ...storedUser,
+        businessProfile: normalizeStoredBusinessProfile(initialBusinessProfile),
+      };
+
+      const shouldSyncLegacyOwnerProfile =
+        normalizedUser.actorType === "owner" &&
+        normalizedUser.businessProfile === undefined;
+
+      if (shouldSyncLegacyOwnerProfile) {
+        const businessProfileId = await fetchBusinessProfileId(accessToken);
+
+        if (businessProfileId !== undefined) {
+          normalizedUser = {
+            ...normalizedUser,
+            businessProfile: businessProfileId ? { id: businessProfileId } : null,
+          };
+        }
+      }
+
+      if (normalizedUser.businessProfile !== initialBusinessProfile) {
+        cookieUtils.setUserData(
+          normalizedUser as unknown as Record<string, unknown>,
+          rememberMe
+        );
       }
 
       return {
-        user: userData as unknown as User,
+        user: normalizedUser,
         accessToken,
         refreshToken,
       };
@@ -91,21 +186,48 @@ const authSlice = createSlice({
       action: PayloadAction<{ session: LoginResponse; rememberMe?: boolean }>
     ) => {
       const { session, rememberMe = false } = action.payload;
+      const sessionUser: User = {
+        ...session.user,
+        rememberMe,
+      };
 
       cookieUtils.setAccessToken(session.accessToken, rememberMe);
       cookieUtils.setRefreshToken(session.refreshToken, rememberMe);
-      cookieUtils.setUserData(session.user as unknown as Record<string, unknown>, rememberMe);
-      cookieUtils.setUserRole(session.user.role, rememberMe);
+      cookieUtils.setUserData(
+        sessionUser as unknown as Record<string, unknown>,
+        rememberMe
+      );
+      cookieUtils.setUserRole(sessionUser.role, rememberMe);
 
-      state.user = session.user;
+      state.user = sessionUser;
       state.accessToken = session.accessToken;
       state.refreshToken = session.refreshToken;
       state.isAuthenticated = true;
-      state.role = session.user.role;
-      state.permissions = session.user.permissions || [];
-      state.customRoleId = session.user.customRoleId;
+      state.role = sessionUser.role;
+      state.activeBranchId = sessionUser.branchId || null;
+      state.permissions = sessionUser.permissions || [];
+      state.customRoleId = sessionUser.customRoleId;
       state.error = null;
       state.isLoading = false;
+    },
+
+    setUserBusinessProfile: (
+      state,
+      action: PayloadAction<{ id: string | null }>
+    ) => {
+      if (!state.user) {
+        return;
+      }
+
+      state.user = {
+        ...state.user,
+        businessProfile: action.payload.id ? { id: action.payload.id } : null,
+      };
+
+      cookieUtils.setUserData(
+        state.user as unknown as Record<string, unknown>,
+        Boolean(state.user.rememberMe)
+      );
     },
 
     clearSession: (state) => {
@@ -115,6 +237,7 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.isAuthenticated = false;
       state.role = null;
+      state.activeBranchId = null;
       state.permissions = [];
       state.customRoleId = undefined;
       state.error = null;
@@ -124,6 +247,10 @@ const authSlice = createSlice({
     setAccessToken: (state, action: PayloadAction<string>) => {
       state.accessToken = action.payload;
       cookieUtils.setAccessToken(action.payload, true);
+    },
+
+    setActiveBranchId: (state, action: PayloadAction<string | null>) => {
+      state.activeBranchId = action.payload;
     },
 
     clearError: (state) => {
@@ -142,6 +269,7 @@ const authSlice = createSlice({
         state.refreshToken = null;
         state.isAuthenticated = false;
         state.role = null;
+        state.activeBranchId = null;
         state.permissions = [];
         state.customRoleId = undefined;
         state.error = null;
@@ -159,6 +287,7 @@ const authSlice = createSlice({
         state.refreshToken = action.payload.refreshToken;
         state.isAuthenticated = true;
         state.role = action.payload.user.role;
+        state.activeBranchId = action.payload.user.branchId || null;
         state.permissions = action.payload.user.permissions || [];
         state.customRoleId = action.payload.user.customRoleId;
         state.error = null;
@@ -170,6 +299,7 @@ const authSlice = createSlice({
         state.refreshToken = null;
         state.isAuthenticated = false;
         state.role = null;
+        state.activeBranchId = null;
         state.permissions = [];
         state.customRoleId = undefined;
         state.error = (action.payload as string) || "Authentication failed";
@@ -180,8 +310,10 @@ const authSlice = createSlice({
 
 export const {
   setSession,
+  setUserBusinessProfile,
   clearSession,
   setAccessToken,
+  setActiveBranchId,
   clearError,
   setLoading,
 } = authSlice.actions;

@@ -15,6 +15,7 @@ export const useUser = () => {
     isAuthenticated,
     isLoading,
     role: stateRole,
+    activeBranchId,
     error,
     permissions,
     customRoleId,
@@ -26,6 +27,8 @@ export const useUser = () => {
   const isAdmin = role === "admin";
   const isManager = role === "manager";
   const isUser = role === "member";
+  const isOwner = user?.actorType === "owner";
+  const isStaff = user?.actorType === "staff";
 
   // Permission helper functions
   const hasPermission = (permission: string): boolean => {
@@ -49,6 +52,9 @@ export const useUser = () => {
     isAdmin,
     isManager,
     isUser,
+    isOwner,
+    isStaff,
+    activeBranchId,
     isAuthenticated,
     isLoading,
     error,

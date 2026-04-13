@@ -29,6 +29,47 @@ const STAFF_PERMISSION_MAP: Record<string, string[]> = {
 
 const OWNER_DEFAULT_PERMISSIONS = Object.keys(PERMISSION_DEFINITIONS);
 
+const normalizeBusinessProfile = (
+  businessProfile?: { id?: string; _id?: string } | null
+): { id: string } | null => {
+  if (!businessProfile || typeof businessProfile !== "object") {
+    return null;
+  }
+
+  const rawId =
+    typeof businessProfile.id === "string"
+      ? businessProfile.id
+      : businessProfile._id;
+
+  if (typeof rawId !== "string") {
+    return null;
+  }
+
+  const id = rawId.trim();
+  return id ? { id } : null;
+};
+
+export const hasBusinessProfileId = (
+  user: User | null | undefined
+): boolean => {
+  return Boolean(normalizeBusinessProfile(user?.businessProfile)?.id);
+};
+
+export const requiresBusinessProfileSetup = (
+  user: User | null | undefined
+): boolean => {
+  if (!user || user.actorType !== "owner") {
+    return false;
+  }
+
+  // Undefined is treated as unknown/legacy state and reconciled during auth bootstrap.
+  if (user.businessProfile === undefined) {
+    return false;
+  }
+
+  return !hasBusinessProfileId(user);
+};
+
 const getName = (obj: Record<string, unknown>) => {
   const firstName = typeof obj.firstName === "string" ? obj.firstName : "";
   const lastName = typeof obj.lastName === "string" ? obj.lastName : "";
@@ -68,7 +109,7 @@ export const normalizeOwnerLoginResponse = (payload: {
   accessToken: string;
   refreshToken: string;
   user: Record<string, unknown>;
-  businessProfile?: { id: string } | null;
+  businessProfile?: { id?: string; _id?: string } | null;
 }): LoginResponse => {
   const user = payload.user;
 
@@ -85,7 +126,7 @@ export const normalizeOwnerLoginResponse = (payload: {
     loginTime: new Date().toISOString(),
     permissions: OWNER_DEFAULT_PERMISSIONS,
     customRoleId: user.customRoleId as string | undefined,
-    businessProfile: payload.businessProfile || null,
+    businessProfile: normalizeBusinessProfile(payload.businessProfile),
   };
 
   return {
@@ -100,7 +141,7 @@ export const normalizeStaffLoginResponse = (payload: {
   refreshToken: string;
   staff: Record<string, unknown>;
   permissions?: StaffPermissionSnapshot;
-  businessProfile?: { id: string } | null;
+  businessProfile?: { id?: string; _id?: string } | null;
 }): LoginResponse => {
   const staff = payload.staff;
   const backendRoleName =
@@ -127,7 +168,7 @@ export const normalizeStaffLoginResponse = (payload: {
     permissions: normalizedPermissions,
     branchId: staff.branchId ? String(staff.branchId) : undefined,
     backendRoleName,
-    businessProfile: payload.businessProfile || null,
+    businessProfile: normalizeBusinessProfile(payload.businessProfile),
   };
 
   return {

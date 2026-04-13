@@ -87,7 +87,9 @@ export default function DashboardHeader({
   const [modalType, setModalType] = useState<ModalType>(null);
 
   const pageTitle = getPageTitle(pathname);
-  const actions = user ? getRoleBasedActions(user.role) : [];
+  const actions = user && user.actorType !== "owner"
+    ? getRoleBasedActions(user.role)
+    : [];
 
   const openModal = (type: ModalType) => {
     setModalType(type);
@@ -99,7 +101,7 @@ export default function DashboardHeader({
 
   return (
     <>
-      <header className="fixed top-0 right-0 left-0 md:left-[280px] h-20 bg-white z-30 px-4 md:px-6">
+      <header className="fixed top-0 right-0 left-0 md:left-70 h-20 bg-white z-30 px-4 md:px-6">
         <div className="h-full flex items-center justify-between">
           <h1 className="text-xl md:text-2xl font-semibold text-gray-800">
             {pageTitle}

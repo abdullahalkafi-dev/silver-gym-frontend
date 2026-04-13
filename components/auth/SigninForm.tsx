@@ -17,7 +17,10 @@ import {
   useLoginUserMutation,
   useStaffLoginMutation,
 } from "@/redux/features/auth/authApi";
-import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
+import {
+  extractApiErrorMessage,
+  requiresBusinessProfileSetup,
+} from "@/redux/features/auth/authMappers";
 
 type AuthMode = "user" | "staff";
 
@@ -36,7 +39,7 @@ interface StaffSignInFormValues {
 export default function SignInForm() {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const { isLoading, error, isAuthenticated } = useAppSelector(
+  const { user, isLoading, error, isAuthenticated } = useAppSelector(
     (state) => state.auth
   );
   const [authMode, setAuthMode] = useState<AuthMode>("user");
@@ -78,10 +81,17 @@ export default function SignInForm() {
   );
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/dashboard");
+    if (!isAuthenticated || !user) {
+      return;
     }
-  }, [isAuthenticated, router]);
+
+    if (requiresBusinessProfileSetup(user)) {
+      router.replace("/business-info");
+      return;
+    }
+
+    router.replace("/dashboard");
+  }, [isAuthenticated, router, user]);
 
   useEffect(() => {
     if (error && error !== "No valid authentication found") {

@@ -25,6 +25,7 @@ export interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   role: string | null;
+  activeBranchId: string | null;
   isLoading: boolean;
   error: string | null;
   permissions: string[];

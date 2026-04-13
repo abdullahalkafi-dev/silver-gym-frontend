@@ -11,6 +11,13 @@ import {
   normalizeStaffLoginResponse,
 } from "@/redux/features/auth/authMappers";
 
+type BusinessProfileSummary = {
+  id?: string;
+  _id?: string;
+};
+
+type BusinessProfilePayload = BusinessProfileSummary & Record<string, unknown>;
+
 type LoginUserRequest = {
   email?: string;
   phone?: string;
@@ -64,6 +71,7 @@ export const authApi = baseApi.injectEndpoints({
           accessToken: string;
           refreshToken: string;
           user: Record<string, unknown>;
+          businessProfile?: BusinessProfileSummary | null;
         }>
       ) => normalizeOwnerLoginResponse(response.data),
       invalidatesTags: ["Auth"],
@@ -81,6 +89,7 @@ export const authApi = baseApi.injectEndpoints({
           refreshToken: string;
           staff: Record<string, unknown>;
           permissions?: Record<string, boolean>;
+          businessProfile?: BusinessProfileSummary | null;
         }>
       ) => normalizeStaffLoginResponse(response.data),
       invalidatesTags: ["Auth"],
@@ -161,13 +170,13 @@ export const authApi = baseApi.injectEndpoints({
     }),
 
     createBusinessProfile: builder.mutation<
-      ApiSuccessResponse<Record<string, unknown>>,
+      ApiSuccessResponse<BusinessProfilePayload>,
       CreateBusinessProfilePayload
     >({
       query: (payload) => ({
         url: "/business-profile",
         method: "POST",
-        body: payload,
+        body: { data: payload },
       }),
       invalidatesTags: ["Profile"],
     }),

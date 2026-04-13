@@ -6,20 +6,36 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { CheckmarkBadge01Icon } from "@hugeicons/core-free-icons";
+import { useAppSelector } from "@/redux/hooks";
 
 export default function SuccessPage() {
   const router = useRouter();
+  const { user, isAuthenticated } = useAppSelector((state) => state.auth);
 
-  // Check if user has completed all steps
+  // Allow success only as part of onboarding completion flow.
   useEffect(() => {
     const contactInfo = localStorage.getItem("contactInfo");
     const businessInfo = localStorage.getItem("businessInfo");
-    const verificationComplete = localStorage.getItem("verification_complete");
 
-    if (!contactInfo || !businessInfo || verificationComplete !== "true") {
-      router.push("/sign-up");
+    if (!isAuthenticated) {
+      router.push("/sign-in");
+      return;
     }
-  }, [router]);
+
+    if (user?.actorType !== "owner") {
+      router.push("/dashboard");
+      return;
+    }
+
+    if (user.businessProfile?.id && (!contactInfo || !businessInfo)) {
+      router.push("/dashboard");
+      return;
+    }
+
+    if (!contactInfo || !businessInfo) {
+      router.push("/business-info");
+    }
+  }, [isAuthenticated, router, user]);
 
   const handleGoToDashboard = () => {
     // Clear all temporary data

@@ -1,7 +1,8 @@
 // app/dashboard/members/page.tsx
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import MemberStatsCards from "@/components/dashboard/Members/MemberStatsCards";
 import MemberTable from "@/components/dashboard/Members/MemberTable";
 import SelectSMSTypeModal from "@/components/modals/SelectSMSTypeModal";
@@ -17,8 +18,21 @@ import { CustomFormField, Member } from "@/types/member";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { UserAdd02Icon, Search01Icon, FilterHorizontalIcon, UserBlock01Icon, UserCheck01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
+import { useUser } from "@/hooks/useUser";
+import { CanAccess } from "@/components/shared/CanAccess";
 
 export default function MembersPage() {
+  const router = useRouter();
+  const { isOwner, hasPermission } = useUser();
+
+  // Block staff who lack member view permission before any API call.
+  useEffect(() => {
+    if (!isOwner && !hasPermission("member:view")) {
+      router.replace("/dashboard/branch-dashboard");
+    }
+  }, [isOwner, hasPermission, router]);
+
+  if (!isOwner && !hasPermission("member:view")) return null;
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string | null>(null);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -82,13 +96,15 @@ export default function MembersPage() {
               Effortlessly manage and oversee your organization's expenditure details.
             </p>
           </div>
-          <Link
-            href="/dashboard/members/add-member"
-            className="px-4 py-2.5 bg-purple text-white text-sm rounded-md hover:bg-[#6A3FE0] transition-colors flex items-center justify-center gap-2 cursor-pointer md:text-base"
-          >
-            <HugeiconsIcon icon={UserAdd02Icon} size={20} />
-            Add New Member
-          </Link>
+          <CanAccess resource="member" action="create">
+            <Link
+              href="/dashboard/members/add-member"
+              className="px-4 py-2.5 bg-purple text-white text-sm rounded-md hover:bg-[#6A3FE0] transition-colors flex items-center justify-center gap-2 cursor-pointer md:text-base"
+            >
+              <HugeiconsIcon icon={UserAdd02Icon} size={20} />
+              Add New Member
+            </Link>
+          </CanAccess>
         </div>
 
         {/* Stats Cards */}

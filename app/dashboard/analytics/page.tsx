@@ -1,85 +1,42 @@
 // app/dashboard/analytics/page.tsx
 "use client";
-import { useState } from "react";
-import MemberAnalytics from "@/components/dashboard/Analytics/MemberAnalytics";
-import FinancialAnalytics from "@/components/dashboard/Analytics/FinancialAnalytics";
-import CostAnalytics from "@/components/dashboard/Analytics/CostAnalytics";
-import PackagesAnalytics from "@/components/dashboard/Analytics/PackagesAnalytics";
-import CompareAnalyticsModal from "@/components/dashboard/Analytics/CompareAnalyticsModal";
-import FinancialsCompare from "@/components/dashboard/Analytics/FinancialsCompare";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AnalyticsDownIcon } from "@hugeicons/core-free-icons";
+import { useUser } from "@/hooks/useUser";
 
-export default function AnalyticsPage() {
-  const [showCompareModal, setShowCompareModal] = useState(false);
-  const [showCompareView, setShowCompareView] = useState(false);
-  const [compareConfig, setCompareConfig] = useState({
-    options: [] as string[],
-    startYear: 2020,
-    endYear: 2024,
-  });
-
-  const handleStartCompare = (
-    options: string[],
-    startYear: number,
-    endYear: number
-  ) => {
-    setCompareConfig({ options, startYear, endYear });
-    setShowCompareView(true);
-  };
-
-  const handleNewCompare = () => {
-    setShowCompareModal(true);
-  };
-
+function OwnerComingSoon() {
   return (
-    <div className="min-h-screen">
-      <div className="w-full">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-5">
-          <div></div>
-          {!showCompareView && (
-            <button
-              onClick={() => setShowCompareModal(true)}
-              className="px-4 py-2.5 bg-purple text-white text-sm rounded-md hover:bg-[#6A3FE0] transition-colors flex items-center justify-center gap-2 cursor-pointer md:text-base"
-            >
-             <HugeiconsIcon icon={AnalyticsDownIcon} />
-              Compare Analytics
-            </button>
-          )}
-        </div>
-
-        {/* Main Content */}
-        {showCompareView ? (
-          <FinancialsCompare 
-            onNewCompare={handleNewCompare}
-            selectedOptions={compareConfig.options}
-            startYear={compareConfig.startYear}
-            endYear={compareConfig.endYear}
-          />
-        ) : (
-          <div className="space-y-6 mb-20">
-            {/* Member Analytics */}
-            <MemberAnalytics />
-
-            {/* Financial Analytics */}
-            <FinancialAnalytics />
-
-            {/* Cost Analytics */}
-            <CostAnalytics />
-
-            {/* Packages Analytics */}
-            <PackagesAnalytics />
-          </div>
-        )}
-
-        {/* Compare Analytics Modal */}
-        <CompareAnalyticsModal
-          isOpen={showCompareModal}
-          onClose={() => setShowCompareModal(false)}
-          onStartCompare={handleStartCompare}
-        />
+    <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-2xl border border-[#E5E5E5] bg-white p-10 text-center">
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F2F2F2]">
+        <HugeiconsIcon icon={AnalyticsDownIcon} size={32} className="text-primary" />
       </div>
+      <h2 className="text-2xl font-semibold text-[#2F2F2F]">Analytics Coming Soon</h2>
+      <p className="mt-3 max-w-sm text-sm text-[#7A7A7A]">
+        Cross-branch analytics are on the roadmap. Select a branch from the Home page to view branch-level analytics.
+      </p>
     </div>
   );
+}
+
+export default function AnalyticsPage() {
+  const router = useRouter();
+  const { user } = useUser();
+
+  useEffect(() => {
+    if (user && user.actorType !== "owner") {
+      router.replace("/dashboard/branch-dashboard/analytics");
+    }
+  }, [router, user]);
+
+  if (!user) {
+    return null;
+  }
+
+  if (user.actorType !== "owner") {
+    return null;
+  }
+
+  return <OwnerComingSoon />;
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
+import { ChevronDown, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Image from "next/image";
+import { useAppSelector } from "@/redux/hooks";
+import { toast } from "sonner";
 
 const BUSINESS_TYPES = ["gym", "fitness", "studio", "other"] as const;
 
@@ -32,8 +34,10 @@ type FormData = z.infer<typeof schema>;
 export default function BusinessInfoForm() {
   const [logo, setLogo] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
+  const [logoError, setLogoError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { user, isAuthenticated } = useAppSelector((state) => state.auth);
 
   const {
     register,
@@ -49,14 +53,23 @@ export default function BusinessInfoForm() {
     },
   });
 
-  // Check if user has completed verification
+  // Guard route by auth state and preload any saved draft.
   useEffect(() => {
-    const verificationComplete = localStorage.getItem("verification_complete");
-    if (verificationComplete !== "true") {
-      router.push("/sign-up");
+    if (!isAuthenticated) {
+      router.push("/sign-in");
+      return;
     }
 
-    // Load saved data if exists
+    if (user?.actorType !== "owner") {
+      router.push("/dashboard");
+      return;
+    }
+
+    if (user.businessProfile?.id) {
+      router.push("/dashboard");
+      return;
+    }
+
     const savedData = localStorage.getItem("businessInfo");
     if (savedData) {
       const parsed = JSON.parse(savedData);
@@ -67,23 +80,30 @@ export default function BusinessInfoForm() {
         setLogoPreview(parsed.logoPreview);
       }
     }
-  }, [router, setValue]);
+  }, [isAuthenticated, router, setValue, user]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // Validate file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
-        console.error("File size exceeds 2MB");
+        const errorMessage = "Logo size cannot exceed 2 MB.";
+        setLogoError(errorMessage);
+        toast.error(errorMessage);
+        e.target.value = "";
         return;
       }
 
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        console.error("Please upload an image file");
+        const errorMessage = "Please upload a valid image file.";
+        setLogoError(errorMessage);
+        toast.error(errorMessage);
+        e.target.value = "";
         return;
       }
 
+      setLogoError("");
       setLogo(file);
 
       // Create preview
@@ -118,7 +138,7 @@ export default function BusinessInfoForm() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-5 md:p-10 relative w-full overflow-hidden bg-white">
+    <div className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-white p-3 md:p-6">
       {/* Background decoration */}
       <div className="absolute top-[-65px] left-[1236px] w-[501px] h-[234px] bg-white rounded-[250.46px/117.05px] -rotate-45 blur-[234px]" />
 
@@ -135,20 +155,20 @@ export default function BusinessInfoForm() {
         </div>
 
         {/* Main card */}
-        <Card className="relative z-20 bg-white rounded-2xl shadow-[-76px_59px_212px_#ff73001a,-305px_235px_250px_#ff730017,-687px_529px_250px_#ff73000d,-1221px_940px_250px_#ff730003,-1908px_1469px_250px_transparent] border-none m-4">
-          <CardContent className="p-8">
-            <div className="flex flex-col gap-6">
+        <Card className="relative z-20 bg-white rounded-2xl shadow-[-76px_59px_212px_#ff73001a,-305px_235px_250px_#ff730017,-687px_529px_250px_#ff73000d,-1221px_940px_250px_#ff730003,-1908px_1469px_250px_transparent] border-none m-3 md:m-4">
+          <CardContent className="p-6 md:p-7">
+            <div className="flex flex-col gap-4 md:gap-5">
               {/* Step Indicator */}
               <StepIndicator currentStep={1} />
 
               {/* Title and Step Counter */}
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col gap-1">
-                    <h1 className="font-semibold text-gray-medium text-2xl leading-9">
+                    <h1 className="font-semibold text-foreground text-[30px] leading-tight md:text-[32px]">
                       Business Information
                     </h1>
-                    <p className="font-normal text-gray-medium text-base leading-6">
+                    <p className="font-normal text-muted-foreground text-base leading-6">
                       Enter your gym or company details to get started.
                     </p>
                   </div>
@@ -158,7 +178,7 @@ export default function BusinessInfoForm() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4 md:gap-5">
                 {/* Logo Upload */}
                 <div className="flex flex-col gap-2">
                   <Label className="text-sm font-medium text-gray-medium">
@@ -197,6 +217,9 @@ export default function BusinessInfoForm() {
                       className="hidden"
                     />
                   </label>
+                  {logoError && (
+                    <span className="text-sm text-[#FC5555]">{logoError}</span>
+                  )}
                 </div>
 
                 {/* Business Name */}
@@ -229,17 +252,20 @@ export default function BusinessInfoForm() {
                   >
                     Business Type
                   </Label>
-                  <select
-                    id="businessType"
-                    className="w-full h-14 px-4 py-3 rounded-lg border border-border-2 bg-white focus-visible:border-[#F05B23] focus-visible:shadow-[0_0_0_3px_#FCF0ED] transition-all text-base text-gray-medium"
-                    {...register("businessType")}
-                  >
-                    <option value="">Select your business</option>
-                    <option value="gym">Gym</option>
-                    <option value="fitness">Fitness Center</option>
-                    <option value="studio">Studio</option>
-                    <option value="other">Other</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      id="businessType"
+                      className="w-full h-14 appearance-none rounded-lg border border-border-2 bg-white px-4 py-3 pr-11 text-base text-gray-medium transition-all focus-visible:border-[#F05B23] focus-visible:shadow-[0_0_0_3px_#FCF0ED]"
+                      {...register("businessType")}
+                    >
+                      <option value="">Select your business</option>
+                      <option value="gym">Gym</option>
+                      <option value="fitness">Fitness Center</option>
+                      <option value="studio">Studio</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+                  </div>
                   {errors.businessType && (
                     <span className="text-sm text-[#FC5555]">
                       {errors.businessType.message}

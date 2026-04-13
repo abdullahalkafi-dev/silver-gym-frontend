@@ -1,16 +1,28 @@
 // app/dashboard/user-access/page.tsx
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import RoleStatsCards from "@/components/dashboard/UserAccess/RoleStatsCards";
 import UserAccessTable from "@/components/dashboard/UserAccess/UserAccessTable";
 import CreateCustomRoleModal from "@/components/modals/CreateCustomRoleModal";
 import { User, RoleData } from "@/types/user-access";
 import { toast } from "sonner";
 import { membersData } from "@/data/memberData";
+import { useUser } from "@/hooks/useUser";
 
 const UserAccessPage = () => {
+  const router = useRouter();
+  const { isOwner, hasPermission } = useUser();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [customRoles, setCustomRoles] = useState<RoleData[]>([]);
+
+  useEffect(() => {
+    if (!isOwner && !hasPermission("access:view-users")) {
+      router.replace("/dashboard/branch-dashboard");
+    }
+  }, [isOwner, hasPermission, router]);
+
+  if (!isOwner && !hasPermission("access:view-users")) return null;
   
   // Convert Member[] to User[] format
   const initialUsers: User[] = membersData.map((member) => ({

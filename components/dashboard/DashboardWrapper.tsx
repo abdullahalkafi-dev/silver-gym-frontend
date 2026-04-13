@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import DashboardHeader from "@/components/dashboard/Header/DashboardHeader";
 import Sidebar from "@/components/dashboard/Sidebar/Sidebar";
 import { getSidebarForRole } from "@/config/sidebarConfig";
@@ -19,14 +19,21 @@ export default function DashboardWrapper({
 }) {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const { user, permissions } = useUser();
+  const { user, permissions, activeBranchId } = useUser();
+  const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const hasDashboardAccess = useMemo(() => {
     if (!user) return true;
-    const sections = getSidebarForRole(user.role, permissions);
+    const isOwnerModePath =
+      pathname === "/dashboard" || pathname === "/dashboard/analytics";
+    const sidebarRole =
+      user.actorType === "owner" && (isOwnerModePath || !activeBranchId)
+        ? "owner"
+        : "branch";
+    const sections = getSidebarForRole(sidebarRole, permissions);
     return sections.some((section) => section.items.length > 0);
-  }, [permissions, user]);
+  }, [activeBranchId, pathname, permissions, user]);
 
   const handleSignOut = async () => {
     try {
@@ -60,7 +67,7 @@ export default function DashboardWrapper({
   return (
     <div className="min-h-screen bg-gray-primary">
       <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-      <div className="md:pl-[280px]">
+      <div className="md:pl-70">
         <DashboardHeader
           onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
           isSidebarOpen={isSidebarOpen}

@@ -31,6 +31,27 @@ export interface SidebarSection {
 }
 
 export const sidebarConfig: Record<string, SidebarSection[]> = {
+  owner: [
+    {
+      items: [
+        {
+          id: "branch-root",
+          label: "Home",
+          icon: <HugeiconsIcon icon={Home01Icon} size={24} />,
+          path: "/dashboard",
+          roles: ["owner"],
+        },
+        {
+          id: "branch-analytics",
+          label: "Analytics",
+          icon: <HugeiconsIcon icon={Analytics01Icon} size={24} />,
+          path: "/dashboard/analytics",
+          roles: ["owner"],
+        },
+      ],
+      divider: false,
+    },
+  ],
   admin: [
     {
       items: [
@@ -198,6 +219,95 @@ export const sidebarConfig: Record<string, SidebarSection[]> = {
           path: "/dashboard/analytics",
           roles: ["member"],
           permissions: ["analytics:view"],
+        },
+      ],
+      divider: false,
+    },
+  ],
+  // Shared branch-level sidebar used for both owner (after selecting a branch) and staff
+  branch: [
+    {
+      items: [
+        {
+          id: "overview",
+          label: "Overview",
+          icon: <HugeiconsIcon icon={Home01Icon} size={24} />,
+          path: "/dashboard/branch-dashboard",
+          roles: ["branch"],
+        },
+        {
+          id: "accounts",
+          label: "Accounts",
+          icon: <HugeiconsIcon icon={UserAccountIcon} size={24} />,
+          path: "/dashboard/accounts",
+          roles: ["branch"],
+          permissions: ["billing:view"],
+        },
+        {
+          id: "analytics",
+          label: "Analytics",
+          icon: <HugeiconsIcon icon={Analytics01Icon} size={24} />,
+          path: "/dashboard/branch-dashboard/analytics",
+          roles: ["branch"],
+          permissions: ["analytics:view"],
+        },
+        {
+          id: "members",
+          label: "Members",
+          icon: <HugeiconsIcon icon={UserMultiple02Icon} size={24} />,
+          path: "/dashboard/members",
+          roles: ["branch"],
+          permissions: ["member:view"],
+        },
+      ],
+      divider: true,
+    },
+    {
+      items: [
+        {
+          id: "income",
+          label: "Income",
+          icon: <HugeiconsIcon icon={MoneyReceiveSquareIcon} size={24} />,
+          path: "/dashboard/income",
+          roles: ["branch"],
+          permissions: ["billing:view"],
+        },
+        {
+          id: "expense",
+          label: "Expense",
+          icon: <HugeiconsIcon icon={MoneySendSquareIcon} size={24} />,
+          path: "/dashboard/expense",
+          roles: ["branch"],
+          permissions: ["billing:view"],
+        },
+        {
+          id: "transaction",
+          label: "Transaction",
+          icon: <HugeiconsIcon icon={Invoice01Icon} size={24} />,
+          path: "/dashboard/transaction",
+          roles: ["branch"],
+          permissions: ["billing:view"],
+        },
+      ],
+      divider: true,
+    },
+    {
+      items: [
+        {
+          id: "user-access",
+          label: "User Access",
+          icon: <HugeiconsIcon icon={UserLock01Icon} size={24} />,
+          path: "/dashboard/user-access",
+          roles: ["branch"],
+          permissions: ["access:view-users"],
+        },
+        {
+          id: "send-sms",
+          label: "Send SMS",
+          icon: <HugeiconsIcon icon={MailSend01Icon} size={24} />,
+          path: "/dashboard/send-sms",
+          roles: ["branch"],
+          permissions: ["sms:send"],
         },
       ],
       divider: false,

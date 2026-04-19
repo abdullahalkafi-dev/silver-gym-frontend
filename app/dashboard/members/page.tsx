@@ -1,29 +1,32 @@
 // app/dashboard/members/page.tsx
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import MemberStatsCards from "@/components/dashboard/Members/MemberStatsCards";
 import MemberTable from "@/components/dashboard/Members/MemberTable";
-import SelectSMSTypeModal from "@/components/modals/SelectSMSTypeModal";
-import ManageMemberFormModal from "@/components/modals/ManageMemberFormModal";
-import {
-  membersData,
-  memberStatsData,
-  filterMembersBySearch,
-  filterMembersByStatus,
-  defaultCustomFormFields,
-} from "@/data/memberData";
-import { CustomFormField, Member } from "@/types/member";
+import { memberStatsData } from "@/data/memberData";
+import { BackendMember } from "@/types/member";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { UserAdd02Icon, Search01Icon, FilterHorizontalIcon, UserBlock01Icon, UserCheck01Icon } from "@hugeicons/core-free-icons";
+import {
+  UserAdd02Icon,
+  Search01Icon,
+  FilterHorizontalIcon,
+  UserBlock01Icon,
+  UserCheck01Icon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons";
 import { useUser } from "@/hooks/useUser";
 import { CanAccess } from "@/components/shared/CanAccess";
 import { useBranchFeeSetupGuard } from "@/components/dashboard/BranchFeeSetupGuard";
+import {
+  useGetBranchMembersQuery,
+  useGetDashboardSummaryQuery,
+} from "@/redux/features/member/memberApi";
 
 export default function MembersPage() {
   const router = useRouter();
-  const { isOwner, hasPermission } = useUser();
+  const { isOwner, hasPermission, activeBranchId } = useUser();
   const { isFeeStatusKnown, hasMissingFees, requestFeeSetup } =
     useBranchFeeSetupGuard();
 
@@ -33,33 +36,73 @@ export default function MembersPage() {
       router.replace("/dashboard/branch-dashboard");
     }
   }, [isOwner, hasPermission, router]);
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<string | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filterType, setFilterType] = useState<string>("all");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedMember, setSelectedMember] = useState<BackendMember | null>(null);
   const [showSMSModal, setShowSMSModal] = useState(false);
-  const [showManageFormModal, setShowManageFormModal] = useState(false);
-  const [customFormFields, setCustomFormFields] = useState<CustomFormField[]>(
-    defaultCustomFormFields
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Build query params for API
+  const queryArgs = {
+    branchId: activeBranchId || "",
+    ...(debouncedSearch ? { searchTerm: debouncedSearch } : {}),
+    ...(filterType === "all" ? { includeInactive: "true" } : {}),
+    ...(filterType === "inactive"
+      ? { includeInactive: "true" }
+      : {}),
+    page: currentPage,
+    limit: 20,
+  };
+
+  const {
+    data: memberData,
+    isLoading: membersLoading,
+    isFetching: membersFetching,
+  } = useGetBranchMembersQuery(queryArgs, {
+    skip: !activeBranchId,
+  });
+
+  const { data: dashboardSummary } = useGetDashboardSummaryQuery(
+    { branchId: activeBranchId || "" },
+    { skip: !activeBranchId }
   );
 
-  // Filter members based on search and filter
-  const filteredMembers = useMemo(() => {
-    let result = membersData;
-    
-    // Apply search filter
-    result = filterMembersBySearch(result, searchQuery);
-    
-    // Apply status/payment filter
-    result = filterMembersByStatus(result, filterType);
-    
-    return result;
-  }, [searchQuery, filterType]);
+  // Map dashboard summary to stats card shape
+  const stats = dashboardSummary
+    ? {
+        totalMembers: dashboardSummary.members.members.totalMembers,
+        totalMembersUnit: "/Person",
+        totalMembersDescription: "Total registered members",
+        newAdmission: dashboardSummary.members.members.newMembersInWindow,
+        newAdmissionUnit: "/Person",
+        newAdmissionDescription: "New members this week",
+        newAdmissionBadge: `${dashboardSummary.members.windowDays}d`,
+        activeMembers: dashboardSummary.members.members.activeMembers,
+        activeMembersUnit: "/Person",
+        activeMembersDescription: "Currently active members",
+      }
+    : memberStatsData;
 
-  const handleSendSMS = (member: Member) => {
+  const members = memberData?.data || [];
+  const meta = memberData?.meta;
+  const totalPages = meta?.totalPage || 1;
+
+  const handleSendSMS = useCallback((member: BackendMember) => {
     setSelectedMember(member);
     setShowSMSModal(true);
-  };
+  }, []);
 
   const handleCloseSMSModal = () => {
     setShowSMSModal(false);
@@ -67,20 +110,13 @@ export default function MembersPage() {
   };
 
   const handleFilterSelect = (type: string) => {
-    setFilterType(type === filterType ? null : type);
+    setFilterType(type);
     setShowFilterDropdown(false);
+    setCurrentPage(1);
   };
 
-  const handleManageClick = () => {
-    setShowManageFormModal(true);
-  };
-
-  const handleCloseManageFormModal = () => {
-    setShowManageFormModal(false);
-  };
-
-  const handleSaveFormFields = (fields: CustomFormField[]) => {
-    setCustomFormFields(fields);
+  const handleImportClick = () => {
+    router.push("/dashboard/members/import-old-members");
   };
 
   const handleCreateMember = () => {
@@ -88,7 +124,6 @@ export default function MembersPage() {
       requestFeeSetup("member-create");
       return;
     }
-
     router.push("/dashboard/members/add-member");
   };
 
@@ -104,7 +139,8 @@ export default function MembersPage() {
               Member Details
             </h1>
             <p className="text-sm text-gray-500">
-              Effortlessly manage and oversee your organization&apos;s expenditure details.
+              Effortlessly manage and oversee your organization&apos;s member
+              details.
             </p>
           </div>
           <CanAccess resource="member" action="create">
@@ -120,20 +156,27 @@ export default function MembersPage() {
         </div>
 
         {/* Stats Cards */}
-        <MemberStatsCards stats={memberStatsData} onManageClick={handleManageClick} />
+        <MemberStatsCards stats={stats} onImportClick={handleImportClick} />
 
         {/* Member List Section */}
         <div className="bg-white rounded-2xl border border-border p-6">
           {/* Member List Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-3">
-            <h2 className="text-xl font-semibold text-gray-medium">Member List</h2>
-            
+            <h2 className="text-xl font-semibold text-gray-medium">
+              Member List
+              {meta?.total != null && (
+                <span className="ml-2 text-sm font-normal text-gray-400">
+                  ({meta.total})
+                </span>
+              )}
+            </h2>
+
             <div className="flex items-center gap-3">
               {/* Search */}
               <div className="relative flex-1 sm:flex-initial">
                 <input
                   type="text"
-                  placeholder="Search ID/Name/Title..."
+                  placeholder="Search ID/Name/Phone..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full sm:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -150,134 +193,53 @@ export default function MembersPage() {
                 <button
                   onClick={() => setShowFilterDropdown(!showFilterDropdown)}
                   className={`px-4 py-2 border rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
-                    filterType
+                    filterType !== "all"
                       ? "border-primary bg-primary/5 text-primary"
                       : "border-gray-300 text-gray-700 hover:bg-gray-50"
                   }`}
                 >
                   <HugeiconsIcon icon={FilterHorizontalIcon} size={18} />
                   Filter
-                  {filterType && (
+                  {filterType !== "all" && (
                     <span className="ml-1 w-2 h-2 bg-primary rounded-full"></span>
                   )}
                 </button>
 
-                {/* Filter Dropdown */}
                 {showFilterDropdown && (
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                     <div className="py-2">
                       <button
+                        onClick={() => handleFilterSelect("all")}
+                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+                          filterType === "all"
+                            ? "bg-primary/5 text-primary"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        <HugeiconsIcon icon={UserGroupIcon} size={18} />
+                        All Members
+                      </button>
+                      <button
                         onClick={() => handleFilterSelect("active")}
                         className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                          filterType === "active" ? "bg-primary/5 text-primary" : "text-gray-700"
+                          filterType === "active"
+                            ? "bg-primary/5 text-primary"
+                            : "text-gray-700"
                         }`}
                       >
                         <HugeiconsIcon icon={UserCheck01Icon} size={18} />
                         Active Members
-                        {filterType === "active" && (
-                          <svg
-                            className="ml-auto w-4 h-4"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
                       </button>
                       <button
                         onClick={() => handleFilterSelect("inactive")}
                         className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                          filterType === "inactive" ? "bg-primary/5 text-primary" : "text-gray-700"
+                          filterType === "inactive"
+                            ? "bg-primary/5 text-primary"
+                            : "text-gray-700"
                         }`}
                       >
                         <HugeiconsIcon icon={UserBlock01Icon} size={18} />
                         Inactive Members
-                        {filterType === "inactive" && (
-                          <svg
-                            className="ml-auto w-4 h-4"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                      <div className="border-t border-gray-200 my-2"></div>
-                      <button
-                        onClick={() => handleFilterSelect("complete")}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                          filterType === "complete" ? "bg-primary/5 text-primary" : "text-gray-700"
-                        }`}
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        Complete
-                        {filterType === "complete" && (
-                          <svg
-                            className="ml-auto w-4 h-4"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleFilterSelect("due")}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                          filterType === "due" ? "bg-primary/5 text-primary" : "text-gray-700"
-                        }`}
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        Due
-                        {filterType === "due" && (
-                          <svg
-                            className="ml-auto w-4 h-4"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
                       </button>
                     </div>
                   </div>
@@ -287,25 +249,57 @@ export default function MembersPage() {
           </div>
 
           {/* Member Table */}
-          <MemberTable members={filteredMembers} onSendSMS={handleSendSMS} />
+          <MemberTable
+            members={members}
+            onSendSMS={handleSendSMS}
+            isLoading={membersLoading || membersFetching}
+          />
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-gray-100">
+              <button
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                disabled={currentPage >= totalPages}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
 
         {/* SMS Modal */}
-        {selectedMember && (
-          <SelectSMSTypeModal
-            isOpen={showSMSModal}
-            onClose={handleCloseSMSModal}
-            memberName={selectedMember.name}
-          />
+        {selectedMember && showSMSModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold mb-2">Send SMS</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Send SMS to {selectedMember.fullName}
+              </p>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleCloseSMSModal}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         )}
-
-        {/* Manage Form Modal */}
-        <ManageMemberFormModal
-          isOpen={showManageFormModal}
-          onClose={handleCloseManageFormModal}
-          onSave={handleSaveFormFields}
-          initialFields={customFormFields}
-        />
       </div>
     </div>
   );

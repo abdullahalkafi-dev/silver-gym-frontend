@@ -265,6 +265,14 @@ const authSlice = createSlice({
 
     setActiveBranchId: (state, action: PayloadAction<string | null>) => {
       state.activeBranchId = action.payload;
+      if (action.payload) {
+        cookieUtils.setActiveBranchId(
+          action.payload,
+          Boolean(state.user?.rememberMe)
+        );
+      } else {
+        cookieUtils.deleteActiveBranchId();
+      }
     },
 
     clearError: (state) => {
@@ -301,7 +309,13 @@ const authSlice = createSlice({
         state.refreshToken = action.payload.refreshToken;
         state.isAuthenticated = true;
         state.role = action.payload.user.role;
-        state.activeBranchId = action.payload.user.branchId || null;
+        // For staff, branchId comes from their token. For owners, branchId is
+        // null in the token — fall back to the persisted cookie so that the
+        // last-selected branch survives a page reload.
+        state.activeBranchId =
+          action.payload.user.branchId ||
+          cookieUtils.getActiveBranchId() ||
+          null;
         state.permissions = action.payload.user.permissions || [];
         state.customRoleId = action.payload.user.customRoleId;
         state.error = null;

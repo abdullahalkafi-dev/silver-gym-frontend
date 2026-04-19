@@ -4,6 +4,166 @@ export type MemberStatus = "Active" | "Inactive";
 export type PaymentStatus = "Complete" | "Due";
 export type SMSDeliveryMethod = "email" | "phone" | "both";
 
+// ─── Backend-aligned types ──────────────────────────────────────────
+
+export type TrainingGoal =
+  | "Yoga"
+  | "Cardio Endurance"
+  | "Bodybuilding"
+  | "Muscle Gain"
+  | "Flexibility & Mobility"
+  | "General Fitness"
+  | "Strength Training";
+
+export type PaymentMethod =
+  | "cash"
+  | "card"
+  | "bkash"
+  | "nagad"
+  | "rocket"
+  | "bank_transfer"
+  | "other";
+
+export type BackendPaymentStatus =
+  | "pending"
+  | "paid"
+  | "partial"
+  | "due"
+  | "cancelled"
+  | "refunded";
+
+export interface BackendMember {
+  _id: string;
+  branchId: string;
+  legacyId?: string;
+  memberId?: string;
+  barcode?: string;
+  fullName: string;
+  contact?: string;
+  email?: string;
+  dateOfBirth?: string;
+  country?: string;
+  nid?: string;
+  gender?: string;
+  bloodGroup?: string;
+  height?: number;
+  heightUnit?: "cm" | "in" | "ft";
+  weight?: number;
+  weightUnit?: "kg" | "lb";
+  address?: string;
+  photo?: string;
+  emergencyContact?: { relationship: string; contactNumber: string };
+  trainingGoals?: TrainingGoal[];
+  currentPackageId?: string;
+  currentPackageName?: string;
+  membershipStartDate?: string;
+  membershipEndDate?: string;
+  nextPaymentDate?: string;
+  isActive?: boolean;
+  customMonthlyFee?: boolean;
+  monthlyFeeAmount?: number;
+  paidMonths?: number;
+  currentDueAmount?: number;
+  source?: string;
+  importBatchId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateMemberPaymentPayload {
+  paymentMethod: PaymentMethod;
+  paidTotal: number;
+  discount?: number;
+  admissionFee?: number;
+  paymentDate?: string;
+  status?: BackendPaymentStatus;
+}
+
+export interface CreateMemberPayload {
+  fullName: string;
+  contact?: string;
+  email?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  nid?: string;
+  address?: string;
+  country?: string;
+  bloodGroup?: string;
+  height?: number;
+  heightUnit?: "cm" | "in" | "ft";
+  weight?: number;
+  weightUnit?: "kg" | "lb";
+  emergencyContact?: { relationship: string; contactNumber: string };
+  trainingGoals?: TrainingGoal[];
+  currentPackageId?: string;
+  membershipStartDate?: string;
+  customMonthlyFee?: boolean;
+  monthlyFeeAmount?: number | false;
+  paidMonths?: number;
+  payment: CreateMemberPaymentPayload;
+}
+
+export interface MemberQueryArgs {
+  branchId: string;
+  searchTerm?: string;
+  isActive?: string;
+  includeInactive?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+}
+
+export interface MemberListMeta {
+  page?: number;
+  limit?: number;
+  total?: number;
+  totalPage?: number;
+}
+
+export interface MemberListResponse {
+  data: BackendMember[];
+  meta?: MemberListMeta;
+}
+
+export interface DashboardMemberSummary {
+  members: {
+    windowDays: number;
+    members: {
+      totalMembers: number;
+      activeMembers: number;
+      inactiveMembers: number;
+      importDraftMembers: number;
+      newMembersInWindow: number;
+    };
+    billing: {
+      paymentDueNow: number;
+      paymentDueSoon: number;
+    };
+  };
+  imports: {
+    totalBatches: number;
+    successRate: number;
+  };
+}
+
+export interface ImportBatch {
+  _id: string;
+  branchId: string;
+  source: "google_sheet" | "csv_upload";
+  fileName?: string;
+  status: "pending" | "processing" | "completed" | "partial_failed" | "failed" | "cancelled";
+  totalRows?: number;
+  processedRows?: number;
+  successRows?: number;
+  failedRows?: number;
+  warningRows?: number;
+  failuresPreview?: { rowIndex: number; reason: string; memberName?: string }[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ─── Legacy types (used by existing UI, kept for compat) ────────────
+
 export interface MemberProfile {
   id: string;
   memberId: string;

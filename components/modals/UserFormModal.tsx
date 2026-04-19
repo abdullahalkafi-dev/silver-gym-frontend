@@ -331,11 +331,12 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
     const displayName = formData.displayName.trim();
     const email = formData.email.trim().toLowerCase();
     const phone = formData.phone.trim();
-    const optionalFields = {
-      ...(displayName ? { displayName } : {}),
-      ...(email ? { email } : {}),
-      ...(phone ? { phone } : {}),
-    };
+    
+    // Build optional fields explicitly to avoid type inference issues
+    const optionalFields: Record<string, string> = {};
+    if (displayName) optionalFields.displayName = displayName;
+    if (email) optionalFields.email = email;
+    if (phone) optionalFields.phone = phone;
 
     if (mode === "add") {
       return {
@@ -343,13 +344,13 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
         password: formData.password.trim(),
         roleId: formData.roleId,
         ...optionalFields,
-      };
+      } as StaffFormValues;
     }
 
     return {
       roleId: formData.roleId,
       ...optionalFields,
-    };
+    } as StaffUpdateValues;
   };
 
   const handleSubmit = async () => {

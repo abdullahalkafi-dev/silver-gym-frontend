@@ -4,6 +4,7 @@ const COOKIE_NAMES = {
   REFRESH_TOKEN: "refreshToken",
   USER_DATA: "userData",
   USER_ROLE: "userRole",
+  ACTIVE_BRANCH_ID: "activeBranchId",
 } as const;
 
 // Helper functions for cookie operations
@@ -90,6 +91,19 @@ export const cookieUtils = {
   setUserRole: (role: string, rememberMe = false) => {
     const expires = rememberMe ? 30 : 1;
     setCookie(COOKIE_NAMES.USER_ROLE, role, expires);
+  },
+
+  setActiveBranchId: (id: string, rememberMe = false) => {
+    const expires = rememberMe ? 30 : 1;
+    setCookie(COOKIE_NAMES.ACTIVE_BRANCH_ID, id, expires);
+  },
+
+  getActiveBranchId: (): string | null => {
+    return getCookie(COOKIE_NAMES.ACTIVE_BRANCH_ID);
+  },
+
+  deleteActiveBranchId: () => {
+    deleteCookie(COOKIE_NAMES.ACTIVE_BRANCH_ID);
   },
 
   // Get cookies

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
+import { useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +17,20 @@ import { useCreateBusinessProfileMutation } from "@/redux/features/auth/authApi"
 import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { setUserBusinessProfile } from "@/redux/features/auth/authSlice";
+const citiesByCountry: Record<string, string[]> = {
+  bd: ["Dhaka", "Chittagong", "Sylhet", "Rajshahi", "Khulna", "Barisal", "Rangpur", "Mymensingh"],
+  in: ["Mumbai", "Delhi", "Bangalore", "Chennai", "Kolkata", "Hyderabad", "Pune", "Ahmedabad"],
+  pk: ["Karachi", "Lahore", "Islamabad", "Rawalpindi", "Faisalabad", "Multan"],
+  us: ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia", "San Antonio"],
+  uk: ["London", "Manchester", "Birmingham", "Leeds", "Glasgow", "Sheffield"],
+  ca: ["Toronto", "Montreal", "Vancouver", "Calgary", "Edmonton", "Ottawa"],
+  au: ["Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide", "Gold Coast"],
+};
 
 const schema = z.object({
   country: z.string().min(1, "Please select a country"),
+  city: z.string().optional(),
+  zip: z.string().optional(),
   businessAddress: z.string().min(1, "Business address is required"),
   businessPhone: z
     .string()
@@ -26,8 +38,11 @@ const schema = z.object({
     .regex(/^\+?\d{10,15}$/, "Please enter a valid phone number"),
   businessEmail: z
     .string()
-    .min(1, "Business email is required")
-    .email("Please enter a valid email address"),
+    .optional()
+    .refine(
+      (val) => !val || z.string().email().safeParse(val).success,
+      "Please enter a valid email address"
+    ),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -44,15 +59,20 @@ export default function ContactInfoForm() {
     handleSubmit,
     formState: { errors },
     setValue,
+    control,
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       country: "",
+      city: "",
+      zip: "",
       businessAddress: "",
       businessPhone: "",
       businessEmail: "",
     },
   });
+
+  const selectedCountry = useWatch({ control, name: "country" });
 
   // Guard route by auth state and enforce onboarding step order.
   useEffect(() => {
@@ -84,6 +104,8 @@ export default function ContactInfoForm() {
     if (savedData) {
       const parsed = JSON.parse(savedData);
       setValue("country", parsed.country || "");
+      setValue("city", parsed.city || "");
+      setValue("zip", parsed.zip || "");
       setValue("businessAddress", parsed.businessAddress || "");
       setValue("businessPhone", parsed.businessPhone || "");
       setValue("businessEmail", parsed.businessEmail || "");
@@ -135,10 +157,12 @@ export default function ContactInfoForm() {
         businessName: businessInfo.businessName,
         businessType: businessInfo.businessType,
         registrationNumber: businessInfo.registrationNumber,
-        businessAddress: data.businessAddress,
         country: data.country,
+        city: data.city,
+        zip: data.zip,
+        businessAddress: data.businessAddress,
         businessPhoneNumber: data.businessPhone,
-        businessEmail: data.businessEmail.toLowerCase(),
+        ...(data.businessEmail && { businessEmail: data.businessEmail.toLowerCase() }),
         ...(logoFile && { businessLogo: logoFile }),
       }).unwrap();
 
@@ -236,6 +260,59 @@ export default function ContactInfoForm() {
                   )}
                 </div>
 
+                {/* City and ZIP */}
+                <div className="flex gap-4">
+                  {/* City */}
+                  <div className="flex flex-col gap-2 w-[60%]">
+                    <Label
+                      htmlFor="city"
+                      className="text-sm font-medium text-gray-medium"
+                    >
+                      City
+                    </Label>
+                    <div className="relative">
+                      <select
+                        id="city"
+                        className="w-full h-14 appearance-none rounded-lg border-2 border-border-2 bg-white px-4 py-3 pr-11 text-base text-gray-medium transition-all focus:border-[#E97451] focus:outline-none focus:ring-2 focus:ring-[#E97451] focus:ring-opacity-50"
+                        {...register("city")}
+                      >
+                        <option value="">Select city</option>
+                        {(citiesByCountry[selectedCountry] ?? []).map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7280]" />
+                    </div>
+                    {errors.city && (
+                      <span className="text-sm text-[#FC5555]">
+                        {errors.city.message}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* ZIP */}
+                  <div className="flex flex-col gap-2 w-[40%]">
+                    <Label
+                      htmlFor="zip"
+                      className="text-sm font-medium text-gray-medium"
+                    >
+                      ZIP
+                    </Label>
+                    <Input
+                      id="zip"
+                      type="text"
+                      placeholder="Ex: 1219"
+                      className="h-14 rounded-lg text-base border-border-2 focus:border-[#E97451] focus:ring-[#E97451] focus:ring-2 focus:ring-opacity-50"
+                      {...register("zip")}
+                    />
+                    {errors.zip && (
+                      <span className="text-sm text-[#FC5555]">
+                        {errors.zip.message}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 {/* Business Address */}
                 <div className="flex flex-col gap-2">
                   <Label
@@ -286,7 +363,7 @@ export default function ContactInfoForm() {
                     htmlFor="businessEmail"
                     className="text-sm font-medium text-gray-medium"
                   >
-                    Business Email Address
+                    Business Email Address (Optional)
                   </Label>
                   <Input
                     id="businessEmail"

@@ -60,8 +60,8 @@ export interface BackendMember {
   membershipEndDate?: string;
   nextPaymentDate?: string;
   isActive?: boolean;
-  customMonthlyFee?: boolean;
-  monthlyFeeAmount?: number;
+  isCustomMonthlyFee?: boolean;
+  customMonthlyFeeAmount?: number;
   paidMonths?: number;
   currentDueAmount?: number;
   source?: string;
@@ -97,8 +97,8 @@ export interface CreateMemberPayload {
   trainingGoals?: TrainingGoal[];
   currentPackageId?: string;
   membershipStartDate?: string;
-  customMonthlyFee?: boolean;
-  monthlyFeeAmount?: number | false;
+  isCustomMonthlyFee?: boolean;
+  customMonthlyFeeAmount?: number;
   paidMonths?: number;
   payment: CreateMemberPaymentPayload;
 }

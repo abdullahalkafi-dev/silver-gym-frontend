@@ -219,6 +219,7 @@ export default function AddMemberPage() {
   // ── Payment ──
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [discount, setDiscount] = useState("");
+  const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
   const [admissionFee, setAdmissionFee] = useState("");
   const [paidTotal, setPaidTotal] = useState("");
 
@@ -313,8 +314,13 @@ export default function AddMemberPage() {
   ]);
 
   const admissionFeeNum = Number(admissionFee) || 0;
-  const discountNum = Number(discount) || 0;
-  const totalDue = subtotal + admissionFeeNum - discountNum;
+  const discountBase = subtotal + admissionFeeNum;
+  const discountRaw = Number(discount) || 0;
+  const discountNum =
+    discountType === "percent"
+      ? Math.min(Math.round((discountRaw / 100) * discountBase * 100) / 100, discountBase)
+      : Math.min(discountRaw, discountBase);
+  const totalDue = Math.max(0, discountBase - discountNum);
   const paidNum = Number(paidTotal) || 0;
   const remaining = Math.max(0, totalDue - paidNum);
 
@@ -420,10 +426,10 @@ export default function AddMemberPage() {
       },
     };
 
-    // Custom monthly fee (applies to both flows)
+    // Custom monthly fee (applies to both flows: stored as personal rate override)
     if (customMonthlyFee) {
-      payload.customMonthlyFee = true;
-      payload.monthlyFeeAmount = Number(customMonthlyFeeAmount);
+      payload.isCustomMonthlyFee = true;
+      payload.customMonthlyFeeAmount = Number(customMonthlyFeeAmount);
     }
 
     // Membership type specifics
@@ -441,11 +447,7 @@ export default function AddMemberPage() {
         payload.membershipStartDate = new Date().toISOString();
       }
     } else {
-      // Monthly (no package)
-      if (!customMonthlyFee) {
-        payload.customMonthlyFee = true;
-        payload.monthlyFeeAmount = effectiveMonthlyFee;
-      }
+      // Monthly (no package) — backend triggers monthly mode from paidMonths alone
       payload.paidMonths = monthlySelectedMonths.length;
       if (monthlySelectedMonths.length > 0) {
         const first = monthlySelectedMonths[0];
@@ -1099,35 +1101,62 @@ export default function AddMemberPage() {
               </h2>
 
               <div className="space-y-3">
-                {/* Admission Fee — inline row */}
-                <div className="flex items-center justify-between">
+                {/* Admission Fee — read-only display */}
+                <div className="flex items-center justify-between py-1">
                   <span className="text-sm text-gray-600">Admission Fee</span>
-                  <div className="relative w-32">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">৳</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={admissionFee}
-                      onChange={(e) => setAdmissionFee(e.target.value)}
-                      className="w-full pl-7 pr-3 py-2 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple/40 focus:border-purple/40"
-                      placeholder="0"
-                    />
-                  </div>
+                  <span className="text-sm font-medium text-gray-800">
+                    ৳{admissionFeeNum.toLocaleString()}
+                  </span>
                 </div>
 
-                {/* Discount — inline row */}
+                {/* Discount — ৳ / % toggle */}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Discount</span>
-                  <div className="relative w-32">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">৳</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={discount}
-                      onChange={(e) => setDiscount(e.target.value)}
-                      className="w-full pl-7 pr-3 py-2 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple/40 focus:border-purple/40"
-                      placeholder="0"
-                    />
+                  <div className="flex items-center gap-1.5">
+                    {/* pill toggle */}
+                    <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+                      <button
+                        type="button"
+                        onClick={() => { setDiscountType("amount"); setDiscount(""); }}
+                        className={`px-2 py-1.5 transition-colors ${
+                          discountType === "amount"
+                            ? "bg-purple text-white"
+                            : "bg-white text-gray-500 hover:bg-gray-50"
+                        }`}
+                      >
+                        ৳
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setDiscountType("percent"); setDiscount(""); }}
+                        className={`px-2 py-1.5 transition-colors ${
+                          discountType === "percent"
+                            ? "bg-purple text-white"
+                            : "bg-white text-gray-500 hover:bg-gray-50"
+                        }`}
+                      >
+                        %
+                      </button>
+                    </div>
+                    {/* value input */}
+                    <div className="relative w-24">
+                      <input
+                        type="number"
+                        min="0"
+                        max={discountType === "percent" ? 100 : undefined}
+                        value={discount}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (discountType === "percent" && Number(v) > 100) return;
+                          setDiscount(v);
+                        }}
+                        className="w-full pr-6 pl-2 py-2 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple/40 focus:border-purple/40"
+                        placeholder="0"
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">
+                        {discountType === "percent" ? "%" : "৳"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -1139,9 +1168,22 @@ export default function AddMemberPage() {
                       ৳{subtotal.toLocaleString()}
                     </span>
                   </div>
+                  {admissionFeeNum > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Admission Fee</span>
+                      <span className="text-gray-800">
+                        +৳{admissionFeeNum.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                   {discountNum > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Discount</span>
+                      <span className="text-gray-500">
+                        Discount
+                        {discountType === "percent" && discountRaw > 0
+                          ? ` (${discountRaw}%)`
+                          : ""}
+                      </span>
                       <span className="text-green-600">
                         -৳{discountNum.toLocaleString()}
                       </span>

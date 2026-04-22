@@ -105,9 +105,7 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
               members.map((member, index) => {
                 const isActive = member.isActive !== false;
                 const dueAmount = member.currentDueAmount ?? 0;
-                const advanceAmount = member.currentAdvanceAmount ?? 0;
                 const hasDue = dueAmount > 0;
-                const hasAdvance = advanceAmount > 0;
                 const isImportedMember =
                   Boolean(member.source) &&
                   !["app", "manual"].includes(String(member.source).toLowerCase());
@@ -197,16 +195,10 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
                         className={`font-medium ${
                           hasDue
                             ? "text-red-600"
-                            : hasAdvance
-                              ? "text-green-600"
-                              : "text-gray-700"
+                            : "text-gray-700"
                         }`}
                       >
-                        {hasDue
-                          ? formatSignedBalance(dueAmount, "due")
-                          : hasAdvance
-                            ? formatSignedBalance(advanceAmount, "advance")
-                            : "—"}
+                        {hasDue ? formatSignedBalance(dueAmount, "due") : "—"}
                       </span>
                     </td>
 
@@ -216,12 +208,10 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
                         className={`px-3 py-1 rounded-full text-xs font-medium ${
                           hasDue
                             ? "bg-red-100 text-red-600"
-                            : hasAdvance
-                              ? "bg-green-100 text-green-600"
                             : "bg-green-100 text-green-600"
                         }`}
                       >
-                        {hasDue ? "Due" : hasAdvance ? "Advance" : "Complete"}
+                        {hasDue ? "Due" : "Complete"}
                       </span>
                     </td>
 

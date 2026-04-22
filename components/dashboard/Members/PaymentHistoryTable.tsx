@@ -22,8 +22,6 @@ const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
         return "bg-red-100 text-red-600";
       case "partial":
         return "bg-orange-100 text-orange-700";
-      case "advance":
-        return "bg-amber-100 text-amber-700";
       case "cancelled":
       case "refunded":
         return "bg-gray-200 text-gray-600";

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { addDays, addMonths, addWeeks, addYears, format } from "date-fns";
 import { Printer } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import {
 } from "@/components/dashboard/Members/MonthGrid";
 import { cn } from "@/lib/utils";
 import { useCollectBillMutation } from "@/redux/features/member/memberApi";
+import PayAdmissionDueModal from "@/components/modals/PayAdmissionDueModal";
 import type {
   CollectBillContext,
   CollectBillDueItem,
@@ -109,6 +110,12 @@ const getPackageNextPaymentDate = (startDate: Date, pkg?: GymPackage) => {
   }
 };
 
+const isShortTermDuration = (durationType?: GymPackage["durationType"]) =>
+  durationType === "day" || durationType === "week";
+
+const isLongTermDuration = (durationType?: GymPackage["durationType"]) =>
+  durationType === "month" || durationType === "year";
+
 // Union type for billing mode selection
 type BillingSelection =
   | { mode: "monthly" }
@@ -142,35 +149,124 @@ export default function CreateBillWorkspace({
 
   const member = context.member;
   const dueBreakdown = context.billing.dueBreakdown;
+
+  // Separate admission dues from regular (monthly/carry-forward) dues
+  const admissionDueItems = useMemo(
+    () => dueBreakdown.filter((item) => item.type === "admission_due"),
+    [dueBreakdown]
+  );
+  const nonAdmissionDueItems = useMemo(
+    () => dueBreakdown.filter((item) => item.type !== "admission_due"),
+    [dueBreakdown]
+  );
+
+  const [showAdmissionModal, setShowAdmissionModal] = useState(false);
+
   const branchMonthlyFee = normalizeMoney(context.billing.monthlyFeeAmount ?? 0);
-  const currentDue = normalizeMoney(context.billing.currentDueAmount);
-  const currentAdvance = normalizeMoney(context.billing.currentAdvanceAmount);
+  const nonAdmissionCurrentDue = normalizeMoney(
+    nonAdmissionDueItems.reduce((s, i) => s + i.remainingAmount, 0)
+  );
   const memberDisplayId = member.memberId || member._id.slice(-8).toUpperCase();
+  const currentPackage = useMemo(
+    () => packages.find((pkg) => pkg.id === member.currentPackageId),
+    [packages, member.currentPackageId],
+  );
+  const restrictPackageOptionsToLongTerm =
+    !member.currentPackageId || isLongTermDuration(currentPackage?.durationType);
+  const blockShortTermPackageSelection =
+    isShortTermDuration(currentPackage?.durationType) && member.isActive !== false;
+  const visiblePackages = useMemo(
+    () =>
+      restrictPackageOptionsToLongTerm
+        ? packages.filter((pkg) => isLongTermDuration(pkg.durationType))
+        : packages,
+    [packages, restrictPackageOptionsToLongTerm],
+  );
+  const firstSelectablePackage = useMemo(
+    () =>
+      visiblePackages.find(
+        (pkg) =>
+          !(
+            blockShortTermPackageSelection &&
+            isShortTermDuration(pkg.durationType)
+          ),
+      ),
+    [visiblePackages, blockShortTermPackageSelection],
+  );
 
   // Billing selection
   const defaultSelection = (): BillingSelection => {
     if (branchMonthlyFee > 0) return { mode: "monthly" };
-    if (packages.length > 0)
-      return { mode: "package", packageId: packages[0]?.id || "" };
+    if (firstSelectablePackage)
+      return { mode: "package", packageId: firstSelectablePackage.id };
     return { mode: "due_only" };
   };
 
   const [billingSelection, setBillingSelection] = useState<BillingSelection>(defaultSelection);
 
+  const effectiveBillingSelection = useMemo(() => {
+    if (billingSelection.mode !== "package") {
+      return billingSelection;
+    }
+
+    const packageStillVisible = visiblePackages.some(
+      (pkg) => pkg.id === billingSelection.packageId,
+    );
+
+    const currentSelection = packages.find(
+      (pkg) => pkg.id === billingSelection.packageId,
+    );
+    const isCurrentSelectionShortTerm = currentSelection
+      ? isShortTermDuration(currentSelection.durationType)
+      : false;
+
+    const blockedSelection =
+      packageStillVisible &&
+      blockShortTermPackageSelection &&
+      isCurrentSelectionShortTerm;
+
+    if (packageStillVisible && !blockedSelection) {
+      return billingSelection;
+    }
+
+    if (firstSelectablePackage) {
+      return { mode: "package", packageId: firstSelectablePackage.id } as const;
+    }
+
+    if (branchMonthlyFee > 0) {
+      return { mode: "monthly" } as const;
+    }
+
+    return { mode: "due_only" } as const;
+  }, [
+    billingSelection,
+    blockShortTermPackageSelection,
+    branchMonthlyFee,
+    firstSelectablePackage,
+    packages,
+    visiblePackages,
+  ]);
+
   const collectionMode: CollectBillMode =
-    billingSelection.mode === "monthly"
+    effectiveBillingSelection.mode === "monthly"
       ? "monthly"
-      : billingSelection.mode === "package"
+      : effectiveBillingSelection.mode === "package"
         ? "package"
         : "due_only";
 
   const selectedPackageId =
-    billingSelection.mode === "package" ? billingSelection.packageId : "";
+    effectiveBillingSelection.mode === "package"
+      ? effectiveBillingSelection.packageId
+      : "";
 
   const selectedPackage = useMemo(
     () => packages.find((p) => p.id === selectedPackageId),
     [packages, selectedPackageId],
   );
+  const selectedPackageBlocked =
+    Boolean(selectedPackage) &&
+    blockShortTermPackageSelection &&
+    isShortTermDuration(selectedPackage?.durationType);
 
   // Custom monthly fee toggle
   const [useCustomMonthlyFee, setUseCustomMonthlyFee] = useState(
@@ -231,29 +327,17 @@ export default function CreateBillWorkspace({
     [packageStartDate],
   );
 
-  // Due items
+  // Due items (non-admission only — admission dues go through the modal)
   const [selectedDueAmounts, setSelectedDueAmounts] = useState<
     Record<string, string>
   >(() =>
     Object.fromEntries(
-      dueBreakdown.map((item) => [
+      nonAdmissionDueItems.map((item) => [
         item.ledgerItemId,
         String(item.remainingAmount),
       ]),
     ),
   );
-
-  // Re-sync when context changes (e.g. after save)
-  useEffect(() => {
-    setSelectedDueAmounts(
-      Object.fromEntries(
-        dueBreakdown.map((item) => [
-          item.ledgerItemId,
-          String(item.remainingAmount),
-        ]),
-      ),
-    );
-  }, [dueBreakdown]);
 
   const toggleDueItem = (item: CollectBillDueItem) => {
     setSelectedDueAmounts((prev) => {
@@ -269,7 +353,7 @@ export default function CreateBillWorkspace({
 
   const validSelectedDueItems = useMemo(
     () =>
-      dueBreakdown.flatMap((item) => {
+      nonAdmissionDueItems.flatMap((item) => {
         if (
           !Object.prototype.hasOwnProperty.call(
             selectedDueAmounts,
@@ -283,7 +367,7 @@ export default function CreateBillWorkspace({
         if (amount <= 0 || amount > item.remainingAmount) return [];
         return [{ ...item, requestedAmount: amount }];
       }),
-    [dueBreakdown, selectedDueAmounts],
+    [nonAdmissionDueItems, selectedDueAmounts],
   );
 
   const selectedDueAmount = normalizeMoney(
@@ -344,12 +428,8 @@ export default function CreateBillWorkspace({
   // Summary
   const subTotal = normalizeMoney(selectedDueAmount + cycleCharge);
   const appliedDiscount = normalizeMoney(Math.min(rawDiscount, subTotal));
-  const dueAmount = normalizeMoney(
-    Math.max(0, subTotal - appliedDiscount - paidNow - currentAdvance),
-  );
-  const paidTotalFinal = normalizeMoney(
-    paidNow + Math.min(currentAdvance, subTotal - appliedDiscount),
-  );
+  const dueAmount = normalizeMoney(Math.max(0, subTotal - appliedDiscount - paidNow));
+  const paidTotalFinal = paidNow;
 
   // Save
   const handleSave = async () => {
@@ -363,6 +443,23 @@ export default function CreateBillWorkspace({
     }
     if (collectionMode === "package" && !selectedPackage) {
       toast.error("Select a package before saving the bill");
+      return;
+    }
+    if (
+      collectionMode === "package" &&
+      restrictPackageOptionsToLongTerm &&
+      selectedPackage &&
+      !isLongTermDuration(selectedPackage.durationType)
+    ) {
+      toast.error(
+        "Monthly and yearly members can only switch to monthly or yearly packages",
+      );
+      return;
+    }
+    if (collectionMode === "package" && selectedPackageBlocked) {
+      toast.error(
+        "Active day or weekly packages must finish before another day or weekly package can start",
+      );
       return;
     }
     if (collectionMode === "due_only" && validSelectedDueItems.length === 0) {
@@ -426,7 +523,7 @@ export default function CreateBillWorkspace({
 
   const handlePrint = () => window.print();
 
-  const dueMonthCount = dueBreakdown.length;
+  const dueMonthCount = nonAdmissionDueItems.length;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
@@ -462,6 +559,31 @@ export default function CreateBillWorkspace({
           </div>
         </div>
 
+        {/* Pay Admission Due button — shown only when admission dues exist */}
+        {admissionDueItems.length > 0 && (
+          <div className="mb-3">
+            <button
+              type="button"
+              onClick={() => setShowAdmissionModal(true)}
+              className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-xs font-bold text-white">
+                {admissionDueItems.length}
+              </span>
+              Pay Admission Due
+              <span className="ml-auto text-amber-700">
+                TK{" "}
+                {formatCurrency(
+                  admissionDueItems.reduce(
+                    (s, i) => s + i.remainingAmount,
+                    0
+                  )
+                )}
+              </span>
+            </button>
+          </div>
+        )}
+
         {/* Table header */}
         <div className="mb-2 flex items-center justify-between">
           <p className="text-sm font-semibold text-gray-700">Payment List</p>
@@ -492,8 +614,8 @@ export default function CreateBillWorkspace({
               </tr>
             </thead>
             <tbody>
-              {/* Due rows */}
-              {dueBreakdown.map((item) => {
+              {/* Non-admission due rows */}
+              {nonAdmissionDueItems.map((item) => {
                 const isSelected = Object.prototype.hasOwnProperty.call(
                   selectedDueAmounts,
                   item.ledgerItemId,
@@ -565,7 +687,7 @@ export default function CreateBillWorkspace({
                   </tr>
                 ))}
 
-              {dueBreakdown.length === 0 &&
+              {nonAdmissionDueItems.length === 0 &&
                 !isPaymentHistoryLoading &&
                 paymentHistory.length === 0 && (
                   <tr>
@@ -599,7 +721,7 @@ export default function CreateBillWorkspace({
             {dueMonthCount === 1 ? "month" : "months"})
           </span>
           <span className="font-semibold text-red-600">
-            {formatCurrency(currentDue)} TK
+            {formatCurrency(nonAdmissionCurrentDue)} TK
           </span>
         </div>
 
@@ -630,7 +752,7 @@ export default function CreateBillWorkspace({
               Select Package
             </label>
             <select
-              value={getDropdownValue(billingSelection)}
+              value={getDropdownValue(effectiveBillingSelection)}
               onChange={(e) =>
                 setBillingSelection(resolveBillingSelection(e.target.value))
               }
@@ -639,20 +761,38 @@ export default function CreateBillWorkspace({
               {branchMonthlyFee > 0 && (
                 <option value="monthly">Monthly</option>
               )}
-              {packages.map((pkg) => (
-                <option key={pkg.id} value={pkg.id}>
+              {visiblePackages.map((pkg) => (
+                <option
+                  key={pkg.id}
+                  value={pkg.id}
+                  disabled={
+                    blockShortTermPackageSelection &&
+                    isShortTermDuration(pkg.durationType)
+                  }
+                >
                   {pkg.title}
                 </option>
               ))}
-              {dueBreakdown.length > 0 && (
+              {nonAdmissionDueItems.length > 0 && (
                 <option value="due_only">Due only</option>
               )}
               {!isPackagesLoading &&
-                packages.length === 0 &&
-                branchMonthlyFee <= 0 && (
+                visiblePackages.length === 0 &&
+                branchMonthlyFee <= 0 &&
+                nonAdmissionDueItems.length > 0 && (
                   <option value="due_only">Due only</option>
                 )}
             </select>
+            {restrictPackageOptionsToLongTerm && (
+              <p className="mt-2 text-xs text-gray-500">
+                This member is on monthly or yearly billing, so only monthly and yearly packages are available.
+              </p>
+            )}
+            {!restrictPackageOptionsToLongTerm && blockShortTermPackageSelection && (
+              <p className="mt-2 text-xs text-amber-600">
+                An active day or weekly package must finish before another day or weekly package can start.
+              </p>
+            )}
           </div>
 
           {/* Monthly fee with override toggle */}
@@ -888,6 +1028,17 @@ export default function CreateBillWorkspace({
           </div>
         </div>
       </div>
+
+      {/* Admission Due Modal */}
+      {showAdmissionModal && (
+        <PayAdmissionDueModal
+          isOpen={showAdmissionModal}
+          onClose={() => setShowAdmissionModal(false)}
+          branchId={branchId}
+          memberId={memberId}
+          admissionDueItems={admissionDueItems}
+        />
+      )}
     </div>
   );
 }

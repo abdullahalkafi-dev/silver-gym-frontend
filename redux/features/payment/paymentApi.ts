@@ -15,7 +15,6 @@ export interface Payment {
   subTotal?: number;
   discount?: number;
   dueAmount?: number;
-  advanceAmount?: number;
   admissionFee?: number;
   paymentMethod?: string;
   paymentDate?: string;
@@ -66,13 +65,14 @@ const paymentApi = baseApi.injectEndpoints({
         };
       },
       transformResponse: (raw: {
-        data: { result: Array<Record<string, unknown>>; meta: GetPaymentsResponse["meta"] };
+        data: Array<Record<string, unknown>>;
+        meta: GetPaymentsResponse["meta"];
       }) => ({
-        data: (raw.data.result ?? []).map((p) => ({
+        data: (raw.data ?? []).map((p) => ({
           ...(p as Omit<Payment, "id">),
           id: String(p._id ?? p.id ?? ""),
         })) as Payment[],
-        meta: raw.data.meta,
+        meta: raw.meta,
       }),
       providesTags: (_result, _err, { branchId }) => [
         { type: "Payment", id: `LIST-${branchId}` },

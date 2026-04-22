@@ -187,7 +187,6 @@ export default function CreateBillForm({
     [packages, resolvedSelectedPackageId],
   );
   const currentDue = context.billing.currentDueAmount;
-  const currentAdvance = context.billing.currentAdvanceAmount;
   const monthlyFee = context.billing.monthlyFeeAmount ?? 0;
   const duePaymentNow = parseAmount(requestedDuePayment);
   const discountAmount = parseAmount(discount);
@@ -227,11 +226,8 @@ export default function CreateBillForm({
   const subTotal = effectiveDuePayment + cycleCharge;
   const invoiceNet = subTotal - discountAmount - paidNow;
   const invoiceDue = Math.max(invoiceNet, 0);
-  const invoiceAdvance = Math.max(-invoiceNet, 0);
-  const finalNetBalance =
-    currentDue - currentAdvance - effectiveDuePayment + invoiceNet;
-  const finalDue = Math.max(finalNetBalance, 0);
-  const finalAdvance = Math.max(-finalNetBalance, 0);
+  const isOverpaid = invoiceNet < 0;
+  const finalDue = Math.max(currentDue - effectiveDuePayment + invoiceDue, 0);
   const modeRequiresPackage = mode === "package";
   const modeRequiresMonthly = mode === "monthly";
   const canUseMonthly = monthlyFee > 0;
@@ -257,8 +253,18 @@ export default function CreateBillForm({
       return;
     }
 
+    if (isOverpaid) {
+      toast.error("Paid amount cannot exceed the current bill total");
+      return;
+    }
+
     if (duePaymentNow > currentDue) {
       toast.error("Old due payment cannot exceed the current due amount");
+      return;
+    }
+
+    if ((modeRequiresMonthly || modeRequiresPackage) && invoiceDue > 0) {
+      toast.error("New monthly or package billing must be fully paid in the same transaction");
       return;
     }
 
@@ -295,10 +301,10 @@ export default function CreateBillForm({
 
   return (
     <div className="space-y-6 print:bg-white">
-      <section className="overflow-hidden rounded-[32px] border border-orange-100 bg-[radial-gradient(circle_at_top_left,_rgba(255,245,235,0.95),_rgba(255,255,255,1)_55%)] p-6 shadow-sm print:border-0 print:bg-white print:p-0">
+      <section className="overflow-hidden rounded-4xl border border-orange-100 bg-[radial-gradient(circle_at_top_left,rgba(255,245,235,0.95),rgba(255,255,255,1)_55%)] p-6 shadow-sm print:border-0 print:bg-white print:p-0">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[24px] bg-orange-100 text-2xl font-semibold text-orange-700 ring-1 ring-orange-200">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-orange-100 text-2xl font-semibold text-orange-700 ring-1 ring-orange-200">
               {member.photo ? (
                 <div
                   role="img"
@@ -354,9 +360,9 @@ export default function CreateBillForm({
             </div>
             <div className="rounded-[22px] bg-white/80 p-4 ring-1 ring-gray-200">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Advance
+                Accrued Due
               </p>
-              <p className="mt-2 text-2xl font-semibold text-emerald-600">{formatCurrency(currentAdvance)}</p>
+              <p className="mt-2 text-2xl font-semibold text-amber-700">{formatCurrency(context.billing.accruedAmount)}</p>
             </div>
             <div className="rounded-[22px] bg-white/80 p-4 ring-1 ring-gray-200">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -406,14 +412,14 @@ export default function CreateBillForm({
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-emerald-700">
+              <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-sky-700">
                   <CreditCard className="h-4 w-4" />
-                  Advance credit
+                  Selected due items
                 </div>
-                <p className="mt-3 text-2xl font-semibold text-emerald-700">{formatCurrency(currentAdvance)}</p>
-                <p className="mt-2 text-xs leading-5 text-emerald-600">
-                  Existing advance automatically offsets the account after this bill.
+                <p className="mt-3 text-2xl font-semibold text-sky-700">{context.billing.dueBreakdown.length}</p>
+                <p className="mt-2 text-xs leading-5 text-sky-600">
+                  Outstanding entries available to settle in this transaction.
                 </p>
               </div>
 
@@ -529,7 +535,7 @@ export default function CreateBillForm({
               </div>
 
               {modeRequiresMonthly && (
-                <div className="space-y-4 rounded-[24px] border border-gray-200 bg-gray-50 p-4">
+                <div className="space-y-4 rounded-3xl border border-gray-200 bg-gray-50 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h3 className="font-medium text-gray-900">Monthly renewal</h3>
@@ -573,7 +579,7 @@ export default function CreateBillForm({
               )}
 
               {modeRequiresPackage && (
-                <div className="space-y-4 rounded-[24px] border border-gray-200 bg-gray-50 p-4">
+                <div className="space-y-4 rounded-3xl border border-gray-200 bg-gray-50 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h3 className="font-medium text-gray-900">Package move</h3>
@@ -738,7 +744,7 @@ export default function CreateBillForm({
               </div>
             </div>
 
-            <div className="mt-5 rounded-[24px] border border-dashed border-gray-200 p-4">
+            <div className="mt-5 rounded-3xl border border-dashed border-gray-200 p-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Projected next payment</span>
                 <span className="font-semibold text-gray-900">{formatDateLabel(projectedNextPaymentDate)}</span>
@@ -751,32 +757,32 @@ export default function CreateBillForm({
                   </p>
                   <p className="mt-2 text-xl font-semibold text-red-700">{formatCurrency(invoiceDue)}</p>
                 </div>
-                <div className="rounded-2xl bg-emerald-50 px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
-                    Invoice Advance
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                    Paid Now
                   </p>
-                  <p className="mt-2 text-xl font-semibold text-emerald-700">{formatCurrency(invoiceAdvance)}</p>
+                  <p className="mt-2 text-xl font-semibold text-slate-900">{formatCurrency(paidNow)}</p>
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3 sm:grid-cols-1">
                 <div className="rounded-2xl border border-red-100 bg-white px-4 py-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Account Due After Save
                   </p>
                   <p className="mt-2 text-xl font-semibold text-red-700">{formatCurrency(finalDue)}</p>
                 </div>
-                <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Account Advance After Save
-                  </p>
-                  <p className="mt-2 text-xl font-semibold text-emerald-700">{formatCurrency(finalAdvance)}</p>
-                </div>
               </div>
 
               {overflowIntoDue > duePaymentNow && currentDue > 0 && (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                   Because the paid amount is higher than the new cycle charge, {formatCurrency(effectiveDuePayment - duePaymentNow)} extra is automatically applied to old due.
+                </div>
+              )}
+
+              {isOverpaid && (
+                <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  Paid amount cannot be higher than the current bill total.
                 </div>
               )}
             </div>
@@ -813,7 +819,7 @@ export default function CreateBillForm({
             </div>
 
             {lastSavedBill && (
-              <div className="mt-6 rounded-[24px] border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-700 print:border-0 print:bg-transparent print:p-0">
+              <div className="mt-6 rounded-3xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-700 print:border-0 print:bg-transparent print:p-0">
                 <div className="flex items-center gap-2 font-semibold">
                   <ReceiptText className="h-4 w-4" />
                   Latest saved invoice {lastSavedBill.payment.invoiceNo || "recorded"}

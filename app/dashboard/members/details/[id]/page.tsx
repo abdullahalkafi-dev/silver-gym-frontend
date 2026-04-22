@@ -7,7 +7,9 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowLeft01Icon,
   PencilEdit02Icon,
-  Upload04Icon,
+  SmartPhone01Icon,
+  Mail01Icon,
+  FileIcon,
 } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 import { useUser } from "@/hooks/useUser";
@@ -20,6 +22,40 @@ import DeactivateMemberModal from "@/components/modals/DeactivateMemberModal";
 import EditMemberModal from "@/components/modals/EditMemberModal";
 import PaymentHistoryTable from "@/components/dashboard/Members/PaymentHistoryTable";
 import MemberActivitiesCalendar from "@/components/dashboard/Members/MemberActivitiesCalendar";
+
+const formatDisplayDate = (value?: string) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const calculateAge = (value?: string) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  const monthDelta = today.getMonth() - date.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < date.getDate())) {
+    age -= 1;
+  }
+  return String(age);
+};
+
+const trainingGoalOptions = [
+  "Yoga",
+  "Cardio Endurance",
+  "Bodybuilding",
+  "Muscle Gain",
+  "Flexibility & Mobility",
+  "General Fitness",
+  "Strength Training",
+] as const;
 
 export default function MemberDetailsPage() {
   const router = useRouter();
@@ -71,30 +107,28 @@ export default function MemberDetailsPage() {
     }
   };
 
-  // ── Loading ─────────────────────────────────────────────────────
+  // ── Loading ──────────────────────────────────────────────────────
   if (!activeBranchId || isLoading) {
     return (
       <div className="min-h-screen">
-        <div className="mb-6">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-700 hover:text-gray-900 mb-4"
-          >
-            <HugeiconsIcon icon={ArrowLeft01Icon} size={20} />
-            <span className="text-lg font-medium">Member Profile</span>
-          </button>
-        </div>
-        <div className="bg-white rounded-2xl p-6 animate-pulse space-y-4">
+        <button
+          onClick={() => router.back()}
+          className="mb-4 flex items-center gap-2 text-gray-700 hover:text-gray-900"
+        >
+          <HugeiconsIcon icon={ArrowLeft01Icon} size={20} />
+          <span className="text-lg font-medium">Member Profile</span>
+        </button>
+        <div className="animate-pulse space-y-4 rounded-2xl bg-white p-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gray-200" />
-            <div className="space-y-2 flex-1">
-              <div className="h-5 bg-gray-200 rounded w-48" />
-              <div className="h-4 bg-gray-200 rounded w-24" />
+            <div className="h-14 w-14 rounded-full bg-gray-200" />
+            <div className="flex-1 space-y-2">
+              <div className="h-5 w-48 rounded bg-gray-200" />
+              <div className="h-4 w-24 rounded bg-gray-200" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-10 bg-gray-200 rounded" />
+              <div key={i} className="h-10 rounded bg-gray-200" />
             ))}
           </div>
         </div>
@@ -102,15 +136,15 @@ export default function MemberDetailsPage() {
     );
   }
 
-  // ── Not found ────────────────────────────────────────────────────
+  // ── Not found ─────────────────────────────────────────────────────
   if (isError || !member) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <p className="text-gray-500 text-lg">Member not found.</p>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="space-y-4 text-center">
+          <p className="text-lg text-gray-500">Member not found.</p>
           <button
             onClick={() => router.push("/dashboard/members")}
-            className="px-6 py-2 bg-purple text-white rounded-lg hover:bg-purple/90 text-sm"
+            className="rounded-lg bg-violet-600 px-6 py-2 text-sm text-white hover:bg-violet-700"
           >
             Back to Members
           </button>
@@ -119,241 +153,309 @@ export default function MemberDetailsPage() {
     );
   }
 
+  // ── Derived values ────────────────────────────────────────────────
   const isActive = member.isActive !== false;
   const displayId = member.memberId || member._id.slice(-8).toUpperCase();
   const isImportedMember =
-    Boolean(member.source) && !["app", "manual"].includes(String(member.source).toLowerCase());
-  const currentDueAmount = member.currentDueAmount ?? 0;
-  const currentAdvanceAmount = member.currentAdvanceAmount ?? 0;
+    Boolean(member.source) &&
+    !["app", "manual"].includes(String(member.source).toLowerCase());
 
-  const readFieldCls =
-    "w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 text-sm";
+  const heightValue =
+    member.height != null
+      ? `${member.height}${member.heightUnit ? ` ${member.heightUnit}` : ""}`.trim()
+      : "—";
+  const weightValue =
+    member.weight != null
+      ? `${member.weight}${member.weightUnit ? ` ${member.weightUnit}` : ""}`.trim()
+      : "—";
 
-  const trainingGoalOptions = [
-    "Yoga",
-    "Cardio Endurance",
-    "Bodybuilding",
-    "Muscle Gain",
-    "Flexibility & Mobility",
-    "General Fitness",
-    "Strength Training",
-  ];
+  const totalPaid = paymentHistory.reduce((sum, r) => {
+    const num = parseFloat(r.amount.replace(/[^0-9.]/g, ""));
+    return sum + (Number.isFinite(num) ? num : 0);
+  }, 0);
 
+  // ── Render ────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <div className="mb-6">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-700 hover:text-gray-900 mb-4"
-        >
-          <HugeiconsIcon icon={ArrowLeft01Icon} size={20} />
-          <span className="text-lg font-medium">Member Profile</span>
-        </button>
+    <div className="min-h-screen space-y-5">
+      {/* Page header */}
+      <button
+        onClick={() => router.back()}
+        className="flex items-center gap-2 text-gray-700 transition-colors hover:text-gray-900"
+      >
+        <HugeiconsIcon icon={ArrowLeft01Icon} size={20} />
+        <span className="text-lg font-medium">Member Profile</span>
+      </button>
 
-        <div className="bg-white rounded-2xl p-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-orange-400 flex items-center justify-center overflow-hidden">
-              {member.photo ? (
-                <div
-                  role="img"
-                  aria-label={member.fullName}
-                  className="w-full h-full bg-cover bg-center"
-                  style={{ backgroundImage: `url(${member.photo})` }}
-                />
-              ) : (
-                <span className="text-white text-2xl font-bold">
-                  {member.fullName.charAt(0).toUpperCase()}
+      <div className="grid gap-5 xl:grid-cols-[1fr_300px]">
+        {/* ── LEFT COLUMN ───────────────────────────────────────── */}
+        <div className="space-y-4">
+
+          {/* Member header card */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {/* Avatar */}
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-400 text-xl font-bold text-white">
+                  {member.photo ? (
+                    <div
+                      role="img"
+                      aria-label={member.fullName}
+                      className="h-full w-full bg-cover bg-center"
+                      style={{ backgroundImage: `url(${member.photo})` }}
+                    />
+                  ) : (
+                    member.fullName.charAt(0).toUpperCase()
+                  )}
+                </div>
+
+                {/* Name + status badge */}
+                <div>
+                  <h1 className="text-xl font-semibold text-gray-900">
+                    {member.fullName}
+                  </h1>
+                  <div className="mt-1 flex items-center gap-2">
+                    <button
+                      onClick={() => setShowStatusModal(true)}
+                      title="Click to change status"
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-opacity hover:opacity-80 ${
+                        isActive
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-gray-200 text-gray-500"
+                      }`}
+                    >
+                      {isActive ? "Active" : "Inactive"}
+                    </button>
+                    {isImportedMember && (
+                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                        Imported
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ID + upload profile */}
+              <div className="flex shrink-0 items-center gap-3 text-sm text-gray-500">
+                <span className="font-mono font-medium text-gray-700">
+                  ID: {displayId}
                 </span>
-              )}
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-800">
-                {member.fullName}
-              </h1>
-              <div className="mt-1 flex items-center gap-2">
                 <button
-                  onClick={() => setShowStatusModal(true)}
-                  title="Click to change status"
-                  className={`inline-block px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-opacity hover:opacity-80 ${
-                    isActive
-                      ? "bg-blue-100 text-blue-600"
-                      : "bg-gray-200 text-gray-600"
-                  }`}
+                  onClick={() => setShowEditModal(true)}
+                  className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
                 >
-                  {isActive ? "Active" : "Inactive"}
+                  Upload Profile
                 </button>
-                {isImportedMember && (
-                  <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
-                    Imported
-                  </span>
-                )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <span className="text-sm text-gray-500">ID: </span>
-              <span className="text-sm font-medium font-mono text-gray-700">
-                {displayId}
-              </span>
-            </div>
-            <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors flex items-center gap-2 text-sm">
-              <HugeiconsIcon icon={Upload04Icon} size={18} />
-              Upload Profile
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Personal Contact — read-only with pencil opening modal */}
-          <div className="bg-white rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-800">
+          {/* Personal Contact */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900">
                 Personal Contact
               </h2>
               <button
                 onClick={() => setShowEditModal(true)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Edit member info"
+                className="text-gray-400 transition-colors hover:text-gray-600"
+                aria-label="Edit personal contact"
               >
-                <HugeiconsIcon
-                  icon={PencilEdit02Icon}
-                  size={20}
-                  className="text-gray-600"
-                />
+                <HugeiconsIcon icon={PencilEdit02Icon} size={18} />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-3">
+              {/* Phone number */}
               <div>
-                <label className="block text-sm text-gray-500 mb-2">Phone number</label>
-                <div className={readFieldCls}>{member.contact || "—"}</div>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-500 mb-2">Emergency Contact</label>
-                <div className={readFieldCls}>
-                  {member.emergencyContact?.contactNumber || "—"}
+                <p className="mb-1 text-xs text-gray-400">Phone number</p>
+                <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <HugeiconsIcon
+                    icon={SmartPhone01Icon}
+                    size={14}
+                    className="shrink-0 text-gray-400"
+                  />
+                  <span className="truncate text-sm text-gray-700">
+                    {member.contact || "—"}
+                  </span>
                 </div>
               </div>
 
+              {/* Emergency Contact */}
               <div>
-                <label className="block text-sm text-gray-500 mb-2">E-mail</label>
-                <div className={readFieldCls}>{member.email || "—"}</div>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-500 mb-2">Address</label>
-                <div className={readFieldCls}>{member.address || "—"}</div>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-500 mb-2">Birthday</label>
-                <div className={readFieldCls}>
-                  {member.dateOfBirth
-                    ? new Date(member.dateOfBirth).toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })
-                    : "—"}
+                <p className="mb-1 text-xs text-gray-400">Emergency Contact</p>
+                <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <HugeiconsIcon
+                    icon={SmartPhone01Icon}
+                    size={14}
+                    className="shrink-0 text-gray-400"
+                  />
+                  <span className="truncate text-sm text-gray-700">
+                    {member.emergencyContact?.contactNumber || "—"}
+                  </span>
                 </div>
               </div>
 
+              {/* E-mail */}
               <div>
-                <label className="block text-sm text-gray-500 mb-2">Gender</label>
-                <div className={readFieldCls}>{member.gender || "—"}</div>
+                <p className="mb-1 text-xs text-gray-400">E-mail</p>
+                <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <HugeiconsIcon
+                    icon={Mail01Icon}
+                    size={14}
+                    className="shrink-0 text-gray-400"
+                  />
+                  <span className="truncate text-sm text-gray-700">
+                    {member.email || "—"}
+                  </span>
+                </div>
               </div>
 
+              {/* Address */}
               <div>
-                <label className="block text-sm text-gray-500 mb-2">NID</label>
-                <div className={readFieldCls}>{member.nid || "—"}</div>
+                <p className="mb-1 text-xs text-gray-400">Address</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <span className="text-sm text-gray-700">
+                    {member.address || "—"}
+                  </span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm text-gray-500 mb-2">Height</label>
-                  <div className={readFieldCls}>
-                    {member.height != null
-                      ? `${member.height} ${member.heightUnit || ""}`
-                      : "—"}
-                  </div>
+              {/* Birthday */}
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Birthday</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <span className="text-sm text-gray-700">
+                    {formatDisplayDate(member.dateOfBirth)}
+                  </span>
                 </div>
-                <div>
-                  <label className="block text-sm text-gray-500 mb-2">Age</label>
-                  <div className={readFieldCls}>
-                    {member.dateOfBirth
-                      ? String(
-                          new Date().getFullYear() -
-                            new Date(member.dateOfBirth).getFullYear()
-                        )
-                      : "—"}
-                  </div>
+              </div>
+
+              {/* Gender */}
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Gender</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <span className="text-sm text-gray-700">
+                    {member.gender || "—"}
+                  </span>
                 </div>
-                <div>
-                  <label className="block text-sm text-gray-500 mb-2">Weight</label>
-                  <div className={readFieldCls}>
-                    {member.weight != null
-                      ? `${member.weight} ${member.weightUnit || ""}`
-                      : "—"}
-                  </div>
+              </div>
+
+              {/* NID */}
+              <div>
+                <p className="mb-1 text-xs text-gray-400">NID</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <span className="text-sm text-gray-700">
+                    {member.nid || "—"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Country */}
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Country</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <span className="text-sm text-gray-700">
+                    {member.country || "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Height / Age / Weight row */}
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Height</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <span className="text-sm text-gray-700">{heightValue}</span>
+                </div>
+              </div>
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Age</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <span className="text-sm text-gray-700">
+                    {calculateAge(member.dateOfBirth)}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Weight</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                  <span className="text-sm text-gray-700">{weightValue}</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Training Goals */}
-          <div className="bg-white rounded-2xl p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h2 className="mb-4 text-base font-semibold text-gray-900">
               Training Goals
             </h2>
-            <div className="grid grid-cols-3 gap-4">
-              {trainingGoalOptions.map((goal) => (
-                <label key={goal} className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={member.trainingGoals?.includes(goal as never) ?? false}
-                    readOnly
-                    className="w-5 h-5 accent-orange-500 rounded"
-                  />
-                  <span className="text-sm text-gray-700">{goal}</span>
-                </label>
-              ))}
+            <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+              {trainingGoalOptions.map((goal) => {
+                const isSelected =
+                  member.trainingGoals?.includes(goal as never) ?? false;
+                return (
+                  <label
+                    key={goal}
+                    className="flex cursor-default items-center gap-2 text-sm text-gray-700"
+                  >
+                    <span
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                        isSelected
+                          ? "border-orange-500 bg-orange-500"
+                          : "border-gray-300 bg-white"
+                      }`}
+                    >
+                      {isSelected && (
+                        <svg
+                          viewBox="0 0 10 8"
+                          fill="none"
+                          className="h-2.5 w-2.5"
+                        >
+                          <path
+                            d="M1 4l3 3 5-6"
+                            stroke="white"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                    {goal}
+                  </label>
+                );
+              })}
             </div>
           </div>
 
           {/* Payment History */}
-          <div className="bg-white rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-800">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="text-base font-semibold text-gray-900">
                 Payment History
               </h2>
               <div className="flex items-center gap-3">
-                {currentDueAmount > 0 && (
-                    <span className="text-sm text-red-600 font-medium">
-                      Due: ৳{currentDueAmount.toLocaleString()}
-                    </span>
-                  )}
-                {currentAdvanceAmount > 0 && (
-                    <span className="text-sm text-amber-700 font-medium">
-                      Advance: ৳{currentAdvanceAmount.toLocaleString()}
-                    </span>
-                  )}
+                {canViewPayments && paymentHistory.length > 0 && (
+                  <span className="text-sm font-semibold text-gray-700">
+                    Total pay: {totalPaid.toLocaleString()}TK
+                  </span>
+                )}
                 {canCollectBills && (
                   <button
-                    onClick={() => router.push(`/dashboard/income/create-bill/${memberId}`)}
-                    className="px-4 py-2 bg-purple text-white rounded-md hover:bg-purple/90 text-sm"
+                    onClick={() =>
+                      router.push(`/dashboard/income/create-bill/${memberId}`)
+                    }
+                    className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700"
                   >
+                    <HugeiconsIcon icon={FileIcon} size={14} />
                     Collect Bill
                   </button>
                 )}
               </div>
             </div>
+
             <PaymentHistoryTable
               records={paymentHistory}
               isLoading={isPaymentHistoryLoading}
@@ -369,15 +471,18 @@ export default function MemberDetailsPage() {
           </div>
         </div>
 
-        {/* Right Column - Member Activities */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl p-6 sticky top-6">
-            <MemberActivitiesCalendar />
+        {/* ── RIGHT SIDEBAR ─────────────────────────────────────── */}
+        <div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h2 className="mb-4 text-base font-semibold text-gray-900">
+              Member Activities
+            </h2>
+            <MemberActivitiesCalendar memberId={memberId} />
           </div>
         </div>
       </div>
 
-      {/* Edit Member Modal */}
+      {/* Modals */}
       {showEditModal && activeBranchId && (
         <EditMemberModal
           isOpen={showEditModal}
@@ -387,7 +492,6 @@ export default function MemberDetailsPage() {
         />
       )}
 
-      {/* Status Toggle Modal */}
       <DeactivateMemberModal
         isOpen={showStatusModal}
         onClose={() => setShowStatusModal(false)}

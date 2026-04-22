@@ -12,14 +12,6 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { InputWithUnit } from "@/components/ui/input-with-unit";
 import { DatePickerPopover } from "@/components/ui/date-picker-popover";
@@ -230,9 +222,6 @@ export default function AddMemberPage() {
   const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
   const [admissionFee, setAdmissionFee] = useState("");
   const [paidTotal, setPaidTotal] = useState("");
-  const [showOverpaymentDialog, setShowOverpaymentDialog] = useState(false);
-  const [pendingPayload, setPendingPayload] =
-    useState<CreateMemberPayload | null>(null);
 
   // ── Errors ──
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -342,7 +331,8 @@ export default function AddMemberPage() {
   const totalDue = Math.max(0, discountBase - discountNum);
   const paidNum = Number(paidTotal) || 0;
   const remaining = Math.max(0, totalDue - paidNum);
-  const advanceCredit = Math.max(0, paidNum - totalDue);
+  const overpaidAmount = Math.max(0, paidNum - totalDue);
+  const isPaidAmountTooHigh = overpaidAmount > 0;
 
   // Next payment date
   const nextPaymentDate = useMemo(() => {
@@ -400,6 +390,9 @@ export default function AddMemberPage() {
       errs.customFee = "Custom monthly fee amount is required";
     }
     if (!paymentMethod) errs.paymentMethod = "Select a payment method";
+    if (isPaidAmountTooHigh) {
+      errs.paidTotal = "Paid amount cannot exceed the current bill total";
+    }
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -419,8 +412,6 @@ export default function AddMemberPage() {
         photo: photoFile || undefined,
       }).unwrap();
 
-      setPendingPayload(null);
-      setShowOverpaymentDialog(false);
       toast.success("Member created successfully!", {
         description: `${fullName} has been added`,
       });
@@ -506,21 +497,7 @@ export default function AddMemberPage() {
 
     const payload = buildPayload();
 
-    if (advanceCredit > 0) {
-      setPendingPayload(payload);
-      setShowOverpaymentDialog(true);
-      return;
-    }
-
     await submitMember(payload);
-  };
-
-  const handleConfirmOverpayment = async () => {
-    if (!pendingPayload) {
-      return;
-    }
-
-    await submitMember(pendingPayload);
   };
 
   // ── Print handler ──
@@ -1252,13 +1229,22 @@ export default function AddMemberPage() {
                     <input
                       type="number"
                       min="0"
+                      max={totalDue > 0 ? totalDue : undefined}
                       value={paidTotal}
                       onChange={(e) => setPaidTotal(e.target.value)}
-                      className="w-full pl-7 pr-3 py-2 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple/40 focus:border-purple/40"
+                      className={`w-full pl-7 pr-3 py-2 text-sm text-right border rounded-lg focus:outline-none focus:ring-1 focus:border-purple/40 ${
+                        errors.paidTotal
+                          ? "border-red-300 focus:ring-red-300"
+                          : "border-gray-200 focus:ring-purple/40"
+                      }`}
                       placeholder="0"
                     />
                   </div>
                 </div>
+
+                {errors.paidTotal && (
+                  <p className="text-xs text-red-600">{errors.paidTotal}</p>
+                )}
 
                 {remaining > 0 && (
                   <div className="flex justify-between text-sm px-3 py-2 bg-red-50 rounded-lg">
@@ -1269,16 +1255,16 @@ export default function AddMemberPage() {
                   </div>
                 )}
 
-                {advanceCredit > 0 && (
-                  <div className="space-y-2 rounded-lg bg-amber-50 px-3 py-3">
+                {isPaidAmountTooHigh && (
+                  <div className="space-y-2 rounded-lg bg-red-50 px-3 py-3">
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium text-amber-700">Advance Credit</span>
-                      <span className="font-semibold text-amber-800">
-                        ৳{advanceCredit.toLocaleString()}
+                      <span className="font-medium text-red-700">Over limit</span>
+                      <span className="font-semibold text-red-800">
+                        ৳{overpaidAmount.toLocaleString()}
                       </span>
                     </div>
-                    <p className="text-xs leading-5 text-amber-700">
-                      This extra payment will be stored as advance and applied automatically to the member&apos;s future billing.
+                    <p className="text-xs leading-5 text-red-700">
+                      Paid amount cannot be higher than the current bill total.
                     </p>
                   </div>
                 )}
@@ -1316,7 +1302,7 @@ export default function AddMemberPage() {
               </button>
               <button
                 type="submit"
-                disabled={isCreating}
+                disabled={isCreating || isPaidAmountTooHigh}
                 className="flex-1 px-4 py-3 bg-purple text-white rounded-lg hover:bg-purple/90 transition-colors font-medium text-sm disabled:opacity-50"
               >
                 {isCreating ? "Saving..." : "Save"}
@@ -1333,60 +1319,6 @@ export default function AddMemberPage() {
         </div>
       </form>
 
-      <Dialog
-        open={showOverpaymentDialog}
-        onOpenChange={(open) => {
-          setShowOverpaymentDialog(open);
-          if (!open) {
-            setPendingPayload(null);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Store extra payment as advance?</DialogTitle>
-            <DialogDescription>
-              This payment is higher than the current bill. If you continue, the extra amount will be saved as advance credit and used automatically in future billing.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 rounded-xl bg-amber-50 p-4 text-sm">
-            <div className="flex items-center justify-between text-amber-900">
-              <span>Current bill</span>
-              <span className="font-semibold">৳{totalDue.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center justify-between text-amber-900">
-              <span>Paid now</span>
-              <span className="font-semibold">৳{paidNum.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center justify-between border-t border-amber-200 pt-3 text-amber-900">
-              <span>Advance credit</span>
-              <span className="font-semibold">৳{advanceCredit.toLocaleString()}</span>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={() => {
-                setShowOverpaymentDialog(false);
-                setPendingPayload(null);
-              }}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirmOverpayment}
-              disabled={isCreating}
-              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
-            >
-              {isCreating ? "Saving..." : "Confirm and Save"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

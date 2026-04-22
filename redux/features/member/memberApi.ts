@@ -172,7 +172,6 @@ const normalizePayment = (raw: RawPayment): BackendPaymentRecord => ({
   subTotal: raw.subTotal as number | undefined,
   discount: raw.discount as number | undefined,
   dueAmount: raw.dueAmount as number | undefined,
-  advanceAmount: raw.advanceAmount as number | undefined,
   paidTotal: raw.paidTotal as number | undefined,
   admissionFee: raw.admissionFee as number | undefined,
   paymentMethod: raw.paymentMethod as BackendPaymentRecord["paymentMethod"],
@@ -192,10 +191,14 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
   const isImportedOpeningBalance =
     metadata?.entryKind === "opening_import_balance";
   const dueAmount = payment.dueAmount ?? 0;
-  const advanceAmount = payment.advanceAmount ?? 0;
   const paidTotal = payment.paidTotal ?? 0;
   const startLabel = formatPeriodPoint(payment.periodStart);
-  const endLabel = formatPeriodPoint(payment.periodEnd);
+  // periodEnd is exclusive (start of next cycle), so subtract 1 day to get the last covered day
+  const adjustedPeriodEnd =
+    payment.periodEnd
+      ? new Date(new Date(payment.periodEnd).getTime() - 24 * 60 * 60 * 1000).toISOString()
+      : undefined;
+  const endLabel = formatPeriodPoint(adjustedPeriodEnd);
 
   let month = "—";
   if (isImportedOpeningBalance) {
@@ -219,24 +222,18 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
   const amount = isImportedOpeningBalance
     ? dueAmount > 0
       ? `Opening due ${formatCurrency(dueAmount)}`
-      : advanceAmount > 0
-        ? `Opening advance ${formatCurrency(advanceAmount)}`
-        : formatCurrency(0)
+      : formatCurrency(paidTotal)
     : paidTotal > 0
       ? formatCurrency(paidTotal)
-      : advanceAmount > 0
-        ? `Advance ${formatCurrency(advanceAmount)}`
-        : dueAmount > 0
-          ? `Due ${formatCurrency(dueAmount)}`
-          : formatCurrency(0);
+      : dueAmount > 0
+        ? `Due ${formatCurrency(dueAmount)}`
+        : formatCurrency(0);
 
   let status = "Paid";
   if (payment.status === "cancelled") {
     status = "Cancelled";
   } else if (payment.status === "refunded") {
     status = "Refunded";
-  } else if (advanceAmount > 0) {
-    status = "Advance";
   } else if (payment.status === "partial") {
     status = "Partial";
   } else if (dueAmount > 0 || payment.status === "due") {
@@ -273,7 +270,6 @@ const normalizeCollectBillBilling = (
   raw: Record<string, unknown> | undefined,
 ): CollectBillContext["billing"] => ({
   currentDueAmount: Number(raw?.currentDueAmount ?? 0),
-  currentAdvanceAmount: Number(raw?.currentAdvanceAmount ?? 0),
   overdueMonths: Number(raw?.overdueMonths ?? 0),
   accruedAmount: Number(raw?.accruedAmount ?? 0),
   monthlyFeeAmount:
@@ -298,7 +294,6 @@ const normalizeCollectBillResultBilling = (
   raw: Record<string, unknown> | undefined,
 ): CollectBillResult["billing"] => ({
   currentDueAmount: Number(raw?.currentDueAmount ?? 0),
-  currentAdvanceAmount: Number(raw?.currentAdvanceAmount ?? 0),
   nextPaymentDate:
     typeof raw?.nextPaymentDate === "string" ? raw.nextPaymentDate : undefined,
   monthlyFeeAmount:
@@ -322,7 +317,7 @@ const unwrapMongooseDoc = (raw: RawMember): RawMember => {
     const doc = raw._doc as RawMember;
     // Prefer top-level computed values when they exist
     const topLevelOverrides: Partial<RawMember> = {};
-    for (const key of ["currentDueAmount", "currentAdvanceAmount", "nextPaymentDate", "metadata"] as const) {
+    for (const key of ["currentDueAmount", "nextPaymentDate", "metadata"] as const) {
       if (raw[key] !== undefined) topLevelOverrides[key] = raw[key];
     }
     return { ...doc, ...topLevelOverrides };
@@ -364,7 +359,6 @@ const normalizeMember = (raw: RawMember): BackendMember => {
     customMonthlyFeeAmount: r.customMonthlyFeeAmount as number | undefined,
     paidMonths: r.paidMonths as number | undefined,
     currentDueAmount: r.currentDueAmount as number | undefined,
-    currentAdvanceAmount: r.currentAdvanceAmount as number | undefined,
     source: r.source as string | undefined,
     importBatchId: r.importBatchId as string | undefined,
     createdAt: r.createdAt as string | undefined,

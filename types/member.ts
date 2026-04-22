@@ -45,6 +45,7 @@ export type BackendPaymentType =
 export type CollectBillMode = "due_only" | "monthly" | "package";
 
 export type CollectBillDueItemType =
+  | "admission_due"
   | "monthly_due"
   | "monthly_cycle_due"
   | "package_due"
@@ -84,7 +85,6 @@ export interface BackendPaymentRecord {
   subTotal?: number;
   discount?: number;
   dueAmount?: number;
-  advanceAmount?: number;
   paidTotal?: number;
   admissionFee?: number;
   paymentMethod?: PaymentMethod;
@@ -108,7 +108,6 @@ export interface CollectBillContext {
   member: BackendMember;
   billing: {
     currentDueAmount: number;
-    currentAdvanceAmount: number;
     overdueMonths: number;
     accruedAmount: number;
     monthlyFeeAmount?: number;
@@ -141,7 +140,6 @@ export interface CollectBillResult {
   payment: BackendPaymentRecord;
   billing: {
     currentDueAmount: number;
-    currentAdvanceAmount: number;
     nextPaymentDate?: string;
     monthlyFeeAmount?: number;
     overdueMonths: number;
@@ -181,7 +179,6 @@ export interface BackendMember {
   customMonthlyFeeAmount?: number;
   paidMonths?: number;
   currentDueAmount?: number;
-  currentAdvanceAmount?: number;
   source?: string;
   importBatchId?: string;
   createdAt?: string;

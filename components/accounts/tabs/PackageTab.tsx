@@ -47,7 +47,6 @@ const durationTypeLabelMap: Record<PackageDurationType, string> = {
   week: "Week",
   month: "Month",
   year: "Year",
-  custom: "Custom Day",
 };
 
 const formatAmount = (amount: number) => `BDT ${currencyFormatter.format(amount)}`;

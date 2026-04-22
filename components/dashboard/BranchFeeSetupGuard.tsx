@@ -174,11 +174,7 @@ const BranchFeeSetupModal = ({
           />
         </div>
 
-        <p className="text-sm text-muted-foreground">
-          {canManageFees
-            ? "Add the missing fee values here. Any fields outside your role access stay read-only."
-            : "An owner or staff member with monthly/admission fee add access must complete the missing setup before creation is allowed."}
-        </p>
+
 
         <DialogFooter className="sm:justify-between gap-2">
           <Button type="button" variant="outline" onClick={onClose}>

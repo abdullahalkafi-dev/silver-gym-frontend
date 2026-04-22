@@ -1,7 +1,7 @@
 // app/dashboard/members/import-old-members/page.tsx
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { startTransition, useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -15,7 +15,9 @@ import {
 } from "@hugeicons/core-free-icons";
 import { useUser } from "@/hooks/useUser";
 import { CanAccess } from "@/components/shared/CanAccess";
+import { useAppDispatch } from "@/redux/hooks";
 import {
+  memberApi,
   useImportCSVMutation,
   useGetImportBatchStatusQuery,
 } from "@/redux/features/member/memberApi";
@@ -32,8 +34,16 @@ const EXPECTED_COLUMNS = [
 
 type ImportState = "idle" | "uploading" | "processing" | "complete" | "error";
 
+const TERMINAL_IMPORT_STATUSES = new Set([
+  "completed",
+  "partial_failed",
+  "failed",
+  "cancelled",
+]);
+
 export default function ImportOldMembersPage() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const { isOwner, hasPermission, activeBranchId } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,10 +67,22 @@ export default function ImportOldMembersPage() {
   // Update state when batch completes
   useEffect(() => {
     if (!batchStatus) return;
-    if (batchStatus.status === "completed" || batchStatus.status === "failed") {
-      setImportState("complete");
+
+    if (TERMINAL_IMPORT_STATUSES.has(batchStatus.status)) {
+      if (activeBranchId && (batchStatus.successRows || 0) > 0) {
+        dispatch(
+          memberApi.util.invalidateTags([
+            { type: "Member", id: `LIST-${activeBranchId}` },
+            { type: "Member", id: `SUMMARY-${activeBranchId}` },
+          ])
+        );
+      }
+
+      startTransition(() => {
+        setImportState("complete");
+      });
     }
-  }, [batchStatus]);
+  }, [activeBranchId, batchStatus, dispatch]);
 
   // Block unauthorized access
   useEffect(() => {
@@ -161,6 +183,24 @@ export default function ImportOldMembersPage() {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  const completionTone = !batchStatus
+    ? "success"
+    : batchStatus.status === "failed" || batchStatus.status === "cancelled"
+      ? "error"
+      : batchStatus.status === "partial_failed"
+        ? "warning"
+        : "success";
+
+  const completionTitle = !batchStatus
+    ? "Import completed successfully"
+    : batchStatus.status === "failed"
+      ? "Import Failed"
+      : batchStatus.status === "cancelled"
+        ? "Import Cancelled"
+        : batchStatus.status === "partial_failed"
+          ? "Import Complete With Issues"
+          : "Import Complete";
 
   if (!isOwner && !hasPermission("member:create")) return null;
 
@@ -340,35 +380,39 @@ export default function ImportOldMembersPage() {
               {importState === "complete" && batchStatus && (
                 <div
                   className={`p-4 rounded-xl ${
-                    batchStatus.status === "failed"
+                    completionTone === "error"
                       ? "bg-red-50"
+                      : completionTone === "warning"
+                        ? "bg-amber-50"
                       : "bg-green-50"
                   }`}
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <HugeiconsIcon
                       icon={
-                        batchStatus.status === "failed"
+                        completionTone === "error" || completionTone === "warning"
                           ? AlertCircleIcon
                           : CheckmarkCircle02Icon
                       }
                       size={20}
                       className={
-                        batchStatus.status === "failed"
+                        completionTone === "error"
                           ? "text-red-600"
+                          : completionTone === "warning"
+                            ? "text-amber-600"
                           : "text-green-600"
                       }
                     />
                     <span
                       className={`text-sm font-medium ${
-                        batchStatus.status === "failed"
+                        completionTone === "error"
                           ? "text-red-700"
+                          : completionTone === "warning"
+                            ? "text-amber-700"
                           : "text-green-700"
                       }`}
                     >
-                      {batchStatus.status === "failed"
-                        ? "Import Failed"
-                        : "Import Complete"}
+                      {completionTitle}
                     </span>
                   </div>
                   <div className="text-sm space-y-1 ml-8">
@@ -378,7 +422,11 @@ export default function ImportOldMembersPage() {
                       </p>
                     )}
                     {batchStatus.successRows != null && (
-                      <p className="text-green-600">
+                      <p
+                        className={
+                          completionTone === "warning" ? "text-amber-700" : "text-green-600"
+                        }
+                      >
                         Successfully imported: {batchStatus.successRows}
                       </p>
                     )}

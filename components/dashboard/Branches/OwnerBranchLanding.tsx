@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -382,32 +382,20 @@ export default function OwnerBranchLanding() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {branches.length === 0 && (
-              <AddBranchCard onCreateClick={() => setIsCreateBranchModalOpen(true)} />
-            )}
-
-            {branches.map((branch, index) => {
+            {branches.map((branch) => {
               const isSelected = effectiveSelectedBranchId === branch.id;
 
               return (
-                <Fragment key={branch.id}>
-                  {index === 1 && (
-                    <AddBranchCard
-                      onCreateClick={() => setIsCreateBranchModalOpen(true)}
-                    />
-                  )}
-                  <BranchPreviewCard
-                    branch={branch}
-                    isSelected={isSelected}
-                    onOpen={() => handleOpenBranchDashboard(branch)}
-                  />
-                </Fragment>
+                <BranchPreviewCard
+                  key={branch.id}
+                  branch={branch}
+                  isSelected={isSelected}
+                  onOpen={() => handleOpenBranchDashboard(branch)}
+                />
               );
             })}
 
-            {branches.length === 1 && (
-              <AddBranchCard onCreateClick={() => setIsCreateBranchModalOpen(true)} />
-            )}
+            <AddBranchCard onCreateClick={() => setIsCreateBranchModalOpen(true)} />
           </div>
         )}
       </div>

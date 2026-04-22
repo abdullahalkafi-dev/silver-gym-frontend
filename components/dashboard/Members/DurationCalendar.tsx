@@ -259,7 +259,6 @@ function DurationCalendar({
 
   switch (durationType) {
     case "month":
-    case "custom":
       return (
         <MonthGrid
           selectedMonths={selectedMonths}

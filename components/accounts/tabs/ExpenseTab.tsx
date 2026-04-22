@@ -12,24 +12,31 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Edit02Icon, PlusSignSquareIcon, Delete02Icon, ArchiveArrowDownIcon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 import { ExpenseCategory, ExpenseSubcategory } from "@/types/expense-category";
+import { useUser } from "@/hooks/useUser";
+import {
+  useGetCategoriesByBranchQuery,
+  useCreateExpenseCategoryMutation,
+  useUpdateExpenseCategoryMutation,
+  useDeleteExpenseCategoryMutation,
+  useCreateExpenseSubcategoryMutation,
+  useUpdateExpenseSubcategoryMutation,
+  useDeleteExpenseSubcategoryMutation,
+} from "@/redux/features/expense/expenseApi";
 
 export const ExpenseTab = () => {
-  const [categories, setCategories] = useState<ExpenseCategory[]>([
-    {
-      id: "1",
-      title: "All Category's",
-      description: "Default category for all expenses",
-      color: "#7C3AED",
-      subcategories: [
-        { id: "s1", title: "Rent" },
-        { id: "s2", title: "Utilities" },
-        { id: "s3", title: "Salaries" },
-        { id: "s4", title: "Maintenance" },
-        { id: "s5", title: "Marketing" },
-        { id: "s6", title: "Miscellaneous" },
-      ],
-    },
-  ]);
+  const { activeBranchId } = useUser();
+
+  const { data: categories = [], isLoading, isError } = useGetCategoriesByBranchQuery(
+    { branchId: activeBranchId! },
+    { skip: !activeBranchId },
+  );
+
+  const [createCategory] = useCreateExpenseCategoryMutation();
+  const [updateCategory] = useUpdateExpenseCategoryMutation();
+  const [deleteCategory] = useDeleteExpenseCategoryMutation();
+  const [createSubcategory] = useCreateExpenseSubcategoryMutation();
+  const [updateSubcategory] = useUpdateExpenseSubcategoryMutation();
+  const [deleteSubcategory] = useDeleteExpenseSubcategoryMutation();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubcategoryModalOpen, setIsSubcategoryModalOpen] = useState(false);
@@ -37,158 +44,136 @@ export const ExpenseTab = () => {
   const [isEditSubcategoryModalOpen, setIsEditSubcategoryModalOpen] = useState(false);
   const [isDeleteCategoryModalOpen, setIsDeleteCategoryModalOpen] = useState(false);
   const [isDeleteSubcategoryModalOpen, setIsDeleteSubcategoryModalOpen] = useState(false);
-  
-  const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | null>(categories[0]);
+
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [categoryToEdit, setCategoryToEdit] = useState<ExpenseCategory | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<ExpenseCategory | null>(null);
   const [subcategoryToEdit, setSubcategoryToEdit] = useState<ExpenseSubcategory | null>(null);
-  const [subcategoryToDelete, setSubcategoryToDelete] = useState<{ categoryId: string; subcategory: ExpenseSubcategory } | null>(null);
+  const [subcategoryToDelete, setSubcategoryToDelete] = useState<{
+    categoryId: string;
+    subcategory: ExpenseSubcategory;
+  } | null>(null);
 
-  const handleCreateCategory = (data: {
+  // Auto-select first category when data loads (derived, no effect needed)
+  const effectiveCategoryId =
+    selectedCategoryId ??
+    (categories.length > 0 ? categories[0].id : null);
+
+  const selectedCategory =
+    categories.find((c) => c.id === effectiveCategoryId) ?? null;
+
+  // ─── Category Handlers ───────────────────────────────────────────────────
+
+  const handleCreateCategory = async (data: {
     title: string;
     description: string;
     color: string;
   }) => {
-    const newCategory: ExpenseCategory = {
-      id: Date.now().toString(),
-      title: data.title,
-      description: data.description,
-      color: data.color,
-      subcategories: [],
-    };
-    setCategories([...categories, newCategory]);
-    setIsCreateModalOpen(false);
-    toast.success("Category created successfully!");
+    if (!activeBranchId) return;
+    try {
+      const result = await createCategory({
+        branchId: activeBranchId,
+        payload: data,
+      }).unwrap();
+      setSelectedCategoryId(result.id);
+      setIsCreateModalOpen(false);
+      toast.success("Category created successfully!");
+    } catch {
+      toast.error("Failed to create category");
+    }
   };
 
-  const handleEditCategory = (data: {
+  const handleEditCategory = async (data: {
     title: string;
     description: string;
     color: string;
   }) => {
-    if (!categoryToEdit) return;
-
-    const updatedCategories = categories.map((cat) => {
-      if (cat.id === categoryToEdit.id) {
-        return {
-          ...cat,
-          title: data.title,
-          description: data.description,
-          color: data.color,
-        };
-      }
-      return cat;
-    });
-
-    setCategories(updatedCategories);
-    
-    // Update selected category if it's the one being edited
-    if (selectedCategory?.id === categoryToEdit.id) {
-      const updated = updatedCategories.find((cat) => cat.id === categoryToEdit.id);
-      if (updated) setSelectedCategory(updated);
+    if (!categoryToEdit || !activeBranchId) return;
+    try {
+      await updateCategory({
+        branchId: activeBranchId,
+        categoryId: categoryToEdit.id,
+        payload: data,
+      }).unwrap();
+      setIsEditCategoryModalOpen(false);
+      setCategoryToEdit(null);
+      toast.success("Category updated successfully!");
+    } catch {
+      toast.error("Failed to update category");
     }
-    
-    setIsEditCategoryModalOpen(false);
-    setCategoryToEdit(null);
-    toast.success("Category updated successfully!");
   };
 
-  const handleDeleteCategory = () => {
-    if (!categoryToDelete) return;
-
-    // Don't allow deleting if it's the last category
-    if (categories.length === 1) {
-      toast.error("Cannot delete the last category");
-      return;
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete || !activeBranchId) return;
+    try {
+      await deleteCategory({
+        branchId: activeBranchId,
+        categoryId: categoryToDelete.id,
+      }).unwrap();
+      if (effectiveCategoryId === categoryToDelete.id) {
+        const remaining = categories.filter((c) => c.id !== categoryToDelete.id);
+        setSelectedCategoryId(remaining[0]?.id ?? null);
+      }
+      setIsDeleteCategoryModalOpen(false);
+      setCategoryToDelete(null);
+      toast.success("Category deleted successfully!");
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string } })?.data?.message ??
+        "Failed to delete category";
+      toast.error(msg);
     }
+  };
 
-    const updatedCategories = categories.filter((cat) => cat.id !== categoryToDelete.id);
-    setCategories(updatedCategories);
+  // ─── Subcategory Handlers ────────────────────────────────────────────────
 
-    // If deleted category was selected, select the first remaining category
-    if (selectedCategory?.id === categoryToDelete.id) {
-      setSelectedCategory(updatedCategories[0] || null);
+  const handleAddSubcategory = async (data: { title: string }) => {
+    if (!selectedCategory || !activeBranchId) return;
+    try {
+      await createSubcategory({
+        branchId: activeBranchId,
+        categoryId: selectedCategory.id,
+        payload: data,
+      }).unwrap();
+      setIsSubcategoryModalOpen(false);
+      toast.success("Subcategory added successfully!");
+    } catch {
+      toast.error("Failed to add subcategory");
     }
-
-    setIsDeleteCategoryModalOpen(false);
-    setCategoryToDelete(null);
-    toast.success("Category deleted successfully!");
   };
 
-  const handleAddSubcategory = (data: { title: string }) => {
-    if (!selectedCategory) return;
-
-    const updatedCategories = categories.map((cat) => {
-      if (cat.id === selectedCategory.id) {
-        return {
-          ...cat,
-          subcategories: [
-            ...cat.subcategories,
-            {
-              id: Date.now().toString(),
-              title: data.title,
-            },
-          ],
-        };
-      }
-      return cat;
-    });
-
-    setCategories(updatedCategories);
-    const updated = updatedCategories.find((cat) => cat.id === selectedCategory.id);
-    if (updated) setSelectedCategory(updated);
-    setIsSubcategoryModalOpen(false);
-    toast.success("Subcategory added successfully!");
+  const handleEditSubcategory = async (data: { title: string }) => {
+    if (!subcategoryToEdit || !activeBranchId) return;
+    try {
+      await updateSubcategory({
+        branchId: activeBranchId,
+        subcategoryId: subcategoryToEdit.id,
+        payload: data,
+      }).unwrap();
+      setIsEditSubcategoryModalOpen(false);
+      setSubcategoryToEdit(null);
+      toast.success("Subcategory updated successfully!");
+    } catch {
+      toast.error("Failed to update subcategory");
+    }
   };
 
-  const handleEditSubcategory = (data: { title: string }) => {
-    if (!subcategoryToEdit || !selectedCategory) return;
-
-    const updatedCategories = categories.map((cat) => {
-      if (cat.id === selectedCategory.id) {
-        return {
-          ...cat,
-          subcategories: cat.subcategories.map((sub) =>
-            sub.id === subcategoryToEdit.id
-              ? { ...sub, title: data.title }
-              : sub
-          ),
-        };
-      }
-      return cat;
-    });
-
-    setCategories(updatedCategories);
-    const updated = updatedCategories.find((cat) => cat.id === selectedCategory.id);
-    if (updated) setSelectedCategory(updated);
-    
-    setIsEditSubcategoryModalOpen(false);
-    setSubcategoryToEdit(null);
-    toast.success("Subcategory updated successfully!");
-  };
-
-  const handleDeleteSubcategory = () => {
-    if (!subcategoryToDelete) return;
-
-    const updatedCategories = categories.map((cat) => {
-      if (cat.id === subcategoryToDelete.categoryId) {
-        return {
-          ...cat,
-          subcategories: cat.subcategories.filter(
-            (sub) => sub.id !== subcategoryToDelete.subcategory.id
-          ),
-        };
-      }
-      return cat;
-    });
-
-    setCategories(updatedCategories);
-    const updated = updatedCategories.find((cat) => cat.id === subcategoryToDelete.categoryId);
-    if (updated) setSelectedCategory(updated);
-    
-    setIsDeleteSubcategoryModalOpen(false);
-    setSubcategoryToDelete(null);
-    toast.success("Subcategory deleted successfully!");
+  const handleDeleteSubcategory = async () => {
+    if (!subcategoryToDelete || !activeBranchId) return;
+    try {
+      await deleteSubcategory({
+        branchId: activeBranchId,
+        subcategoryId: subcategoryToDelete.subcategory.id,
+      }).unwrap();
+      setIsDeleteSubcategoryModalOpen(false);
+      setSubcategoryToDelete(null);
+      toast.success("Subcategory deleted successfully!");
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string } })?.data?.message ??
+        "Failed to delete subcategory";
+      toast.error(msg);
+    }
   };
 
   const openEditCategoryModal = (category: ExpenseCategory) => {
@@ -206,17 +191,45 @@ export const ExpenseTab = () => {
     setIsEditSubcategoryModalOpen(true);
   };
 
-  const openDeleteSubcategoryModal = (categoryId: string, subcategory: ExpenseSubcategory) => {
+  const openDeleteSubcategoryModal = (
+    categoryId: string,
+    subcategory: ExpenseSubcategory,
+  ) => {
     setSubcategoryToDelete({ categoryId, subcategory });
     setIsDeleteSubcategoryModalOpen(true);
   };
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2 bg-gray-primary p-4 rounded-md animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-14 bg-gray-200 rounded" />
+          ))}
+        </div>
+        <div className="bg-gray-primary p-4 rounded-md animate-pulse">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-12 bg-gray-200 rounded mb-2" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-12 text-red-500">
+        Failed to load expense categories. Please try again.
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {/* Categories Column */}
       <div className="space-y-4 bg-gray-primary p-4 rounded-md h-full overflow-y-auto">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-text-secondary">All Category's</h2>
+          <h2 className="text-xl font-semibold text-text-secondary">All Category&apos;s</h2>
           <Button
             onClick={() => setIsCreateModalOpen(true)}
             className="bg-white hover:bg-purple/10 text-text-primary rounded cursor-pointer"
@@ -226,51 +239,59 @@ export const ExpenseTab = () => {
         </div>
 
         <div className="space-y-2">
-          {categories.map((category) => (
-            <div
-              key={category.id}
-              className={`w-full p-3 rounded border transition hover:border-gray-300 ${
-                selectedCategory?.id === category.id
-                  ? "bg-purple-50 border-2 border-purple/10"
-                  : "bg-white border-none"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <button
-                  onClick={() => setSelectedCategory(category)}
-                  className="flex-1 text-left cursor-pointer"
-                >
-                  <p className={`font-medium ${
-                    selectedCategory?.id === category.id
-                      ? "text-text-primary"
-                      : "text-text-secondary"
-                  }`}>
-                    {category.title}
-                  </p>
-                  <p className="text-xs mt-1 text-gray-500">
-                    {category.subcategories.length} subcategories
-                  </p>
-                </button>
-                
-                <div className="flex items-center gap-1">
+          {categories.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-6">
+              No categories yet. Create one to get started.
+            </p>
+          ) : (
+            categories.map((category) => (
+              <div
+                key={category.id}
+                className={`w-full p-3 rounded border transition hover:border-gray-300 ${
+                  effectiveCategoryId === category.id
+                    ? "bg-purple-50 border-2 border-purple/10"
+                    : "bg-white border-none"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
                   <button
-                    onClick={() => openEditCategoryModal(category)}
-                    className="p-1.5 hover:bg-gray-100 rounded transition-colors"
-                    title="Edit category"
+                    onClick={() => setSelectedCategoryId(category.id)}
+                    className="flex-1 text-left cursor-pointer"
                   >
-                    <HugeiconsIcon icon={Edit02Icon} size={18} className="text-gray-600" />
+                    <p
+                      className={`font-medium ${
+                        effectiveCategoryId === category.id
+                          ? "text-text-primary"
+                          : "text-text-secondary"
+                      }`}
+                    >
+                      {category.title}
+                    </p>
+                    <p className="text-xs mt-1 text-gray-500">
+                      {category.subcategories.length} subcategories
+                    </p>
                   </button>
-                  <button
-                    onClick={() => openDeleteCategoryModal(category)}
-                    className="p-1.5 hover:bg-red-50 rounded transition-colors"
-                    title="Delete category"
-                  >
-                    <HugeiconsIcon icon={Delete02Icon} size={18} className="text-red-600" />
-                  </button>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openEditCategoryModal(category)}
+                      className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                      title="Edit category"
+                    >
+                      <HugeiconsIcon icon={Edit02Icon} size={18} className="text-gray-600" />
+                    </button>
+                    <button
+                      onClick={() => openDeleteCategoryModal(category)}
+                      className="p-1.5 hover:bg-red-50 rounded transition-colors"
+                      title="Delete category"
+                    >
+                      <HugeiconsIcon icon={Delete02Icon} size={18} className="text-red-600" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         <Button
@@ -314,7 +335,9 @@ export const ExpenseTab = () => {
                         <HugeiconsIcon icon={Edit02Icon} size={18} className="text-gray-600" />
                       </button>
                       <button
-                        onClick={() => openDeleteSubcategoryModal(selectedCategory.id, sub)}
+                        onClick={() =>
+                          openDeleteSubcategoryModal(selectedCategory.id, sub)
+                        }
                         className="p-1.5 hover:bg-red-50 rounded transition-colors"
                         title="Delete subcategory"
                       >

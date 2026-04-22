@@ -12,6 +12,7 @@ interface DeactivateMemberModalProps {
   onClose: () => void;
   onConfirm: () => void;
   memberName: string;
+  isCurrentlyActive?: boolean;
 }
 
 const DeactivateMemberModal: React.FC<DeactivateMemberModalProps> = ({
@@ -19,7 +20,9 @@ const DeactivateMemberModal: React.FC<DeactivateMemberModalProps> = ({
   onClose,
   onConfirm,
   memberName,
+  isCurrentlyActive = true,
 }) => {
+  const isDeactivating = isCurrentlyActive;
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogOverlay className="bg-black/20 backdrop-blur-sm" />
@@ -65,13 +68,16 @@ const DeactivateMemberModal: React.FC<DeactivateMemberModalProps> = ({
 
           {/* Title */}
           <h3 className="text-xl font-semibold text-gray-800">
-            Are you sure you want to deactivate {memberName}?
+            {isDeactivating
+              ? `Are you sure you want to deactivate ${memberName}?`
+              : `Are you sure you want to reactivate ${memberName}?`}
           </h3>
 
           {/* Description */}
           <p className="text-sm text-gray-500">
-            Once deactivated, they will temporarily lose access to gym
-            facilities. You can reactivate them any time.
+            {isDeactivating
+              ? "Once deactivated, they will temporarily lose access to gym facilities. You can reactivate them any time."
+              : "Once reactivated, they will regain access to gym facilities."}
           </p>
 
           {/* Actions */}
@@ -84,9 +90,13 @@ const DeactivateMemberModal: React.FC<DeactivateMemberModalProps> = ({
             </button>
             <button
               onClick={onConfirm}
-              className="flex-1 px-6 py-3 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors font-medium"
+              className={`flex-1 px-6 py-3 text-white rounded-md transition-colors font-medium ${
+                isDeactivating
+                  ? "bg-red-500 hover:bg-red-600"
+                  : "bg-green-500 hover:bg-green-600"
+              }`}
             >
-              Yes Inactive
+              {isDeactivating ? "Yes, Deactivate" : "Yes, Reactivate"}
             </button>
           </div>
         </div>

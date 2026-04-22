@@ -1,21 +1,32 @@
 // components/modals/ExportReportModal.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { ImageIcon } from "@/components/utils/ImageIcon";
 import { toast } from "sonner";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+import { DatePickerPopover } from "@/components/ui/date-picker-popover";
+import {
+  exportToPDF,
+  exportToExcel,
+  type ExportColumn,
+} from "@/lib/exportUtils";
 
 interface ExportReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   exportFormat: "pdf" | "excel";
-  data: any[];
+  data: Record<string, unknown>[];
   reportType: "Income" | "Expense";
-  columns: { header: string; key: string }[];
+  columns: ExportColumn[];
+  /** Pre-fill the start date from the page's current date filter */
+  defaultStartDate?: Date;
+  /** Pre-fill the end date from the page's current date filter */
+  defaultEndDate?: Date;
+  /** ISO field name on each row used for date-range filtering (e.g. "paymentDate") */
+  dateField?: string;
+  /** Numeric field name on each row to sum as total (e.g. "paidTotal") */
+  amountField?: string;
 }
 
 export default function ExportReportModal({
@@ -25,191 +36,22 @@ export default function ExportReportModal({
   data,
   reportType,
   columns,
+  defaultStartDate,
+  defaultEndDate,
+  dateField,
+  amountField,
 }: ExportReportModalProps) {
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState<Date | undefined>(defaultStartDate);
+  const [endDate, setEndDate] = useState<Date | undefined>(defaultEndDate);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Sync when defaults change (e.g. user changes page filter then opens modal again)
+  useEffect(() => {
+    setStartDate(defaultStartDate);
+    setEndDate(defaultEndDate);
+  }, [defaultStartDate, defaultEndDate]);
+
   if (!isOpen) return null;
-
-  const filterDataByDateRange = () => {
-    if (!startDate || !endDate) return data;
-
-    // console.log('=== FILTER DEBUG START ===');
-    // console.log('Total data items:', data.length);
-    // console.log('Start date:', startDate);
-    // console.log('End date:', endDate);
-    // console.log('First item sample:', data[0]);
-
-    const start = new Date(startDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-
-    // console.log('Parsed start:', start);
-    // console.log('Parsed end:', end);
-
-    const filtered = data.filter((item) => {
-      let itemDate: Date;
-      
-      // Check if there's a date property that's a Date object (expense data)
-      if (item.date && item.date instanceof Date) {
-        itemDate = new Date(item.date);
-        // console.log('Using Date object:', item.date);
-      } 
-      // Check if date is a string
-      else if (item.date && typeof item.date === 'string') {
-        itemDate = new Date(item.date);
-        // console.log('Using date string:', item.date);
-      } 
-      // Parse the dateTime string (income data format: "15 May 2020 9:30 am")
-      else if (item.dateTime) {
-        const dateStr = String(item.dateTime);
-        // console.log('Parsing dateTime string:', dateStr);
-        
-        // Parse format like "15 May 2020 9:30 am" or "22 Dec 2025 9:30 am"
-        const parts = dateStr.match(/(\d+)\s+([A-Za-z]+)\s+(\d+)/);
-        if (parts) {
-          const [, day, month, year] = parts;
-          // Create date string in format "Month Day, Year"
-          itemDate = new Date(`${month} ${day}, ${year}`);
-          // console.log('Parsed parts:', { day, month, year }, '-> Date:', itemDate);
-        } else {
-          // Fallback to direct parsing
-          itemDate = new Date(dateStr);
-          // console.log('Fallback parse:', itemDate);
-        }
-      } else {
-        // console.log('No date found for item:', item);
-        return false;
-      }
-      
-      // Check if date is valid and within range
-      if (isNaN(itemDate.getTime())) {
-        // console.log('Invalid date for item:', item);
-        return false;
-      }
-      
-      // Normalize the item date to start of day for comparison
-      itemDate.setHours(0, 0, 0, 0);
-      
-      const inRange = itemDate >= start && itemDate <= end;
-      // console.log('Item date:', itemDate, 'In range?', inRange);
-      
-      return inRange;
-    });
-
-    // console.log('Filtered items:', filtered.length);
-    // console.log('=== FILTER DEBUG END ===');
-    
-    return filtered;
-  };
-
-  const exportToPDF = () => {
-    const filteredData = filterDataByDateRange();
-    
-    if (filteredData.length === 0) {
-      toast.error("No data available for the selected date range");
-      return;
-    }
-
-    const doc = new jsPDF();
-    
-    // Add title
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${reportType} Report`, 14, 20);
-    
-    // Add date range
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 30);
-    doc.text(`Total Records: ${filteredData.length}`, 14, 37);
-    
-    // Calculate total amount
-    const totalAmount = filteredData.reduce((sum, item) => sum + (item.amount || 0), 0);
-    doc.text(`Total Amount: ${totalAmount.toFixed(2)}`, 14, 44);
-    
-    // Prepare table data
-    const tableData = filteredData.map((item) =>
-      columns.map((col) => {
-        const value = item[col.key];
-        if (col.key === "amount" && typeof value === "number") {
-          return value.toFixed(2);
-        }
-        return value || "";
-      })
-    );
-
-    // Add table
-    autoTable(doc, {
-      head: [columns.map((col) => col.header)],
-      body: tableData,
-      startY: 50,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [124, 58, 237], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      margin: { top: 50 },
-    });
-
-    // Save the PDF
-    const filename = `${reportType}_Report_${startDate}_to_${endDate}.pdf`;
-    doc.save(filename);
-  };
-
-  const exportToExcel = () => {
-    const filteredData = filterDataByDateRange();
-    
-    if (filteredData.length === 0) {
-      toast.error("No data available for the selected date range");
-      return;
-    }
-
-    // Prepare data for Excel
-    const excelData = filteredData.map((item) => {
-      const row: any = {};
-      columns.forEach((col) => {
-        const value = item[col.key];
-        if (col.key === "amount" && typeof value === "number") {
-          row[col.header] = value.toFixed(2);
-        } else {
-          row[col.header] = value || "";
-        }
-      });
-      return row;
-    });
-
-    // Add summary row
-    const totalAmount = filteredData.reduce((sum, item) => sum + (item.amount || 0), 0);
-    const summaryRow: any = {};
-    columns.forEach((col, index) => {
-      if (index === 0) {
-        summaryRow[col.header] = "TOTAL";
-      } else if (col.key === "amount") {
-        summaryRow[col.header] = totalAmount.toFixed(2);
-      } else {
-        summaryRow[col.header] = "";
-      }
-    });
-    excelData.push(summaryRow);
-
-    // Create worksheet
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-    // Set column widths
-    const columnWidths = columns.map((col) => ({
-      wch: col.header.length + 5,
-    }));
-    worksheet["!cols"] = columnWidths;
-
-    // Create workbook
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, `${reportType} Report`);
-
-    // Save the file
-    const filename = `${reportType}_Report_${startDate}_to_${endDate}.xlsx`;
-    XLSX.writeFile(workbook, filename);
-  };
 
   const handleExport = () => {
     if (!startDate || !endDate) {
@@ -220,18 +62,25 @@ export default function ExportReportModal({
     setIsExporting(true);
 
     try {
+      const config = {
+        data,
+        columns,
+        title: `${reportType} Report`,
+        dateField,
+        amountField,
+        startDate,
+        endDate,
+      };
+
       if (exportFormat === "pdf") {
-        exportToPDF();
+        exportToPDF(config);
       } else {
-        exportToExcel();
+        exportToExcel(config);
       }
 
       toast.success(
         `Report exported successfully as ${exportFormat.toUpperCase()}!`,
-        {
-          description: `Date range: ${startDate} to ${endDate}`,
-          duration: 3000,
-        }
+        { duration: 3000 },
       );
       onClose();
     } catch (error) {
@@ -242,8 +91,10 @@ export default function ExportReportModal({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl mx-4">
         {/* Header */}
         <div className="flex items-start gap-4 p-6 border-b">
@@ -279,15 +130,13 @@ export default function ExportReportModal({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Start date
               </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  placeholder="12/MM/YYYY"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple focus:border-transparent"
-                />
-              </div>
+              <DatePickerPopover
+                value={startDate}
+                onChange={setStartDate}
+                placeholder="Pick start date"
+                maxDate={endDate}
+                formatStr="dd MMM yyyy"
+              />
             </div>
 
             {/* End Date */}
@@ -295,15 +144,13 @@ export default function ExportReportModal({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 End date
               </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  placeholder="DD/MM/YYYY"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple focus:border-transparent"
-                />
-              </div>
+              <DatePickerPopover
+                value={endDate}
+                onChange={setEndDate}
+                placeholder="Pick end date"
+                minDate={startDate}
+                formatStr="dd MMM yyyy"
+              />
             </div>
           </div>
         </div>

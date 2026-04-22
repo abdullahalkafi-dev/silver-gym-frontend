@@ -51,7 +51,6 @@ const normalizeDurationType = (durationType?: string): PackageDurationType => {
     case "week":
     case "month":
     case "year":
-    case "custom":
       return durationType;
     default:
       return "month";

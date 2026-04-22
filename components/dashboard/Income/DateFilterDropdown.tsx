@@ -2,8 +2,10 @@
 "use client";
 
 import { useState } from "react";
-import { Calendar, ChevronDown } from "lucide-react";
+import { Calendar, ChevronDown, X } from "lucide-react";
+import { format } from "date-fns";
 import { DateFilterType } from "@/types/income";
+import { DatePickerPopover } from "@/components/ui/date-picker-popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,57 +30,72 @@ export default function DateFilterDropdown({
   customEndDate,
   setCustomEndDate,
 }: DateFilterDropdownProps) {
-  const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+  const [showCustomPanel, setShowCustomPanel] = useState(false);
+  const [pendingStart, setPendingStart] = useState<Date | undefined>(
+    customStartDate ? new Date(customStartDate) : undefined,
+  );
+  const [pendingEnd, setPendingEnd] = useState<Date | undefined>(
+    customEndDate ? new Date(customEndDate) : undefined,
+  );
 
   const getDisplayText = () => {
     if (dateFilter === "today") return "Today";
     if (dateFilter === "thisMonth") return "This Month";
     if (dateFilter === "custom" && customStartDate && customEndDate) {
-      return `${formatDate(customStartDate)} To ${formatDate(customEndDate)}`;
+      const s = format(new Date(customStartDate), "dd/MM/yyyy");
+      const e = format(new Date(customEndDate), "dd/MM/yyyy");
+      return `${s} – ${e}`;
     }
     return "Today";
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+  const handleSelectPreset = (filter: DateFilterType) => {
+    setDateFilter(filter);
+    setShowCustomPanel(false);
   };
 
   const handleCustomDateClick = () => {
-    setShowCustomDatePicker(true);
+    // Reset pending to whatever is already applied
+    setPendingStart(customStartDate ? new Date(customStartDate) : undefined);
+    setPendingEnd(customEndDate ? new Date(customEndDate) : undefined);
+    setShowCustomPanel(true);
+  };
+
+  const handleApply = () => {
+    if (!pendingStart || !pendingEnd) return;
+    // Store as YYYY-MM-DD strings (same format as before for IncomeList compatibility)
+    setCustomStartDate(format(pendingStart, "yyyy-MM-dd"));
+    setCustomEndDate(format(pendingEnd, "yyyy-MM-dd"));
+    setDateFilter("custom");
+    setShowCustomPanel(false);
+  };
+
+  const handleCancelPanel = () => {
+    setShowCustomPanel(false);
   };
 
   return (
     <div className="relative">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-sm font-medium text-gray-700 transition-colors min-w-[100px] justify-between h-10 bg-gray-primary! hover:bg-gray-200! cursor-pointer">
+          <button className="flex items-center gap-2 px-4 py-2 bg-gray-primary rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors min-w-[100px] justify-between h-10 cursor-pointer">
             <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-gray-500" />
-              <span>{getDisplayText()}</span>
+              <Calendar className="w-4 h-4 text-gray-500 shrink-0" />
+              <span className="truncate max-w-[180px]">{getDisplayText()}</span>
             </div>
-            <ChevronDown className="w-4 h-4 text-gray-500" />
+            <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[200px]">
           <DropdownMenuItem
-            onClick={() => {
-              setDateFilter("today");
-              setShowCustomDatePicker(false);
-            }}
+            onClick={() => handleSelectPreset("today")}
             className="cursor-pointer"
           >
             <Calendar className="w-4 h-4 mr-2" />
             Today
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => {
-              setDateFilter("thisMonth");
-              setShowCustomDatePicker(false);
-            }}
+            onClick={() => handleSelectPreset("thisMonth")}
             className="cursor-pointer"
           >
             <Calendar className="w-4 h-4 mr-2" />
@@ -94,66 +111,75 @@ export default function DateFilterDropdown({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Custom Date Picker Modal */}
-      {showCustomDatePicker && (
-        <div className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-xl w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Select your date duration
-            </h3>
+      {/* Custom date picker panel (inline popover below the button) */}
+      {showCustomPanel && (
+        <>
+          {/* Invisible overlay to close on outside click */}
+          <div
+            className="fixed inset-0 z-30"
+            onClick={handleCancelPanel}
+            aria-hidden="true"
+          />
+          <div className="absolute right-0 top-12 z-40 bg-white rounded-xl shadow-xl border border-gray-100 p-5 w-[360px]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Select date range
+              </h3>
+              <button
+                onClick={handleCancelPanel}
+                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
+              >
+                <X size={14} />
+              </button>
+            </div>
 
-            <div className="flex justify-between items-center gap-4">
-              <div className="w-full">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
                   Start date
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
-                </div>
+                <DatePickerPopover
+                  value={pendingStart}
+                  onChange={setPendingStart}
+                  placeholder="DD MMM YYYY"
+                  maxDate={pendingEnd}
+                  formatStr="dd MMM yyyy"
+                />
               </div>
-
-              <div className="w-full">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
                   End date
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
-                </div>
+                <DatePickerPopover
+                  value={pendingEnd}
+                  onChange={setPendingEnd}
+                  placeholder="DD MMM YYYY"
+                  minDate={pendingStart}
+                  formatStr="dd MMM yyyy"
+                />
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-2 mt-4">
               <button
-                onClick={() => setShowCustomDatePicker(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                onClick={handleCancelPanel}
+                className="flex-1 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  if (customStartDate && customEndDate) {
-                    setDateFilter("custom");
-                    setShowCustomDatePicker(false);
-                  }
-                }}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                onClick={handleApply}
+                disabled={!pendingStart || !pendingEnd}
+                className="flex-1 px-3 py-2 text-sm text-white bg-purple rounded-lg hover:bg-purple/90 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Apply
               </button>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 }
+

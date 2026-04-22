@@ -37,7 +37,6 @@ const durationTypeOptions: Array<{
   { value: "week", label: "Weeks" },
   { value: "month", label: "Months" },
   { value: "year", label: "Years" },
-  { value: "custom", label: "Custom Days" },
 ];
 
 type PackageModalProps = {

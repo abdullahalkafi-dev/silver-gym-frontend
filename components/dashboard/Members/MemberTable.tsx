@@ -5,7 +5,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { BackendMember } from "@/types/member";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { MailSend01Icon, UserGroup02Icon } from "@hugeicons/core-free-icons";
+import { MailSend01Icon, UserGroup02Icon, ViewIcon } from "@hugeicons/core-free-icons";
 
 interface MemberTableProps {
   members: BackendMember[];
@@ -14,21 +14,31 @@ interface MemberTableProps {
 }
 
 const formatDate = (dateStr?: string) => {
-  if (!dateStr) return "â€”";
+  if (!dateStr) return "—";
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "â€”";
+  if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
 };
 
 const formatCurrency = (amount?: number) => {
-  if (amount == null || amount <= 0) return "â€”";
-  return `à§³${amount.toLocaleString()}`;
+  if (amount == null || amount <= 0) return "—";
+  return `৳${amount.toLocaleString()}`;
+};
+
+const formatSignedBalance = (amount: number, direction: "due" | "advance") => {
+  const prefix = direction === "advance" ? "+" : "-";
+  return `${prefix}${formatCurrency(amount)}`;
 };
 
 const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading }) => {
   const router = useRouter();
 
   const handleRowClick = (memberId: string) => {
+    router.push(`/dashboard/members/details/${memberId}`);
+  };
+
+  const handleViewClick = (e: React.MouseEvent, memberId: string) => {
+    e.stopPropagation();
     router.push(`/dashboard/members/details/${memberId}`);
   };
 
@@ -70,10 +80,13 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
                 Next Payment
               </th>
               <th className="px-6 py-4 text-left text-base font-semibold text-text-primary border-b">
-                Due Amount
+                Balance
+              </th>
+              <th className="px-6 py-4 text-left text-base font-semibold text-text-primary border-b">
+                Payment
               </th>
               <th className="px-6 py-4 text-center text-base font-semibold text-text-primary border-b">
-                View
+              Actions
               </th>
             </tr>
           </thead>
@@ -81,7 +94,7 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
             {members.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-6 py-8 text-center text-gray-500"
                 >
                   <HugeiconsIcon icon={UserGroup02Icon} size={24} />
@@ -92,7 +105,12 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
               members.map((member, index) => {
                 const isActive = member.isActive !== false;
                 const dueAmount = member.currentDueAmount ?? 0;
+                const advanceAmount = member.currentAdvanceAmount ?? 0;
                 const hasDue = dueAmount > 0;
+                const hasAdvance = advanceAmount > 0;
+                const isImportedMember =
+                  Boolean(member.source) &&
+                  !["app", "manual"].includes(String(member.source).toLowerCase());
                 const nextPayment = member.nextPaymentDate;
                 const isOverdue =
                   nextPayment && new Date(nextPayment) < new Date();
@@ -108,7 +126,7 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
                     {/* Name with Avatar & Email */}
                     <td className="px-6 py-4 text-sm rounded-l-md">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-md bg-gray-300 overflow-hidden flex items-center justify-center flex-shrink-0">
+                        <div className="w-10 h-10 rounded-md bg-gray-300 overflow-hidden flex items-center justify-center shrink-0">
                           {member.photo ? (
                             <img
                               src={member.photo}
@@ -122,11 +140,18 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
                           )}
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-medium text-gray-800">
-                            {member.fullName}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-800">
+                              {member.fullName}
+                            </span>
+                            {isImportedMember && (
+                              <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                                Imported
+                              </span>
+                            )}
+                          </div>
                           <span className="text-xs text-gray-500">
-                            {member.email || "â€”"}
+                            {member.email || "Not provided"}
                           </span>
                         </div>
                       </div>
@@ -139,7 +164,7 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
 
                     {/* Phone */}
                     <td className="px-6 py-4 text-sm text-gray-medium">
-                      {member.contact || "â€”"}
+                      {member.contact || "Not provided"}
                     </td>
 
                     {/* Status */}
@@ -170,26 +195,62 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
                     <td className="px-6 py-4 text-sm">
                       <span
                         className={`font-medium ${
-                          hasDue ? "text-red-600" : "text-green-600"
+                          hasDue
+                            ? "text-red-600"
+                            : hasAdvance
+                              ? "text-green-600"
+                              : "text-gray-700"
                         }`}
                       >
-                        {hasDue ? formatCurrency(dueAmount) : "Paid"}
+                        {hasDue
+                          ? formatSignedBalance(dueAmount, "due")
+                          : hasAdvance
+                            ? formatSignedBalance(advanceAmount, "advance")
+                            : "—"}
                       </span>
                     </td>
 
-                    {/* View (SMS Icon) */}
-                    <td className="px-6 py-4 text-center rounded-r-md">
-                      <button
-                        onClick={(e) => handleSMSClick(e, member)}
-                        className="inline-flex items-center justify-center p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Send SMS"
+                    {/* Payment Status */}
+                    <td className="px-6 py-4 text-sm">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          hasDue
+                            ? "bg-red-100 text-red-600"
+                            : hasAdvance
+                              ? "bg-green-100 text-green-600"
+                            : "bg-green-100 text-green-600"
+                        }`}
                       >
-                        <HugeiconsIcon
-                          icon={MailSend01Icon}
-                          size={20}
-                          className="text-gray-600"
-                        />
-                      </button>
+                        {hasDue ? "Due" : hasAdvance ? "Advance" : "Complete"}
+                      </span>
+                    </td>
+
+                    {/* View — eye icon (profile) + mail icon (SMS) */}
+                    <td className="px-6 py-4 text-center rounded-r-md">
+                      <div className="inline-flex items-center justify-center gap-1">
+                        <button
+                          onClick={(e) => handleViewClick(e, member._id)}
+                          className="inline-flex items-center justify-center p-2 hover:bg-purple/10 rounded-lg transition-colors"
+                          title="View Profile"
+                        >
+                          <HugeiconsIcon
+                            icon={ViewIcon}
+                            size={20}
+                            className="text-purple"
+                          />
+                        </button>
+                        <button
+                          onClick={(e) => handleSMSClick(e, member)}
+                          className="inline-flex items-center justify-center p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Send SMS"
+                        >
+                          <HugeiconsIcon
+                            icon={MailSend01Icon}
+                            size={20}
+                            className="text-gray-600"
+                          />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

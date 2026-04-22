@@ -1,4 +1,4 @@
-export type PackageDurationType = "day" | "week" | "month" | "year" | "custom";
+export type PackageDurationType = "day" | "week" | "month" | "year";
 
 export interface GymPackage {
   id: string;

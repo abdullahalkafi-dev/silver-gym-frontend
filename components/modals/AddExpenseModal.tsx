@@ -1,47 +1,69 @@
 // components/modals/AddExpenseModal.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Modal from "../ui/modal";
 import { Input } from "../ui/input";
-import { expenseSubcategories } from "@/data/expenseCategories";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { useUser } from "@/hooks/useUser";
+import {
+  useGetCategoriesByBranchQuery,
+  useCreateExpenseMutation,
+} from "@/redux/features/expense/expenseApi";
 
 interface AddExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (expense: {
-    subcategory: string;
-    category: string;
-    description: string;
-    amount: number;
-    paymentMethod: string;
-  }) => void;
 }
 
 export default function AddExpenseModal({
   isOpen,
   onClose,
-  onSave,
 }: AddExpenseModalProps) {
+  const { activeBranchId } = useUser();
+
+  const { data: categories = [] } = useGetCategoriesByBranchQuery(
+    { branchId: activeBranchId! },
+    { skip: !activeBranchId || !isOpen },
+  );
+
+  const [createExpense, { isLoading }] = useCreateExpenseMutation();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubcategory, setSelectedSubcategory] = useState<{
+    id: string;
     name: string;
     category: string;
   } | null>(null);
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("Cash");
-  const [isLoading, setIsLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
 
-  const filteredSubcategories = expenseSubcategories.filter((sub) =>
-    sub.name.toLowerCase().includes(searchQuery.toLowerCase())
+  // Flatten all subcategories from all categories
+  const allSubcategories = useMemo(
+    () =>
+      categories.flatMap((cat) =>
+        cat.subcategories.map((sub) => ({
+          id: sub.id,
+          name: sub.title,
+          category: cat.title,
+        })),
+      ),
+    [categories],
   );
 
-  const handleSubcategorySelect = (subcategory: { name: string; category: string }) => {
-    setSelectedSubcategory(subcategory);
-    setSearchQuery(subcategory.name);
+  const filteredSubcategories = allSubcategories.filter((sub) =>
+    sub.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const handleSubcategorySelect = (sub: {
+    id: string;
+    name: string;
+    category: string;
+  }) => {
+    setSelectedSubcategory(sub);
+    setSearchQuery(sub.name);
   };
 
   const handleClose = () => {
@@ -49,41 +71,45 @@ export default function AddExpenseModal({
     setSelectedSubcategory(null);
     setDescription("");
     setAmount("");
-    setPaymentMethod("Cash");
+    setPaymentMethod("cash");
     onClose();
   };
 
   const handleSave = async () => {
-    // Validation
     if (!selectedSubcategory) {
       toast.error("Please select a subcategory");
-      return;
-    }
-    if (!description.trim()) {
-      toast.error("Please enter a description");
       return;
     }
     if (!amount || parseFloat(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
+    if (!activeBranchId) {
+      toast.error("No active branch selected");
+      return;
+    }
 
-    setIsLoading(true);
+    try {
+      await createExpense({
+        branchId: activeBranchId,
+        payload: {
+          subcategoryId: selectedSubcategory.id,
+          description: description.trim() || undefined,
+          amount: parseFloat(amount),
+          paymentMethod,
+        },
+      }).unwrap();
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    onSave({
-      subcategory: selectedSubcategory.name,
-      category: selectedSubcategory.category,
-      description,
-      amount: parseFloat(amount),
-      paymentMethod,
-    });
-
-    setIsLoading(false);
-    toast.success(`Expense of ${parseFloat(amount).toLocaleString()} TK saved successfully!`);
-    handleClose();
+      toast.success(
+        `Expense of ${parseFloat(amount).toLocaleString()} TK saved successfully!`,
+      );
+      handleClose();
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string } })?.data?.message ??
+        "Failed to save expense";
+      toast.error(msg);
+    }
   };
 
   return (
@@ -94,13 +120,6 @@ export default function AddExpenseModal({
       className="max-w-2xl"
     >
       <div>
-        {/* Add New Category Link */}
-        <div className="flex justify-end mb-4">
-          <button className="text-sm text-purple hover:underline">
-            Add New Category
-          </button>
-        </div>
-
         {/* Search Subcategory */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -117,20 +136,30 @@ export default function AddExpenseModal({
               }}
               className="w-full"
             />
-            
+
             {/* Subcategory Dropdown */}
             {searchQuery && !selectedSubcategory && filteredSubcategories.length > 0 && (
               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 {filteredSubcategories.map((sub) => (
                   <div
                     key={sub.id}
-                    onClick={() => handleSubcategorySelect({ name: sub.name, category: sub.category })}
+                    onClick={() => handleSubcategorySelect(sub)}
                     className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0 flex justify-between items-center"
                   >
-                    <span className="text-sm font-medium text-gray-900">{sub.name}</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {sub.name}
+                    </span>
                     <span className="text-xs text-gray-500">{sub.category}</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {searchQuery && !selectedSubcategory && filteredSubcategories.length === 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                <div className="px-4 py-3 text-sm text-gray-500">
+                  No subcategories found
+                </div>
               </div>
             )}
           </div>
@@ -174,10 +203,10 @@ export default function AddExpenseModal({
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-purple focus:border-transparent"
               >
-                <option>Cash</option>
-                <option>Bank</option>
-                <option>Bkash</option>
-                <option>Due</option>
+                <option value="cash">Cash</option>
+                <option value="bank_transfer">Bank</option>
+                <option value="bkash">Bkash</option>
+                <option value="due">Due</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
@@ -212,3 +241,4 @@ export default function AddExpenseModal({
     </Modal>
   );
 }
+

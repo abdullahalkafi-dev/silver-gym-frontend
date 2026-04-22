@@ -1,20 +1,21 @@
 // app/dashboard/members/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import MemberStatsCards from "@/components/dashboard/Members/MemberStatsCards";
 import MemberTable from "@/components/dashboard/Members/MemberTable";
 import { memberStatsData } from "@/data/memberData";
-import { BackendMember } from "@/types/member";
+import {
+  BackendMember,
+  MemberListPaymentFilter,
+  MemberListStatusFilter,
+} from "@/types/member";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   UserAdd02Icon,
   Search01Icon,
   FilterHorizontalIcon,
-  UserBlock01Icon,
-  UserCheck01Icon,
-  UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { useUser } from "@/hooks/useUser";
 import { CanAccess } from "@/components/shared/CanAccess";
@@ -23,6 +24,24 @@ import {
   useGetBranchMembersQuery,
   useGetDashboardSummaryQuery,
 } from "@/redux/features/member/memberApi";
+
+const STATUS_FILTER_OPTIONS: Array<{
+  value: MemberListStatusFilter;
+  label: string;
+}> = [
+  { value: "all", label: "All members" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
+
+const PAYMENT_FILTER_OPTIONS: Array<{
+  value: MemberListPaymentFilter;
+  label: string;
+}> = [
+  { value: "all", label: "All payments" },
+  { value: "due", label: "Due" },
+  { value: "complete", label: "Complete" },
+];
 
 export default function MembersPage() {
   const router = useRouter();
@@ -39,11 +58,15 @@ export default function MembersPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterType, setFilterType] = useState<string>("all");
+  const [statusFilter, setStatusFilter] =
+    useState<MemberListStatusFilter>("all");
+  const [paymentFilter, setPaymentFilter] =
+    useState<MemberListPaymentFilter>("all");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedMember, setSelectedMember] = useState<BackendMember | null>(null);
   const [showSMSModal, setShowSMSModal] = useState(false);
+  const filterPanelRef = useRef<HTMLDivElement | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -54,14 +77,31 @@ export default function MembersPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  useEffect(() => {
+    if (!showFilterDropdown) return undefined;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterPanelRef.current &&
+        !filterPanelRef.current.contains(event.target as Node)
+      ) {
+        setShowFilterDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showFilterDropdown]);
+
   // Build query params for API
   const queryArgs = {
     branchId: activeBranchId || "",
     ...(debouncedSearch ? { searchTerm: debouncedSearch } : {}),
-    ...(filterType === "all" ? { includeInactive: "true" } : {}),
-    ...(filterType === "inactive"
-      ? { includeInactive: "true" }
+    ...(statusFilter === "all" || statusFilter === "inactive"
+      ? { includeInactive: "true" as const }
       : {}),
+    ...(statusFilter === "inactive" ? { isActive: "false" as const } : {}),
+    ...(paymentFilter !== "all" ? { paymentStatus: paymentFilter } : {}),
     page: currentPage,
     limit: 20,
   };
@@ -98,6 +138,9 @@ export default function MembersPage() {
   const members = memberData?.data || [];
   const meta = memberData?.meta;
   const totalPages = meta?.totalPage || 1;
+  const activeFilterCount =
+    (statusFilter !== "all" ? 1 : 0) + (paymentFilter !== "all" ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0;
 
   const handleSendSMS = useCallback((member: BackendMember) => {
     setSelectedMember(member);
@@ -109,9 +152,19 @@ export default function MembersPage() {
     setSelectedMember(null);
   };
 
-  const handleFilterSelect = (type: string) => {
-    setFilterType(type);
-    setShowFilterDropdown(false);
+  const handleStatusFilterSelect = (nextFilter: MemberListStatusFilter) => {
+    setStatusFilter(nextFilter);
+    setCurrentPage(1);
+  };
+
+  const handlePaymentFilterSelect = (nextFilter: MemberListPaymentFilter) => {
+    setPaymentFilter(nextFilter);
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setStatusFilter("all");
+    setPaymentFilter("all");
     setCurrentPage(1);
   };
 
@@ -189,58 +242,84 @@ export default function MembersPage() {
               </div>
 
               {/* Filter */}
-              <div className="relative">
+              <div ref={filterPanelRef} className="relative">
                 <button
                   onClick={() => setShowFilterDropdown(!showFilterDropdown)}
                   className={`px-4 py-2 border rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
-                    filterType !== "all"
+                    hasActiveFilters
                       ? "border-primary bg-primary/5 text-primary"
                       : "border-gray-300 text-gray-700 hover:bg-gray-50"
                   }`}
                 >
                   <HugeiconsIcon icon={FilterHorizontalIcon} size={18} />
                   Filter
-                  {filterType !== "all" && (
-                    <span className="ml-1 w-2 h-2 bg-primary rounded-full"></span>
+                  {hasActiveFilters && (
+                    <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-white">
+                      {activeFilterCount}
+                    </span>
                   )}
                 </button>
 
                 {showFilterDropdown && (
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                    <div className="py-2">
-                      <button
-                        onClick={() => handleFilterSelect("all")}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                          filterType === "all"
-                            ? "bg-primary/5 text-primary"
-                            : "text-gray-700"
-                        }`}
-                      >
-                        <HugeiconsIcon icon={UserGroupIcon} size={18} />
-                        All Members
-                      </button>
-                      <button
-                        onClick={() => handleFilterSelect("active")}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                          filterType === "active"
-                            ? "bg-primary/5 text-primary"
-                            : "text-gray-700"
-                        }`}
-                      >
-                        <HugeiconsIcon icon={UserCheck01Icon} size={18} />
-                        Active Members
-                      </button>
-                      <button
-                        onClick={() => handleFilterSelect("inactive")}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                          filterType === "inactive"
-                            ? "bg-primary/5 text-primary"
-                            : "text-gray-700"
-                        }`}
-                      >
-                        <HugeiconsIcon icon={UserBlock01Icon} size={18} />
-                        Inactive Members
-                      </button>
+                  <div className="absolute right-0 top-full mt-2 w-[320px] bg-white border border-gray-200 rounded-xl shadow-lg z-10 p-4">
+                    <div className="space-y-4">
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Member Status
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {STATUS_FILTER_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => handleStatusFilterSelect(option.value)}
+                              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                                statusFilter === option.value
+                                  ? "bg-primary text-white"
+                                  : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="border-t border-gray-100 pt-4">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Payment Status
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {PAYMENT_FILTER_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => handlePaymentFilterSelect(option.value)}
+                              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                                paymentFilter === option.value
+                                  ? "bg-primary text-white"
+                                  : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-4">
+                        <button
+                          onClick={handleResetFilters}
+                          disabled={!hasActiveFilters}
+                          className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 disabled:cursor-not-allowed disabled:text-gray-300"
+                        >
+                          Reset
+                        </button>
+                        <button
+                          onClick={() => setShowFilterDropdown(false)}
+                          className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
+                        >
+                          Done
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

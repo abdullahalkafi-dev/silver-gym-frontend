@@ -149,10 +149,6 @@ export default function DashboardHeader({
       <AddExpenseModal
         isOpen={modalType === "expense"}
         onClose={closeModal}
-        onSave={(data) => {
-          console.log("Expense saved:", data);
-          closeModal();
-        }}
       />
 
       <Modal

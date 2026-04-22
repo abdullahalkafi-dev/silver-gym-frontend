@@ -1,7 +1,7 @@
 // app/dashboard/members/add-member/page.tsx
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { startTransition, useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -12,6 +12,14 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { InputWithUnit } from "@/components/ui/input-with-unit";
 import { DatePickerPopover } from "@/components/ui/date-picker-popover";
@@ -222,6 +230,9 @@ export default function AddMemberPage() {
   const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
   const [admissionFee, setAdmissionFee] = useState("");
   const [paidTotal, setPaidTotal] = useState("");
+  const [showOverpaymentDialog, setShowOverpaymentDialog] = useState(false);
+  const [pendingPayload, setPendingPayload] =
+    useState<CreateMemberPayload | null>(null);
 
   // ── Errors ──
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -249,7 +260,9 @@ export default function AddMemberPage() {
     if (membershipType === "monthly") {
       if (prevMembershipTypeRef.current !== "monthly" || !admissionFee) {
         const fee = branchAdmissionFee?.admissionFeeAmount;
-        setAdmissionFee(fee != null ? String(fee) : "");
+        startTransition(() => {
+          setAdmissionFee(fee != null ? String(fee) : "");
+        });
       }
       prevMembershipTypeRef.current = membershipType;
       return;
@@ -264,9 +277,13 @@ export default function AddMemberPage() {
           selectedPackage.admissionFeeAmount != null
             ? selectedPackage.admissionFeeAmount
             : branchAdmissionFee?.admissionFeeAmount ?? null;
-        setAdmissionFee(feeAmount != null ? String(feeAmount) : "");
+        startTransition(() => {
+          setAdmissionFee(feeAmount != null ? String(feeAmount) : "");
+        });
       } else {
-        setAdmissionFee("");
+        startTransition(() => {
+          setAdmissionFee("");
+        });
       }
     }
   }, [
@@ -291,7 +308,9 @@ export default function AddMemberPage() {
         year: now.getFullYear(),
       };
       const endIdx = toIndex(startMy) + selectedPackage.duration - 1;
-      setPkgSelectedMonths(buildRange(startMy, fromIndex(endIdx)));
+      startTransition(() => {
+        setPkgSelectedMonths(buildRange(startMy, fromIndex(endIdx)));
+      });
     }
   }, [membershipType, selectedPackage, pkgSelectedMonths.length]);
 
@@ -323,6 +342,7 @@ export default function AddMemberPage() {
   const totalDue = Math.max(0, discountBase - discountNum);
   const paidNum = Number(paidTotal) || 0;
   const remaining = Math.max(0, totalDue - paidNum);
+  const advanceCredit = Math.max(0, paidNum - totalDue);
 
   // Next payment date
   const nextPaymentDate = useMemo(() => {
@@ -386,17 +406,32 @@ export default function AddMemberPage() {
   };
 
   // ── Submit ──
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
+  const submitMember = async (payload: CreateMemberPayload) => {
     if (!activeBranchId) {
       toast.error("No branch selected");
       return;
     }
 
+    try {
+      await createMember({
+        branchId: activeBranchId,
+        payload,
+        photo: photoFile || undefined,
+      }).unwrap();
+
+      setPendingPayload(null);
+      setShowOverpaymentDialog(false);
+      toast.success("Member created successfully!", {
+        description: `${fullName} has been added`,
+      });
+      router.push("/dashboard/members");
+    } catch (err: unknown) {
+      const apiErr = err as { data?: { message?: string } };
+      toast.error(apiErr?.data?.message || "Failed to create member");
+    }
+  };
+
+  const buildPayload = (): CreateMemberPayload => {
     const payload: CreateMemberPayload = {
       fullName: fullName.trim(),
       contact: contact.trim() || undefined,
@@ -459,21 +494,33 @@ export default function AddMemberPage() {
       }
     }
 
-    try {
-      await createMember({
-        branchId: activeBranchId,
-        payload,
-        photo: photoFile || undefined,
-      }).unwrap();
+    return payload;
+  };
 
-      toast.success("Member created successfully!", {
-        description: `${fullName} has been added`,
-      });
-      router.push("/dashboard/members");
-    } catch (err: unknown) {
-      const apiErr = err as { data?: { message?: string } };
-      toast.error(apiErr?.data?.message || "Failed to create member");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) {
+      toast.error("Please fill in all required fields");
+      return;
     }
+
+    const payload = buildPayload();
+
+    if (advanceCredit > 0) {
+      setPendingPayload(payload);
+      setShowOverpaymentDialog(true);
+      return;
+    }
+
+    await submitMember(payload);
+  };
+
+  const handleConfirmOverpayment = async () => {
+    if (!pendingPayload) {
+      return;
+    }
+
+    await submitMember(pendingPayload);
   };
 
   // ── Print handler ──
@@ -1222,6 +1269,20 @@ export default function AddMemberPage() {
                   </div>
                 )}
 
+                {advanceCredit > 0 && (
+                  <div className="space-y-2 rounded-lg bg-amber-50 px-3 py-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-amber-700">Advance Credit</span>
+                      <span className="font-semibold text-amber-800">
+                        ৳{advanceCredit.toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-xs leading-5 text-amber-700">
+                      This extra payment will be stored as advance and applied automatically to the member&apos;s future billing.
+                    </p>
+                  </div>
+                )}
+
                 {/* Payment Method */}
                 <div>
                   <label className="text-sm text-gray-600 mb-1 block">
@@ -1271,6 +1332,61 @@ export default function AddMemberPage() {
           </div>
         </div>
       </form>
+
+      <Dialog
+        open={showOverpaymentDialog}
+        onOpenChange={(open) => {
+          setShowOverpaymentDialog(open);
+          if (!open) {
+            setPendingPayload(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Store extra payment as advance?</DialogTitle>
+            <DialogDescription>
+              This payment is higher than the current bill. If you continue, the extra amount will be saved as advance credit and used automatically in future billing.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 rounded-xl bg-amber-50 p-4 text-sm">
+            <div className="flex items-center justify-between text-amber-900">
+              <span>Current bill</span>
+              <span className="font-semibold">৳{totalDue.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between text-amber-900">
+              <span>Paid now</span>
+              <span className="font-semibold">৳{paidNum.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between border-t border-amber-200 pt-3 text-amber-900">
+              <span>Advance credit</span>
+              <span className="font-semibold">৳{advanceCredit.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => {
+                setShowOverpaymentDialog(false);
+                setPendingPayload(null);
+              }}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmOverpayment}
+              disabled={isCreating}
+              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
+            >
+              {isCreating ? "Saving..." : "Confirm and Save"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

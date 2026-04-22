@@ -3,6 +3,9 @@
 export type MemberStatus = "Active" | "Inactive";
 export type PaymentStatus = "Complete" | "Due";
 export type SMSDeliveryMethod = "email" | "phone" | "both";
+export type MemberListStatusFilter = "all" | "active" | "inactive";
+export type MemberListPaymentFilter = "all" | "due" | "complete";
+export type MemberPaymentQueryStatus = Exclude<MemberListPaymentFilter, "all">;
 
 // ─── Backend-aligned types ──────────────────────────────────────────
 
@@ -31,6 +34,120 @@ export type BackendPaymentStatus =
   | "due"
   | "cancelled"
   | "refunded";
+
+export type BackendPaymentType =
+  | "package"
+  | "monthly"
+  | "admission"
+  | "registration"
+  | "other";
+
+export type CollectBillMode = "due_only" | "monthly" | "package";
+
+export type CollectBillDueItemType =
+  | "monthly_due"
+  | "monthly_cycle_due"
+  | "package_due"
+  | "carry_forward";
+
+export interface CollectBillDueItem {
+  ledgerItemId: string;
+  type: CollectBillDueItemType;
+  label: string;
+  originalAmount: number;
+  remainingAmount: number;
+  dueDate?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  packageId?: string;
+}
+
+export interface CollectBillSelectedDueItem {
+  ledgerItemId: string;
+  amount: number;
+}
+
+export interface BackendPaymentRecord {
+  _id: string;
+  branchId: string;
+  invoiceNo?: string;
+  memberId?: string;
+  memberLegacyId?: string;
+  memberName?: string;
+  packageId?: string;
+  packageName?: string;
+  paymentType?: BackendPaymentType;
+  periodStart?: string;
+  periodEnd?: string;
+  paidMonths?: number;
+  year?: number;
+  subTotal?: number;
+  discount?: number;
+  dueAmount?: number;
+  advanceAmount?: number;
+  paidTotal?: number;
+  admissionFee?: number;
+  paymentMethod?: PaymentMethod;
+  paymentDate?: string;
+  nextPaymentDate?: string;
+  status?: BackendPaymentStatus;
+  source?: string;
+  importBatchId?: string;
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MemberPaymentHistoryArgs {
+  branchId: string;
+  memberId: string;
+  limit?: number;
+}
+
+export interface CollectBillContext {
+  member: BackendMember;
+  billing: {
+    currentDueAmount: number;
+    currentAdvanceAmount: number;
+    overdueMonths: number;
+    accruedAmount: number;
+    monthlyFeeAmount?: number;
+    nextPaymentDate?: string;
+    recommendedStartDate?: string;
+    isActive: boolean;
+    dueBreakdown: CollectBillDueItem[];
+  };
+}
+
+export interface CollectBillPayload {
+  memberId: string;
+  collectionMode: CollectBillMode;
+  duePaymentAmount?: number;
+  selectedDueItems?: CollectBillSelectedDueItem[];
+  paidTotal: number;
+  paymentMethod: PaymentMethod;
+  paymentDate?: string;
+  discount?: number;
+  startDate?: string;
+  paidMonths?: number;
+  packageId?: string;
+  note?: string;
+  useCustomMonthlyFee?: boolean;
+  customMonthlyFeeAmount?: number;
+}
+
+export interface CollectBillResult {
+  member: BackendMember;
+  payment: BackendPaymentRecord;
+  billing: {
+    currentDueAmount: number;
+    currentAdvanceAmount: number;
+    nextPaymentDate?: string;
+    monthlyFeeAmount?: number;
+    overdueMonths: number;
+    effectiveDuePaymentAmount: number;
+  };
+}
 
 export interface BackendMember {
   _id: string;
@@ -64,6 +181,7 @@ export interface BackendMember {
   customMonthlyFeeAmount?: number;
   paidMonths?: number;
   currentDueAmount?: number;
+  currentAdvanceAmount?: number;
   source?: string;
   importBatchId?: string;
   createdAt?: string;
@@ -106,8 +224,9 @@ export interface CreateMemberPayload {
 export interface MemberQueryArgs {
   branchId: string;
   searchTerm?: string;
-  isActive?: string;
-  includeInactive?: string;
+  isActive?: "true" | "false";
+  includeInactive?: "true";
+  paymentStatus?: MemberPaymentQueryStatus;
   page?: number;
   limit?: number;
   sort?: string;
@@ -252,6 +371,8 @@ export interface PaymentRecord {
   month: string;
   package: string;
   amount: string;
+  status: string;
+  isImportedOpeningBalance?: boolean;
 }
 
 export interface MemberActivity {

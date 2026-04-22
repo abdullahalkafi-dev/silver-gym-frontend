@@ -17,8 +17,6 @@ const nextConfig: NextConfig = {
         hostname: "images.unsplash.com",
       },
     ],
-    // Also allow simple domain list for older Next.js versions
-    domains: ["example.com", "images.unsplash.com"],
   },
 };
 

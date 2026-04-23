@@ -6,34 +6,42 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Input } from "../ui/input";
 import Modal from "../ui/modal";
-import { Member } from "@/types/member";
+import { BackendMember } from "@/types/member";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Search01Icon } from "@hugeicons/core-free-icons";
+import { useUser } from "@/hooks/useUser";
+import { useGetBranchMembersQuery } from "@/redux/features/member/memberApi";
 
 interface AddIncomeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  members: Member[];
 }
 
 export default function AddIncomeModal({
   isOpen,
   onClose,
-  members,
 }: AddIncomeModalProps) {
   const router = useRouter();
+  const { activeBranchId } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredMembers = members.filter(
-    (member) =>
-      member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.memberId.includes(searchQuery) ||
-      member.phone.includes(searchQuery)
-  );
+  // Fetch members from API
+  const { data: memberData, isLoading: membersLoading } =
+    useGetBranchMembersQuery(
+      {
+        branchId: activeBranchId || "",
+        ...(searchQuery ? { searchTerm: searchQuery } : {}),
+        page: 1,
+        limit: 50,
+      },
+      { skip: !activeBranchId || !isOpen }
+    );
 
-  const handleMemberSelect = (member: Member) => {
+  const members = memberData?.data || [];
+
+  const handleMemberSelect = (member: BackendMember) => {
     onClose();
-    router.push(`/dashboard/income/create-bill/${member.id}`);
+    router.push(`/dashboard/income/create-bill/${member._id}`);
   };
 
   const handleClose = () => {
@@ -73,7 +81,14 @@ export default function AddIncomeModal({
               find the right person and continue billing
             </p>
           </div>
-        ) : filteredMembers.length === 0 ? (
+        ) : membersLoading ? (
+          <div className="text-center py-12">
+            <div className="inline-block">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+            <p className="text-sm text-gray-500 mt-4">Searching members...</p>
+          </div>
+        ) : members.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
               <HugeiconsIcon icon={Search01Icon} size={48} />
@@ -97,55 +112,55 @@ export default function AddIncomeModal({
               <div>Status</div>
               <div>Payment</div>
             </div>
-            {filteredMembers.map((member) => (
+            {members.map((member) => (
               <div
-                key={member.id}
+                key={member._id}
                 onClick={() => handleMemberSelect(member)}
                 className="grid grid-cols-6 gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 items-center"
               >
                 <div className="col-span-2 flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold overflow-hidden">
-                    {member.profileImage ? (
+                    {member.photo ? (
                       <Image
-                        src={member.profileImage}
-                        alt={member.name}
+                        src={member.photo}
+                        alt={member.fullName}
                         width={32}
                         height={32}
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      member.name.charAt(0).toUpperCase()
+                      member.fullName.charAt(0).toUpperCase()
                     )}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-800">
-                      {member.name}
+                      {member.fullName}
                     </p>
-                    <p className="text-xs text-gray-500">{member.email}</p>
+                    <p className="text-xs text-gray-500">{member.email || "N/A"}</p>
                   </div>
                 </div>
-                <div className="text-sm text-gray-700">{member.memberId}</div>
-                <div className="text-sm text-gray-700">{member.phone}</div>
+                <div className="text-sm text-gray-700">{member.memberId || "N/A"}</div>
+                <div className="text-sm text-gray-700">{member.contact || "N/A"}</div>
                 <div>
                   <span
                     className={`px-2 py-1 text-xs font-medium rounded ${
-                      member.status === "Active"
+                      member.isActive
                         ? "bg-blue-50 text-blue-600"
                         : "bg-gray-100 text-gray-600"
                     }`}
                   >
-                    {member.status}
+                    {member.isActive ? "Active" : "Inactive"}
                   </span>
                 </div>
                 <div>
                   <span
                     className={`text-xs font-medium ${
-                      member.payment === "Complete"
-                        ? "text-green-600"
-                        : "text-red-600"
+                      (member.currentDueAmount ?? 0) > 0
+                        ? "text-red-600"
+                        : "text-green-600"
                     }`}
                   >
-                    {member.payment}
+                    {(member.currentDueAmount ?? 0) > 0 ? "Due" : "Complete"}
                   </span>
                 </div>
               </div>

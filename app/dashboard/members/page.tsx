@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import MemberStatsCards from "@/components/dashboard/Members/MemberStatsCards";
 import MemberTable from "@/components/dashboard/Members/MemberTable";
-import { memberStatsData } from "@/data/memberData";
 import {
   BackendMember,
   MemberListPaymentFilter,
@@ -114,10 +113,11 @@ export default function MembersPage() {
     skip: !activeBranchId,
   });
 
-  const { data: dashboardSummary } = useGetDashboardSummaryQuery(
-    { branchId: activeBranchId || "" },
-    { skip: !activeBranchId }
-  );
+  const { data: dashboardSummary, isLoading: dashboardLoading } =
+    useGetDashboardSummaryQuery(
+      { branchId: activeBranchId || "" },
+      { skip: !activeBranchId }
+    );
 
   // Map dashboard summary to stats card shape
   const stats = dashboardSummary
@@ -133,7 +133,7 @@ export default function MembersPage() {
         activeMembersUnit: "/Person",
         activeMembersDescription: "Currently active members",
       }
-    : memberStatsData;
+    : null;
 
   const members = memberData?.data || [];
   const meta = memberData?.meta;
@@ -209,7 +209,22 @@ export default function MembersPage() {
         </div>
 
         {/* Stats Cards */}
-        <MemberStatsCards stats={stats} onImportClick={handleImportClick} />
+        {dashboardLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[...Array(4)].map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-lg p-4 animate-pulse"
+              >
+                <div className="h-4 bg-gray-200 rounded mb-2" />
+                <div className="h-3 bg-gray-100 rounded mb-3" />
+                <div className="h-8 bg-gray-200 rounded w-24" />
+              </div>
+            ))}
+          </div>
+        ) : stats ? (
+          <MemberStatsCards stats={stats} onImportClick={handleImportClick} />
+        ) : null}
 
         {/* Member List Section */}
         <div className="bg-white rounded-2xl border border-border p-6">

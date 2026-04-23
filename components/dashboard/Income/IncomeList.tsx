@@ -118,7 +118,7 @@ function PaymentDetailModal({
           <table>
             <tr><td>Date &amp; Time</td><td>${formatPaymentDate(payment.paymentDate)}</td></tr>
             <tr><td>Member Name</td><td>${payment.memberName ?? "—"}</td></tr>
-            <tr><td>Member ID</td><td>${payment.memberLegacyId ?? "—"}</td></tr>
+            <tr><td>Member ID</td><td>${payment.memberFacingId ?? "—"}</td></tr>
             <tr><td>Category</td><td>${PAYMENT_TYPE_LABELS[payment.paymentType ?? ""] ?? payment.paymentType ?? "—"}</td></tr>
             <tr><td>Payment Method</td><td>${PAYMENT_METHOD_LABELS[payment.paymentMethod ?? ""] ?? payment.paymentMethod ?? "—"}</td></tr>
             ${payment.discount ? `<tr><td>Discount</td><td>${Number(payment.discount).toFixed(2)} TK</td></tr>` : ""}
@@ -166,7 +166,7 @@ function PaymentDetailModal({
           <DetailRow label="Member Name" value={payment.memberName ?? "—"} />
           <DetailRow
             label="Member ID"
-            value={payment.memberLegacyId ?? "—"}
+            value={payment.memberFacingId ?? "—"}
           />
           <DetailRow
             label="Category"
@@ -264,7 +264,12 @@ export default function IncomeList() {
     },
     { header: "Invoice No", key: "invoiceNo" },
     { header: "Name", key: "memberName" },
-    { header: "Member ID", key: "memberLegacyId" },
+    { header: "Member ID", key: "memberFacingId" },
+    {
+      header: "Discount",
+      key: "discount",
+      formatter: (v) => (v ? Number(v).toFixed(2) : "0.00"),
+    },
     {
       header: "Category",
       key: "paymentType",
@@ -388,6 +393,9 @@ export default function IncomeList() {
           Payment
         </th>
         <th className="px-6 py-4 text-right text-base font-semibold text-text-primary border-b">
+          Discount
+        </th>
+        <th className="px-6 py-4 text-right text-base font-semibold text-text-primary border-b">
           Amount
         </th>
         <th className="px-6 py-4 text-center text-base font-semibold text-text-primary border-b">
@@ -415,7 +423,7 @@ export default function IncomeList() {
         {p.memberName ?? "—"}
       </td>
       <td className="px-6 py-4 text-sm text-gray-medium">
-        {p.memberLegacyId ?? "—"}
+        {p.memberFacingId ?? "—"}
       </td>
       <td className="px-6 py-4 text-sm text-gray-medium">
         {PAYMENT_TYPE_LABELS[p.paymentType ?? ""] ?? p.paymentType ?? "—"}
@@ -424,6 +432,9 @@ export default function IncomeList() {
         {PAYMENT_METHOD_LABELS[p.paymentMethod ?? ""] ??
           p.paymentMethod ??
           "—"}
+      </td>
+      <td className="px-6 py-4 text-right text-sm text-gray-medium">
+        {p.discount ? Number(p.discount).toFixed(2) : "—"}
       </td>
       <td className="px-6 py-4 text-right text-sm text-gray-medium">
         {Number(p.paidTotal ?? 0).toFixed(2)}

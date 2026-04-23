@@ -17,8 +17,6 @@ import AddIncomeModal from "@/components/modals/AddIncomeModal";
 import AddExpenseModal from "@/components/modals/AddExpenseModal";
 import AddMemberModal from "@/components/modals/AddMemberModal";
 
-import { membersData } from "@/data/memberData";
-
 interface DashboardHeaderProps {
   onMenuClick?: () => void;
   isSidebarOpen?: boolean;
@@ -143,7 +141,6 @@ export default function DashboardHeader({
       <AddIncomeModal
         isOpen={modalType === "income"}
         onClose={closeModal}
-        members={membersData}
       />
 
       <AddExpenseModal

@@ -1,5 +1,6 @@
 import { baseApi } from "@/redux/api/baseApi";
 import type { ApiSuccessResponse } from "@/redux/types/auth";
+import { resolveUploadAssetUrl } from "@/lib/assetUrl";
 import type {
   BackendMember,
   BackendPaymentRecord,
@@ -160,7 +161,6 @@ const normalizePayment = (raw: RawPayment): BackendPaymentRecord => ({
   branchId: String(raw.branchId || ""),
   invoiceNo: raw.invoiceNo as string | undefined,
   memberId: raw.memberId as string | undefined,
-  memberLegacyId: raw.memberLegacyId as string | undefined,
   memberName: raw.memberName as string | undefined,
   packageId: raw.packageId as string | undefined,
   packageName: raw.packageName as string | undefined,
@@ -245,7 +245,7 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
     dateTime: formatDateTime(payment.paymentDate || payment.createdAt),
     invoiceNo:
       payment.invoiceNo || (isImportedOpeningBalance ? "Imported" : "—"),
-    memberId: payment.memberLegacyId || payment.memberId || "—",
+    memberId: payment.memberId || "—",
     month,
     package: packageLabel,
     amount,
@@ -327,10 +327,14 @@ const unwrapMongooseDoc = (raw: RawMember): RawMember => {
 
 const normalizeMember = (raw: RawMember): BackendMember => {
   const r = unwrapMongooseDoc(raw);
+
+  const rawPhoto = r.photo as string | undefined;
+  const photo = resolveUploadAssetUrl(rawPhoto);
+
   return {
     _id: String(r._id || r.id || ""),
     branchId: String(r.branchId || ""),
-    legacyId: r.legacyId as string | undefined,
+    systemMemberId: r.systemMemberId as number | undefined,
     memberId: r.memberId as string | undefined,
     barcode: r.barcode as string | undefined,
     fullName: (r.fullName as string) || "Unknown",
@@ -346,7 +350,7 @@ const normalizeMember = (raw: RawMember): BackendMember => {
     weight: r.weight as number | undefined,
     weightUnit: r.weightUnit as BackendMember["weightUnit"],
     address: r.address as string | undefined,
-    photo: r.photo as string | undefined,
+    photo: photo,
     emergencyContact: r.emergencyContact as BackendMember["emergencyContact"],
     trainingGoals: r.trainingGoals as BackendMember["trainingGoals"],
     currentPackageId: r.currentPackageId as string | undefined,

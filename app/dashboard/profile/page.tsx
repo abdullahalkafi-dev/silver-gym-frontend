@@ -4,7 +4,6 @@
 import { useState } from "react";
 import MyProfile from "@/components/dashboard/Profile/MyProfile";
 import BusinessProfile from "@/components/dashboard/Profile/BusinessProfile";
-import { defaultUserProfile, defaultBusinessProfile } from "@/data/profileData";
 import { cn } from "@/lib/utils";
 
 type TabType = "my-profile" | "business-profile" | "subscription" | "invoice";
@@ -54,13 +53,9 @@ export default function ProfilePage() {
           </h1>
           
           <div className="px-6">
-          {activeTab === "my-profile" && (
-            <MyProfile initialData={defaultUserProfile} />
-          )}
+          {activeTab === "my-profile" && <MyProfile />}
 
-          {activeTab === "business-profile" && (
-            <BusinessProfile initialData={defaultBusinessProfile} />
-          )}
+          {activeTab === "business-profile" && <BusinessProfile />}
 
           {(activeTab === "subscription" || activeTab === "invoice") && (
             <div className="bg-white rounded-2xl p-12 text-center border border-gray-100 mb-5">

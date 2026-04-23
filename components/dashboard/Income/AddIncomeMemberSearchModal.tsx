@@ -118,7 +118,7 @@ function MemberRow({
 
       {/* Member ID */}
       <td className="px-4 py-3 text-sm text-gray-600">
-        {member.legacyId ?? "—"}
+        {member.memberId || "—"}
       </td>
 
       {/* Phone */}

@@ -96,7 +96,7 @@ function computeNextPaymentDate(
   membershipType: "package" | "monthly",
   selectedPackage: GymPackage | undefined,
   selectedMonths: MonthYear[],
-  selectedYear: number | null
+  selectedYear: number | null,
 ): Date | null {
   // Day/week packages: no next payment date (member renews or switches after expiry)
   if (membershipType === "package" && selectedPackage) {
@@ -149,14 +149,14 @@ export default function AddMemberPage() {
     businessId && activeBranchId
       ? { businessId, branchId: activeBranchId }
       : { businessId: "", branchId: "" },
-    { skip: !businessId || !activeBranchId }
+    { skip: !businessId || !activeBranchId },
   );
 
   const { data: branchMonthlyFee } = useGetBranchMonthlyFeeQuery(
     businessId && activeBranchId
       ? { businessId, branchId: activeBranchId }
       : { businessId: "", branchId: "" },
-    { skip: !businessId || !activeBranchId }
+    { skip: !businessId || !activeBranchId },
   );
 
   const [createMember, { isLoading: isCreating }] = useCreateMemberMutation();
@@ -164,7 +164,7 @@ export default function AddMemberPage() {
   const { data: packagesData, isLoading: packagesLoading } =
     useGetBranchPackagesQuery(
       { branchId: activeBranchId || "", isActive: true },
-      { skip: !activeBranchId }
+      { skip: !activeBranchId },
     );
 
   const packages = packagesData?.data || [];
@@ -176,6 +176,7 @@ export default function AddMemberPage() {
 
   // ── Personal info ──
   const [fullName, setFullName] = useState("");
+  const [memberId, setMemberId] = useState("");
   const [contact, setContact] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
@@ -198,7 +199,7 @@ export default function AddMemberPage() {
 
   // ── Membership type ──
   const [membershipType, setMembershipType] = useState<"package" | "monthly">(
-    "package"
+    "package",
   );
 
   // ── Package state ──
@@ -219,7 +220,9 @@ export default function AddMemberPage() {
   // ── Payment ──
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [discount, setDiscount] = useState("");
-  const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
+  const [discountType, setDiscountType] = useState<"amount" | "percent">(
+    "amount",
+  );
   const [admissionFee, setAdmissionFee] = useState("");
   const [paidTotal, setPaidTotal] = useState("");
 
@@ -229,7 +232,7 @@ export default function AddMemberPage() {
   // ── Derived values ──
   const selectedPackage: GymPackage | undefined = useMemo(
     () => packages.find((p) => p.id === selectedPackageId),
-    [packages, selectedPackageId]
+    [packages, selectedPackageId],
   );
 
   const branchMonthlyFeeAmount = branchMonthlyFee?.monthlyFeeAmount ?? null;
@@ -265,7 +268,7 @@ export default function AddMemberPage() {
         const feeAmount =
           selectedPackage.admissionFeeAmount != null
             ? selectedPackage.admissionFeeAmount
-            : branchAdmissionFee?.admissionFeeAmount ?? null;
+            : (branchAdmissionFee?.admissionFeeAmount ?? null);
         startTransition(() => {
           setAdmissionFee(feeAmount != null ? String(feeAmount) : "");
         });
@@ -326,7 +329,10 @@ export default function AddMemberPage() {
   const discountRaw = Number(discount) || 0;
   const discountNum =
     discountType === "percent"
-      ? Math.min(Math.round((discountRaw / 100) * discountBase * 100) / 100, discountBase)
+      ? Math.min(
+          Math.round((discountRaw / 100) * discountBase * 100) / 100,
+          discountBase,
+        )
       : Math.min(discountRaw, discountBase);
   const totalDue = Math.max(0, discountBase - discountNum);
   const paidNum = Number(paidTotal) || 0;
@@ -340,7 +346,7 @@ export default function AddMemberPage() {
       membershipType,
       selectedPackage,
       membershipType === "monthly" ? monthlySelectedMonths : pkgSelectedMonths,
-      pkgSelectedYear
+      pkgSelectedYear,
     );
   }, [
     membershipType,
@@ -424,6 +430,7 @@ export default function AddMemberPage() {
 
   const buildPayload = (): CreateMemberPayload => {
     const payload: CreateMemberPayload = {
+      memberId: memberId.trim() || undefined,
       fullName: fullName.trim(),
       contact: contact.trim() || undefined,
       email: email.trim() || undefined,
@@ -467,7 +474,7 @@ export default function AddMemberPage() {
         payload.membershipStartDate = new Date(
           first.year,
           first.month,
-          1
+          1,
         ).toISOString();
       } else {
         payload.membershipStartDate = new Date().toISOString();
@@ -480,7 +487,7 @@ export default function AddMemberPage() {
         payload.membershipStartDate = new Date(
           first.year,
           first.month,
-          1
+          1,
         ).toISOString();
       }
     }
@@ -604,7 +611,20 @@ export default function AddMemberPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center  gap-2">
+                  {/* Member ID input */}
+                  <div className="flex   items-center  gap-0.5">
+                    <label className="text-xs text-gray-500">
+                      Member ID :{" "}
+                    </label>
+                    <input
+                      type="text"
+                      value={memberId}
+                      onChange={(e) => setMemberId(e.target.value)}
+                      placeholder="e.g. GYM-001"
+                      className="w-32 text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
                   {photoFile && (
                     <button
                       type="button"
@@ -850,7 +870,7 @@ export default function AddMemberPage() {
                         setTrainingGoals((prev) =>
                           prev.includes(goal)
                             ? prev.filter((g) => g !== goal)
-                            : [...prev, goal]
+                            : [...prev, goal],
                         )
                       }
                       className="w-4 h-4 text-purple border-gray-300 rounded focus:ring-purple accent-purple"
@@ -1141,7 +1161,10 @@ export default function AddMemberPage() {
                     <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
                       <button
                         type="button"
-                        onClick={() => { setDiscountType("amount"); setDiscount(""); }}
+                        onClick={() => {
+                          setDiscountType("amount");
+                          setDiscount("");
+                        }}
                         className={`px-2 py-1.5 transition-colors ${
                           discountType === "amount"
                             ? "bg-purple text-white"
@@ -1152,7 +1175,10 @@ export default function AddMemberPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setDiscountType("percent"); setDiscount(""); }}
+                        onClick={() => {
+                          setDiscountType("percent");
+                          setDiscount("");
+                        }}
                         className={`px-2 py-1.5 transition-colors ${
                           discountType === "percent"
                             ? "bg-purple text-white"
@@ -1171,7 +1197,8 @@ export default function AddMemberPage() {
                         value={discount}
                         onChange={(e) => {
                           const v = e.target.value;
-                          if (discountType === "percent" && Number(v) > 100) return;
+                          if (discountType === "percent" && Number(v) > 100)
+                            return;
                           setDiscount(v);
                         }}
                         className="w-full pr-6 pl-2 py-2 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple/40 focus:border-purple/40"
@@ -1223,9 +1250,13 @@ export default function AddMemberPage() {
 
                 {/* Paid Amount — inline row */}
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Paid Amount</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Paid Amount
+                  </span>
                   <div className="relative w-32">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">৳</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                      ৳
+                    </span>
                     <input
                       type="number"
                       min="0"
@@ -1258,7 +1289,9 @@ export default function AddMemberPage() {
                 {isPaidAmountTooHigh && (
                   <div className="space-y-2 rounded-lg bg-red-50 px-3 py-3">
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium text-red-700">Over limit</span>
+                      <span className="font-medium text-red-700">
+                        Over limit
+                      </span>
                       <span className="font-semibold text-red-800">
                         ৳{overpaidAmount.toLocaleString()}
                       </span>
@@ -1318,7 +1351,6 @@ export default function AddMemberPage() {
           </div>
         </div>
       </form>
-
     </div>
   );
 }

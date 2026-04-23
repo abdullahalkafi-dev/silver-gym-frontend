@@ -6,7 +6,8 @@ export interface Payment {
   branchId: string;
   invoiceNo?: string;
   memberId?: string;
-  memberLegacyId?: string;
+  memberSystemId?: number;
+  memberFacingId?: string;
   memberName?: string;
   packageId?: string;
   packageName?: string;

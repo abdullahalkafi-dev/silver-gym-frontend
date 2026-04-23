@@ -1,62 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { 
-  PencilEdit02Icon, 
-  Logout01Icon, 
+import {
   Delete02Icon,
-  PlusSignIcon
+  Logout01Icon,
+  PencilEdit02Icon,
+  PlusSignIcon,
 } from "@hugeicons/core-free-icons";
-import { UserProfile } from "@/types/profile";
-import { useUser } from "@/hooks/useUser";
 import { toast } from "sonner";
-import LogoutConfirmModal from "@/components/modals/LogoutConfirmModal";
-import DeleteAccountModal from "@/components/modals/DeleteAccountModal";
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/redux/hooks";
 import { logoutUser } from "@/redux/features/auth/authSlice";
+import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
+import {
+  useGetBusinessProfileQuery,
+  useGetMyProfileQuery,
+  useUpdateBusinessProfileMutation,
+  useUpdateMyProfileMutation,
+} from "@/redux/features/profile/profileApi";
+import { useUser } from "@/hooks/useUser";
+import LogoutConfirmModal from "@/components/modals/LogoutConfirmModal";
+import DeleteAccountModal from "@/components/modals/DeleteAccountModal";
 
-interface MyProfileProps {
-  initialData: UserProfile;
-}
+type EditableField = "phone" | "companyAddress";
 
-export default function MyProfile({ initialData }: MyProfileProps) {
-  const [data, setData] = useState<UserProfile>(initialData);
-  const [isEditing, setIsEditing] = useState<string | null>(null);
+export default function MyProfile() {
+  const [isEditing, setIsEditing] = useState<EditableField | null>(null);
   const [tempValue, setTempValue] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  
-  const { user } = useUser();
+
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { user } = useUser();
 
-  // Update data with real user info if available
-  const displayData = {
-    ...data,
-    name: user?.name || data.name,
-    role: user?.role || data.role,
-    avatar: profileImage || user?.avatar || user?.profileImage || data.avatar,
-    email: user?.email || data.email,
-  };
+  const {
+    data: profile,
+    isLoading: isProfileLoading,
+    isError: isProfileError,
+    error: profileError,
+  } = useGetMyProfileQuery();
 
-  const handleEditClick = (field: keyof UserProfile, value: any) => {
+  const { data: businessProfile } = useGetBusinessProfileQuery();
+
+  const [updateMyProfile, { isLoading: isUpdatingProfile }] =
+    useUpdateMyProfileMutation();
+  const [updateBusinessProfile, { isLoading: isUpdatingBusiness }] =
+    useUpdateBusinessProfileMutation();
+
+  const isSaving = isUpdatingProfile || isUpdatingBusiness;
+
+  const displayData = useMemo(() => {
+    const fallbackName = user?.name || "User";
+
+    return {
+      name: profile?.fullName || fallbackName,
+      role: user?.role || "admin",
+      avatar: profile?.profilePicture || user?.profileImage || "/images/avatar.png",
+      email: profile?.email || user?.email || "",
+      phone: profile?.phone || user?.phone || "",
+      companyAddress: businessProfile?.businessAddress || "",
+    };
+  }, [businessProfile?.businessAddress, profile, user?.email, user?.name, user?.phone, user?.profileImage, user?.role]);
+
+  const handleEditClick = (field: EditableField, value: string) => {
     setIsEditing(field);
-    setTempValue(String(value || ""));
-  };
-
-  const handleSave = (field: keyof UserProfile) => {
-    if (!tempValue.trim()) {
-      toast.error("Field cannot be empty");
-      return;
-    }
-
-    setData({ ...data, [field]: tempValue });
-    setIsEditing(null);
-    toast.success("Profile updated successfully");
+    setTempValue(value || "");
   };
 
   const handleCancel = () => {
@@ -64,10 +75,38 @@ export default function MyProfile({ initialData }: MyProfileProps) {
     setTempValue("");
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, field: keyof UserProfile) => {
+  const handleSave = async (field: EditableField) => {
+    if (!tempValue.trim()) {
+      toast.error("Field cannot be empty");
+      return;
+    }
+
+    try {
+      if (field === "phone") {
+        await updateMyProfile({ phone: tempValue.trim() }).unwrap();
+      }
+
+      if (field === "companyAddress") {
+        await updateBusinessProfile({ businessAddress: tempValue.trim() }).unwrap();
+      }
+
+      toast.success("Profile updated successfully");
+      setIsEditing(null);
+      setTempValue("");
+    } catch (error) {
+      toast.error(extractApiErrorMessage(error));
+    }
+  };
+
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    field: EditableField
+  ) => {
     if (e.key === "Enter") {
-      handleSave(field);
-    } else if (e.key === "Escape") {
+      void handleSave(field);
+    }
+
+    if (e.key === "Escape") {
       handleCancel();
     }
   };
@@ -76,50 +115,52 @@ export default function MyProfile({ initialData }: MyProfileProps) {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
-    input.onchange = (e) => {
+
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error("File size should be less than 5MB");
-          return;
-        }
-        
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setProfileImage(reader.result as string);
-          toast.success("Profile picture updated successfully");
-        };
-        reader.readAsDataURL(file);
+
+      if (!file) {
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size should be less than 5MB");
+        return;
+      }
+
+      try {
+        await updateMyProfile({ profilePicture: file }).unwrap();
+        toast.success("Profile picture updated successfully");
+      } catch (error) {
+        toast.error(extractApiErrorMessage(error));
       }
     };
+
     input.click();
   };
 
   const handleLogout = async () => {
     setShowLogoutModal(false);
+
     try {
       await dispatch(logoutUser()).unwrap();
       toast.success("Logged out successfully");
       router.push("/sign-in");
-    } catch (error) {
+    } catch {
       toast.error("Failed to logout");
     }
   };
 
   const handleDeleteAccount = () => {
     setShowDeleteModal(false);
-    toast.success("Account scheduled for deletion");
-    // In a real app, you would call an API here
-    setTimeout(() => {
-      router.push("/sign-in");
-    }, 2000);
+    toast.success("Account deletion endpoint is coming soon");
   };
 
   const renderEditableField = (
-    label: string, 
-    field: keyof UserProfile, 
-    value: string | undefined,
-    placeholder: string = ""
+    label: string,
+    field: EditableField,
+    value: string,
+    placeholder = ""
   ) => {
     const isFieldEditing = isEditing === field;
 
@@ -137,15 +178,17 @@ export default function MyProfile({ initialData }: MyProfileProps) {
                 className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 autoFocus
               />
-              <button 
-                onClick={() => handleSave(field)}
-                className="px-3 py-2 bg-purple text-white rounded-sm text-sm whitespace-nowrap hover:bg-purple-600 transition-colors"
+              <button
+                onClick={() => void handleSave(field)}
+                disabled={isSaving}
+                className="px-3 py-2 bg-purple text-white rounded-sm text-sm whitespace-nowrap hover:bg-purple-600 transition-colors disabled:opacity-60"
               >
                 Save
               </button>
-              <button 
+              <button
                 onClick={handleCancel}
-                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-sm text-sm whitespace-nowrap hover:bg-gray-200 transition-colors"
+                disabled={isSaving}
+                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-sm text-sm whitespace-nowrap hover:bg-gray-200 transition-colors disabled:opacity-60"
               >
                 Cancel
               </button>
@@ -153,7 +196,7 @@ export default function MyProfile({ initialData }: MyProfileProps) {
           ) : (
             <div className="flex items-center justify-between group">
               <p className="text-base text-gray-800 font-medium">{value || placeholder}</p>
-              <button 
+              <button
                 onClick={() => handleEditClick(field, value)}
                 className="text-gray-400 hover:text-purple transition-colors p-1 rounded-md hover:bg-purple/5"
               >
@@ -166,17 +209,39 @@ export default function MyProfile({ initialData }: MyProfileProps) {
     );
   };
 
+  if (isProfileLoading) {
+    return (
+      <div className="bg-white rounded-2xl p-8 border border-gray-100 mb-6 text-center text-gray-500">
+        Loading profile...
+      </div>
+    );
+  }
+
+  if (isProfileError) {
+    return (
+      <div className="bg-white rounded-2xl p-8 border border-red-100 mb-6 text-center">
+        <p className="text-red-600 mb-3">{extractApiErrorMessage(profileError)}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 border border-gray-200 rounded-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Profile Header */}
       <div className="bg-white rounded-2xl px-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 relative">
               <Image
-                src={displayData.avatar || "/images/avatar.png"}
+                src={displayData.avatar}
                 alt={displayData.name}
                 fill
+                unoptimized
                 className="object-cover"
               />
             </div>
@@ -187,54 +252,52 @@ export default function MyProfile({ initialData }: MyProfileProps) {
               </span>
             </div>
           </div>
-          <button 
+          <button
             onClick={handleProfileUpload}
-            className="px-4 py-2 bg-gray-50 text-text-primary border border-border-2 text-sm font-medium rounded-sm hover:bg-gray-100 transition-colors cursor-pointer"
+            disabled={isSaving}
+            className="px-4 py-2 bg-gray-50 text-text-primary border border-border-2 text-sm font-medium rounded-sm hover:bg-gray-100 transition-colors cursor-pointer disabled:opacity-60"
           >
             Upload Profile
           </button>
         </div>
       </div>
 
-      {/* Professional Contact */}
       <div className="bg-white rounded-2xl p-6 border border-gray-100">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Professional Contact</h3>
-        
+
         <div className="space-y-6">
           {renderEditableField("Phone number", "phone", displayData.phone)}
-          {renderEditableField("E-mail", "email", displayData.email)}
-          {renderEditableField("Company Address", "companyAddress", displayData.companyAddress)}
+
+          <div className="mb-5">
+            <label className="block text-sm text-gray-500 mb-1.5">E-mail</label>
+            <p className="text-base text-gray-800 font-medium">{displayData.email || "N/A"}</p>
+          </div>
+
+          {renderEditableField(
+            "Company Address",
+            "companyAddress",
+            displayData.companyAddress,
+            "Add business address"
+          )}
         </div>
 
         <div className="flex gap-3 mt-5">
-          <button 
-            onClick={() => toast.info("Add address functionality coming soon")}
+          <button
+            onClick={() => toast.info("Additional addresses can be managed in Business Profile")}
             className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-sm text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
           >
             <HugeiconsIcon icon={PlusSignIcon} size={16} />
             Add Address
           </button>
-          <button 
-            onClick={() => toast.info("Add age functionality coming soon")}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-sm text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
-          >
-            <HugeiconsIcon icon={PlusSignIcon} size={16} />
-            Add age
-          </button>
         </div>
       </div>
 
-      {/* Support Access */}
       <div className="bg-white rounded-2xl p-6 border border-gray-100 mb-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-bold text-gray-900">Support Access</h3>
-          {/* <button className="text-gray-400 hover:text-purple transition-colors">
-            <HugeiconsIcon icon={PencilEdit02Icon} size={20} />
-          </button> */}
         </div>
 
         <div className="space-y-8">
-          {/* Logout */}
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-base font-semibold text-gray-900 mb-1">Log out from this devices</h4>
@@ -242,7 +305,7 @@ export default function MyProfile({ initialData }: MyProfileProps) {
                 End your current session and securely log out from this device to keep your account safe
               </p>
             </div>
-            <button 
+            <button
               onClick={() => setShowLogoutModal(true)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-sm text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
             >
@@ -251,7 +314,6 @@ export default function MyProfile({ initialData }: MyProfileProps) {
             </button>
           </div>
 
-          {/* Delete Account */}
           <div className="flex items-center justify-between pt-6 border-t border-gray-100">
             <div>
               <h4 className="text-base font-semibold text-red-500 mb-1">Delete my account</h4>
@@ -259,7 +321,7 @@ export default function MyProfile({ initialData }: MyProfileProps) {
                 Permanently delete the account and remove access from all workspaces.
               </p>
             </div>
-            <button 
+            <button
               onClick={() => setShowDeleteModal(true)}
               className="flex items-center gap-2 px-4 py-2 border border-red-100 bg-red-50 text-red-600 rounded-sm text-sm font-medium hover:bg-red-100 transition-colors cursor-pointer"
             >

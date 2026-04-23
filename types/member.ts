@@ -73,7 +73,6 @@ export interface BackendPaymentRecord {
   branchId: string;
   invoiceNo?: string;
   memberId?: string;
-  memberLegacyId?: string;
   memberName?: string;
   packageId?: string;
   packageName?: string;
@@ -150,7 +149,7 @@ export interface CollectBillResult {
 export interface BackendMember {
   _id: string;
   branchId: string;
-  legacyId?: string;
+  systemMemberId?: number;
   memberId?: string;
   barcode?: string;
   fullName: string;
@@ -195,6 +194,7 @@ export interface CreateMemberPaymentPayload {
 }
 
 export interface CreateMemberPayload {
+  memberId?: string;
   fullName: string;
   contact?: string;
   email?: string;

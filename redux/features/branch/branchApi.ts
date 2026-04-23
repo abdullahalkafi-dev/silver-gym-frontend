@@ -48,23 +48,24 @@ type RawBranchAdmissionFee = {
   admissionFeeAmount?: number | null;
 };
 
-const normalizeBranch = (rawBranch: RawBranch): Branch => {
-  const id = String(rawBranch.id || rawBranch._id || "");
-  const businessId = String(rawBranch.businessId || "");
+const normalizeBranch = (rawBranch?: RawBranch | null): Branch => {
+  const safeBranch = rawBranch || {};
+  const id = String(safeBranch.id || safeBranch._id || "");
+  const businessId = String(safeBranch.businessId || "");
 
   return {
     id,
     businessId,
-    branchName: rawBranch.branchName || "Untitled Branch",
-    branchAddress: rawBranch.branchAddress,
-    monthlyFeeAmount: rawBranch.monthlyFeeAmount ?? null,
-    admissionFeeAmount: rawBranch.admissionFeeAmount ?? null,
-    logo: rawBranch.logo ?? null,
-    favicon: rawBranch.favicon ?? null,
-    isDefault: Boolean(rawBranch.isDefault),
-    isActive: rawBranch.isActive ?? true,
-    createdAt: rawBranch.createdAt,
-    updatedAt: rawBranch.updatedAt,
+    branchName: safeBranch.branchName || "Untitled Branch",
+    branchAddress: safeBranch.branchAddress,
+    monthlyFeeAmount: safeBranch.monthlyFeeAmount ?? null,
+    admissionFeeAmount: safeBranch.admissionFeeAmount ?? null,
+    logo: safeBranch.logo ?? null,
+    favicon: safeBranch.favicon ?? null,
+    isDefault: Boolean(safeBranch.isDefault),
+    isActive: safeBranch.isActive ?? true,
+    createdAt: safeBranch.createdAt,
+    updatedAt: safeBranch.updatedAt,
   };
 };
 

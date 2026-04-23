@@ -80,7 +80,7 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
                 Next Payment
               </th>
               <th className="px-6 py-4 text-left text-base font-semibold text-text-primary border-b">
-                Balance
+                Due
               </th>
               <th className="px-6 py-4 text-left text-base font-semibold text-text-primary border-b">
                 Payment
@@ -157,7 +157,7 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
 
                     {/* Member ID */}
                     <td className="px-6 py-4 text-sm text-gray-medium">
-                      {member.memberId || member._id.slice(-6)}
+                      {member.memberId || "—"}
                     </td>
 
                     {/* Phone */}

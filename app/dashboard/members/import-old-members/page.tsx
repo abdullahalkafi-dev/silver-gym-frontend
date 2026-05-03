@@ -41,6 +41,30 @@ const TERMINAL_IMPORT_STATUSES = new Set([
   "cancelled",
 ]);
 
+type ImportFailureRow = {
+  rowIndex: number;
+  reason: string;
+  memberName?: string;
+  raw?: Record<string, unknown>;
+};
+
+const getRowField = (raw: Record<string, unknown> | undefined, keys: string[]) => {
+  if (!raw) return "—";
+
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+
+  return "—";
+};
+
+const getFailureRows = (batchStatus?: {
+  failuresPreview?: ImportFailureRow[];
+  failedRowsData?: ImportFailureRow[];
+}) => batchStatus?.failedRowsData ?? batchStatus?.failuresPreview ?? [];
+
 export default function ImportOldMembersPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -69,6 +93,14 @@ export default function ImportOldMembersPage() {
     if (!batchStatus) return;
 
     if (TERMINAL_IMPORT_STATUSES.has(batchStatus.status)) {
+      if (batchStatus.status === "failed" || batchStatus.status === "cancelled") {
+        startTransition(() => {
+          setImportState("error");
+        });
+
+        return;
+      }
+
       if (activeBranchId && (batchStatus.successRows || 0) > 0) {
         dispatch(
           memberApi.util.invalidateTags([
@@ -231,7 +263,7 @@ export default function ImportOldMembersPage() {
             <HugeiconsIcon
               icon={InformationCircleIcon}
               size={20}
-              className="text-blue-600 mt-0.5 flex-shrink-0"
+              className="text-blue-600 mt-0.5 shrink-0"
             />
             <div>
               <h3 className="text-sm font-semibold text-blue-800">
@@ -250,7 +282,7 @@ export default function ImportOldMembersPage() {
                 className="flex items-start gap-2 text-sm"
               >
                 <span
-                  className={`inline-block mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${
+                  className={`inline-block mt-0.5 w-2 h-2 rounded-full shrink-0 ${
                     col.required ? "bg-red-500" : "bg-gray-400"
                   }`}
                 />
@@ -457,6 +489,93 @@ export default function ImportOldMembersPage() {
                 </div>
               )}
 
+              {importState === "error" && batchStatus && (
+                <div className="p-4 bg-red-50 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <HugeiconsIcon
+                      icon={AlertCircleIcon}
+                      size={20}
+                      className="text-red-600"
+                    />
+                    <span className="text-sm font-medium text-red-700">
+                      {batchStatus.status === "cancelled"
+                        ? "Import Cancelled"
+                        : "Import Failed"}
+                    </span>
+                  </div>
+                  <div className="text-sm space-y-1 ml-8">
+                    <p className="text-red-700">
+                      {batchStatus.errorMessage || errorMessage || "The import did not complete."}
+                    </p>
+                    {batchStatus.totalRows != null && (
+                      <p className="text-gray-600">Total rows: {batchStatus.totalRows}</p>
+                    )}
+                    {batchStatus.processedRows != null && (
+                      <p className="text-gray-600">
+                        Processed: {batchStatus.processedRows} / {batchStatus.totalRows || "—"}
+                      </p>
+                    )}
+                    {batchStatus.failedRows != null && batchStatus.failedRows > 0 && (
+                      <p className="text-red-600">Failed: {batchStatus.failedRows}</p>
+                    )}
+                  </div>
+                  {getFailureRows(batchStatus).length > 0 && (
+                    <div className="mt-4 ml-8">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-700">
+                          Failed Rows
+                        </p>
+                        <p className="text-[11px] text-gray-500">
+                          Showing {getFailureRows(batchStatus).length} row{getFailureRows(batchStatus).length === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <div className="overflow-hidden rounded-xl border border-red-200 bg-white">
+                        <div className="max-h-72 overflow-auto">
+                          <table className="min-w-full divide-y divide-red-100 text-left text-sm">
+                            <thead className="sticky top-0 bg-red-50/95 backdrop-blur-sm">
+                              <tr className="text-xs uppercase tracking-wide text-red-700">
+                                <th className="px-3 py-2 font-semibold">Row</th>
+                                <th className="px-3 py-2 font-semibold">Member</th>
+                                <th className="px-3 py-2 font-semibold">Contact</th>
+                                <th className="px-3 py-2 font-semibold">Member ID</th>
+                                <th className="px-3 py-2 font-semibold">Reason</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-red-50 bg-white">
+                              {getFailureRows(batchStatus).map((row) => {
+                                const contact = getRowField(row.raw, ["contact", "phone", "mobile", "phone_number"]);
+                                const memberId = getRowField(row.raw, ["member_id", "memberid"]);
+                                return (
+                                  <tr key={`${row.rowIndex}-${row.reason}`} className="align-top odd:bg-white even:bg-red-50/30">
+                                    <td className="whitespace-nowrap px-3 py-2 font-medium text-red-700">
+                                      {row.rowIndex}
+                                    </td>
+                                    <td className="px-3 py-2 text-gray-800">
+                                      {row.memberName || getRowField(row.raw, ["full_name", "fullname", "name", "member_name"])}
+                                    </td>
+                                    <td className="whitespace-nowrap px-3 py-2 text-gray-600">
+                                      {contact}
+                                    </td>
+                                    <td className="whitespace-nowrap px-3 py-2 text-gray-600">
+                                      {memberId}
+                                    </td>
+                                    <td className="px-3 py-2 text-red-700">
+                                      <div className="max-w-xl whitespace-pre-wrap wrap-break-word">
+                                        {row.reason || "Unknown error"}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {importState === "complete" && !batchStatus && (
                 <div className="p-4 bg-green-50 rounded-xl">
                   <div className="flex items-center gap-3">
@@ -474,17 +593,6 @@ export default function ImportOldMembersPage() {
             </div>
           )}
 
-          {/* Error Message */}
-          {errorMessage && (
-            <div className="flex items-start gap-2 mt-4 p-3 bg-red-50 rounded-lg">
-              <HugeiconsIcon
-                icon={AlertCircleIcon}
-                size={18}
-                className="text-red-600 mt-0.5 flex-shrink-0"
-              />
-              <p className="text-sm text-red-700">{errorMessage}</p>
-            </div>
-          )}
         </div>
 
         {/* Action Buttons */}

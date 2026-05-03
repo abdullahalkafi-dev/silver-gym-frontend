@@ -57,6 +57,12 @@ export const PERMISSION_DEFINITIONS = {
   "email:view": { label: "View Email", category: "Email Access" },
   "email:send": { label: "Send Email", category: "Email Access" },
 
+  // Expense Management
+  "expense-category:view": { label: "View Expense Category", category: "Expense Access" },
+  "expense-category:manage": { label: "Manage Expense Category", category: "Expense Access" },
+  "expense:view": { label: "View Expense", category: "Expense Access" },
+  "expense:create": { label: "Add Expense", category: "Expense Access" },
+
   // User Access Management
   "access:view-users": { label: "View User Access", category: "User Access" },
   "access:create-role": {
@@ -133,6 +139,12 @@ export const PERMISSION_GROUPS = {
     "monthly-fee:edit",
     "admission-fee:add",
     "admission-fee:edit",
+  ],
+  EXPENSE_MANAGEMENT: [
+    "expense-category:view",
+    "expense-category:manage",
+    "expense:view",
+    "expense:create",
   ],
   ANALYTICS: ["analytics:view", "analytics:export"],
   SMS: ["sms:view", "sms:send"],

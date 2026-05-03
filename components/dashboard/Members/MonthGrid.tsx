@@ -177,8 +177,8 @@ function MonthGrid({
         ))}
       </select>
 
-      {/* Month grid 4×3 */}
-      <div className="grid grid-cols-4 gap-2">
+      {/* Month grid 6×2 */}
+      <div className="grid grid-cols-6 gap-2">
         {MONTH_NAMES_SHORT.map((name, monthIndex) => {
           const my: MonthYear = { month: monthIndex, year: displayYear };
           const myIdx = toIndex(my);

@@ -10,7 +10,9 @@ import {
   Tooltip,
 } from "recharts";
 import { ChevronDown } from "lucide-react";
-import { getCostAnalyticsData, availableYears } from "@/data/analyticsData";
+import { useUser } from "@/hooks/useUser";
+import { useGetAnalyticsCostSummaryQuery } from "@/redux/features/analytics/analyticsApi";
+import type { CostAnalyticsData } from "@/types/analytics";
 
 const months = [
   "All Months",
@@ -49,11 +51,41 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 const CostAnalytics = () => {
+  const { activeBranchId } = useUser();
   const [selectedMonth, setSelectedMonth] = useState("All Months");
-  const [selectedYear, setSelectedYear] = useState(2025);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isYearOpen, setIsYearOpen] = useState(false);
 
-  const data = getCostAnalyticsData(selectedMonth, selectedYear);
+  const { data: response, isLoading } = useGetAnalyticsCostSummaryQuery(
+    {
+      branchId: activeBranchId || "",
+      month: selectedMonth,
+      year: selectedYear,
+    },
+    {
+      skip: !activeBranchId,
+    }
+  );
+
+  const data: CostAnalyticsData =
+    response?.data ?? {
+      totalCost: "0.00/-",
+      month: selectedMonth,
+      year: String(selectedYear),
+      categories: [],
+    };
+
+  const years = response?.availableYears?.length
+    ? response.availableYears
+    : [selectedYear];
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-2xl p-4">
+        <p className="text-sm text-gray-medium">Loading cost analytics...</p>
+      </div>
+    );
+  }
 
   // Calculate total cost from categories
   const totalCostValue = data.categories.reduce((sum, cat) => {
@@ -81,7 +113,7 @@ const CostAnalytics = () => {
           </button>
           {isYearOpen && (
             <div className="absolute top-full mt-2 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[100px] z-10">
-              {availableYears.map((year) => (
+              {years.map((year) => (
                 <button
                   key={year}
                   onClick={() => {

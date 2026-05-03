@@ -10,9 +10,11 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { getFinancialsCompareData } from "@/data/analyticsData";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AnalyticsDownIcon } from "@hugeicons/core-free-icons";
+import { useUser } from "@/hooks/useUser";
+import { useGetAnalyticsCompareSummaryQuery } from "@/redux/features/analytics/analyticsApi";
+import type { FinancialsCompareData } from "@/types/analytics";
 
 interface FinancialsCompareProps {
   onNewCompare: () => void;
@@ -41,7 +43,37 @@ const FinancialsCompare: React.FC<FinancialsCompareProps> = ({
   startYear,
   endYear,
 }) => {
-  const data = getFinancialsCompareData(selectedOptions[0] || "income", startYear, endYear);
+  const { activeBranchId } = useUser();
+
+  const metric = (selectedOptions[0] as "income" | "expense" | "netIncome" | undefined) || "income";
+
+  const { data: response, isLoading } = useGetAnalyticsCompareSummaryQuery(
+    {
+      branchId: activeBranchId || "",
+      metric,
+      startYear,
+      endYear,
+    },
+    {
+      skip: !activeBranchId,
+    }
+  );
+
+  const data: FinancialsCompareData =
+    response?.data ?? {
+      chartData: [],
+      tableData: [],
+      balance: "0.00 TK",
+      years: [],
+    };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl bg-white p-6">
+        <p className="text-sm text-gray-medium">Loading compare analytics...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

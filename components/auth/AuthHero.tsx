@@ -12,8 +12,8 @@ export default function AuthHero() {
         <div className='relative z-10 flex flex-col h-full justify-between gap-5'>
           <section className='flex flex-col items-start gap-4 w-full'>
             <div className='flex flex-col items-start gap-1 w-full'>
-              <h1 className='w-full  font-bold text-white text-4xl tracking-[0] leading-14'>
-                All-in-One Gym Management Platform
+              <h1 className='w-full  font-bold text-white text-5xl tracking-[0] leading-14'>
+               Membership & Billing Management System for Service Businesses
               </h1>
 
               <p className='w-full  font-normal text-transparent text-xl tracking-[0] leading-7'>
@@ -24,9 +24,7 @@ export default function AuthHero() {
                 <span className='text-white'> —</span>
 
                 <span className='text-[#ffded7]'>
-                  Easily manage memberships, billing, expenses, packages, and
-                  analytics — everything you need to run your gym smoothly in
-                  one smart system.
+                 Easily manage memberships, billing, expenses, packages, and analytics — everything you need to run your gym smoothly in one smart system.
                 </span>
               </p>
             </div>

@@ -15,7 +15,9 @@ export interface Payment {
   paidTotal?: number;
   subTotal?: number;
   discount?: number;
+  billAmount?: number;
   dueAmount?: number;
+  exchange?: number;
   admissionFee?: number;
   paymentMethod?: string;
   paymentDate?: string;

@@ -402,6 +402,8 @@ const packagesAnalyticsDataTemplate: PackagesAnalyticsData = {
     { label: "Yearly", count: 7, unit: "/per", percentage: "3%" },
     { label: "Weekly", count: 12, unit: "/per", percentage: "3%" },
   ],
+  packagesList: [],
+  packageRows: [],
 };
 
 // Function to get packages analytics data by year
@@ -456,6 +458,8 @@ export const getPackagesAnalyticsData = (year: number): PackagesAnalyticsData =>
     year: year.toString(),
     chartData: chartData,
     stats: stats,
+    packagesList: [],
+    packageRows: [],
   };
 };
 

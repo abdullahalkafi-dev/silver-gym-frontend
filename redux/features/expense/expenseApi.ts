@@ -318,6 +318,7 @@ export const expenseApi = baseApi.injectEndpoints({
         normalizeExpense(response.data),
       invalidatesTags: (_result, _error, { branchId }) => [
         { type: "Expense", id: `LIST-${branchId}` },
+        { type: "Analytics" },
       ],
     }),
 
@@ -332,6 +333,7 @@ export const expenseApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { branchId, expenseId }) => [
         { type: "Expense", id: `LIST-${branchId}` },
         { type: "Expense", id: expenseId },
+        { type: "Analytics" },
       ],
     }),
 
@@ -342,6 +344,7 @@ export const expenseApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, { branchId }) => [
         { type: "Expense", id: `LIST-${branchId}` },
+        { type: "Analytics" },
       ],
     }),
 

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -20,6 +21,7 @@ import {
 } from "@/redux/features/member/memberApi";
 import DeactivateMemberModal from "@/components/modals/DeactivateMemberModal";
 import EditMemberModal from "@/components/modals/EditMemberModal";
+import MemberImageViewModal from "@/components/modals/MemberImageViewModal";
 import PaymentHistoryTable from "@/components/dashboard/Members/PaymentHistoryTable";
 import MemberActivitiesCalendar from "@/components/dashboard/Members/MemberActivitiesCalendar";
 
@@ -67,6 +69,8 @@ export default function MemberDetailsPage() {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageToView, setImageToView] = useState<string>("");
 
   const {
     data: member,
@@ -186,7 +190,7 @@ export default function MemberDetailsPage() {
         <span className="text-lg font-medium">Member Profile</span>
       </button>
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_300px]">
+      <div className="grid gap-5 xl:grid-cols-[1fr_400px]">
         {/* ── LEFT COLUMN ───────────────────────────────────────── */}
         <div className="space-y-4">
 
@@ -195,13 +199,21 @@ export default function MemberDetailsPage() {
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 {/* Avatar */}
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-400 text-xl font-bold text-white">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-400 text-xl font-bold text-white cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => {
+                    if (member.photo) {
+                      setImageToView(member.photo);
+                      setShowImageModal(true);
+                    }
+                  }}>
                   {member.photo ? (
-                    <div
-                      role="img"
-                      aria-label={member.fullName}
-                      className="h-full w-full bg-cover bg-center"
-                      style={{ backgroundImage: `url(${member.photo})` }}
+                    <Image
+                      src={member.photo}
+                      alt={member.fullName}
+                      width={56}
+                      height={56}
+                      unoptimized
+                      className="h-full w-full object-cover"
                     />
                   ) : (
                     member.fullName.charAt(0).toUpperCase()
@@ -234,7 +246,7 @@ export default function MemberDetailsPage() {
                 </div>
               </div>
 
-              {/* ID + upload profile */}
+              {/* ID + Edit Profile */}
               <div className="flex shrink-0 items-center gap-3 text-sm text-gray-500">
                 <span className="font-mono font-medium text-gray-700">
                   ID: {displayId}
@@ -243,7 +255,7 @@ export default function MemberDetailsPage() {
                   onClick={() => setShowEditModal(true)}
                   className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
                 >
-                  Upload Profile
+                  Edit Profile
                 </button>
               </div>
             </div>
@@ -498,6 +510,13 @@ export default function MemberDetailsPage() {
         onConfirm={handleStatusToggle}
         memberName={member.fullName}
         isCurrentlyActive={isActive}
+      />
+
+      <MemberImageViewModal
+        isOpen={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        imageSrc={imageToView}
+        memberName={member.fullName}
       />
     </div>
   );

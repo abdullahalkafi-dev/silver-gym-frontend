@@ -6,6 +6,7 @@ import type {
 } from "@reduxjs/toolkit/query";
 import type { RootState } from "@/redux/store";
 import { cookieUtils } from "@/redux/utils/cookies";
+import { toast } from "sonner";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
@@ -72,6 +73,16 @@ const baseQueryWithReAuth: BaseQueryFn<
     } else {
       cookieUtils.clearAll();
     }
+  } else if (result.error?.status === 403) {
+    // Basic structured permission error without manual URL parsing
+    const errorData = result.error.data as { message?: string } | undefined;
+    const errorMessage = errorData?.message || "You do not have permission to access this resource";
+    
+    toast.error("Access Denied", {
+      description: errorMessage,
+      position: "top-center",
+      duration: 4000,
+    });
   }
 
   return result;
@@ -80,6 +91,6 @@ const baseQueryWithReAuth: BaseQueryFn<
 export const baseApi = createApi({
   reducerPath: "api",
   baseQuery: baseQueryWithReAuth,
-  tagTypes: ["Auth", "Profile", "Role", "Branch", "BranchFee", "Staff", "Package", "Member", "Payment", "Expense", "ExpenseCategory"],
+  tagTypes: ["Auth", "Profile", "Role", "Branch", "BranchFee", "Staff", "Package", "Member", "Payment", "Expense", "ExpenseCategory", "Analytics"],
   endpoints: () => ({}),
 });

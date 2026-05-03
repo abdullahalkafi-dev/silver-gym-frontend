@@ -16,6 +16,7 @@ import Modal from "@/components/ui/modal";
 import AddIncomeModal from "@/components/modals/AddIncomeModal";
 import AddExpenseModal from "@/components/modals/AddExpenseModal";
 import AddMemberModal from "@/components/modals/AddMemberModal";
+import { useGetMemberByIdQuery } from "@/redux/features/member/memberApi";
 
 interface DashboardHeaderProps {
   onMenuClick?: () => void;
@@ -81,10 +82,22 @@ export default function DashboardHeader({
   isSidebarOpen,
 }: DashboardHeaderProps) {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, activeBranchId } = useUser();
   const [modalType, setModalType] = useState<ModalType>(null);
 
-  const pageTitle = getPageTitle(pathname);
+  // Extract MongoDB _id from member details URL
+  const memberDetailsMatch = pathname.match(/\/members\/details\/([0-9a-f]{24})$/i);
+  const urlMemberId = memberDetailsMatch ? memberDetailsMatch[1] : null;
+
+  const { data: memberForTitle } = useGetMemberByIdQuery(
+    { branchId: activeBranchId || "", memberId: urlMemberId || "" },
+    { skip: !urlMemberId || !activeBranchId }
+  );
+
+  const pageTitle = urlMemberId && memberForTitle
+    ? `${memberForTitle.fullName}${memberForTitle.contact ? ` - ${memberForTitle.contact}` : ""}`
+    : getPageTitle(pathname);
+
   const actions = user && user.actorType !== "owner"
     ? getRoleBasedActions(user.role)
     : [];

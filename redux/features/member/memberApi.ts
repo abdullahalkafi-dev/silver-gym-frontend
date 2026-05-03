@@ -173,7 +173,9 @@ const normalizePayment = (raw: RawPayment): BackendPaymentRecord => ({
   discount: raw.discount as number | undefined,
   dueAmount: raw.dueAmount as number | undefined,
   paidTotal: raw.paidTotal as number | undefined,
+  billAmount: raw.billAmount as number | undefined,
   admissionFee: raw.admissionFee as number | undefined,
+  exchange: raw.exchange as number | undefined,
   paymentMethod: raw.paymentMethod as BackendPaymentRecord["paymentMethod"],
   paymentDate: raw.paymentDate as string | undefined,
   nextPaymentDate: raw.nextPaymentDate as string | undefined,
@@ -192,6 +194,7 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
     metadata?.entryKind === "opening_import_balance";
   const dueAmount = payment.dueAmount ?? 0;
   const paidTotal = payment.paidTotal ?? 0;
+  const billAmount = payment.billAmount ?? paidTotal;
   const startLabel = formatPeriodPoint(payment.periodStart);
   // periodEnd is exclusive (start of next cycle), so subtract 1 day to get the last covered day
   const adjustedPeriodEnd =
@@ -222,9 +225,9 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
   const amount = isImportedOpeningBalance
     ? dueAmount > 0
       ? `Opening due ${formatCurrency(dueAmount)}`
-      : formatCurrency(paidTotal)
-    : paidTotal > 0
-      ? formatCurrency(paidTotal)
+      : formatCurrency(billAmount)
+    : billAmount > 0
+      ? formatCurrency(billAmount)
       : dueAmount > 0
         ? `Due ${formatCurrency(dueAmount)}`
         : formatCurrency(0);
@@ -250,6 +253,7 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
     package: packageLabel,
     amount,
     status,
+    exchange: payment.exchange,
     isImportedOpeningBalance,
   };
 };
@@ -480,6 +484,7 @@ export const memberApi = baseApi.injectEndpoints({
         { type: "Member", id: payload.memberId },
         { type: "Payment", id: `LIST-${branchId}` },
         { type: "Payment", id: `MEMBER-${payload.memberId}` },
+        { type: "Analytics" },
       ],
     }),
 
@@ -507,6 +512,7 @@ export const memberApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { branchId }) => [
         { type: "Member", id: `LIST-${branchId}` },
         { type: "Payment", id: `LIST-${branchId}` },
+        { type: "Analytics" },
       ],
     }),
 
@@ -534,6 +540,7 @@ export const memberApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { branchId, memberId }) => [
         { type: "Member", id: `LIST-${branchId}` },
         { type: "Member", id: memberId },
+        { type: "Analytics" },
       ],
     }),
 
@@ -548,6 +555,7 @@ export const memberApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { branchId, memberId }) => [
         { type: "Member", id: `LIST-${branchId}` },
         { type: "Member", id: memberId },
+        { type: "Analytics" },
       ],
     }),
 
@@ -562,6 +570,7 @@ export const memberApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { branchId, memberId }) => [
         { type: "Member", id: `LIST-${branchId}` },
         { type: "Member", id: memberId },
+        { type: "Analytics" },
       ],
     }),
 
@@ -580,6 +589,7 @@ export const memberApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { branchId }) => [
         { type: "Member", id: `LIST-${branchId}` },
         { type: "Payment", id: `LIST-${branchId}` },
+        { type: "Analytics" },
       ],
     }),
 

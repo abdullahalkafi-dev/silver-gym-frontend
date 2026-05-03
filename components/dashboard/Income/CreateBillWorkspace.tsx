@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { addDays, addMonths, addWeeks, addYears, format } from "date-fns";
 import { Printer } from "lucide-react";
 import { toast } from "sonner";
@@ -385,6 +385,9 @@ export default function CreateBillWorkspace({
   const [lastSavedBill, setLastSavedBill] =
     useState<CollectBillResult | null>(null);
 
+  // Track if user has manually edited paid amount
+  const hasUserEditedPaidRef = useRef(false);
+
   const paidNow = normalizeMoney(parseAmount(paidTotal));
   const rawDiscount = normalizeMoney(parseAmount(discount));
 
@@ -428,8 +431,17 @@ export default function CreateBillWorkspace({
   // Summary
   const subTotal = normalizeMoney(selectedDueAmount + cycleCharge);
   const appliedDiscount = normalizeMoney(Math.min(rawDiscount, subTotal));
-  const dueAmount = normalizeMoney(Math.max(0, subTotal - appliedDiscount - paidNow));
+  const billableAmount = Math.max(0, subTotal - appliedDiscount);
+  const dueAmount = normalizeMoney(Math.max(0, billableAmount - paidNow));
+  const exchangeAmount = normalizeMoney(Math.max(0, paidNow - billableAmount));
   const paidTotalFinal = paidNow;
+
+  // Auto-fill paid amount when billable amount changes (unless user has manually edited it)
+  useEffect(() => {
+    if (!hasUserEditedPaidRef.current && billableAmount > 0) {
+      setPaidTotal(String(billableAmount));
+    }
+  }, [billableAmount]);
 
   // Save
   const handleSave = async () => {
@@ -508,6 +520,7 @@ export default function CreateBillWorkspace({
       setLastSavedBill(result);
       setDiscount("");
       setPaidTotal("");
+      hasUserEditedPaidRef.current = false;
       setPaymentDate(toInputDate(new Date()));
       setNote("");
       toast.success(
@@ -526,7 +539,7 @@ export default function CreateBillWorkspace({
   const dueMonthCount = nonAdmissionDueItems.length;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+    <div className="grid gap-2 lg:grid-cols-[1fr_480px]">
       {/* LEFT: Payment List */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         {/* Member header */}
@@ -732,6 +745,11 @@ export default function CreateBillWorkspace({
               Invoice {lastSavedBill.payment.invoiceNo || "saved"} -
             </span>{" "}
             Paid {formatCurrency(lastSavedBill.payment.paidTotal || 0)} TK
+            {(lastSavedBill.payment.exchange ?? 0) > 0 && (
+              <span className="ml-2 font-semibold text-emerald-700">
+                · Exchange {formatCurrency(lastSavedBill.payment.exchange!)} TK
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -924,14 +942,22 @@ export default function CreateBillWorkspace({
             </div>
 
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Due Amount</span>
+              <span className="text-gray-500">
+                {exchangeAmount > 0 ? "Exchange" : "Due Amount"}
+              </span>
               <span
                 className={cn(
                   "font-semibold",
-                  dueAmount > 0 ? "text-red-600" : "text-gray-800",
+                  exchangeAmount > 0
+                    ? "text-emerald-600"
+                    : dueAmount > 0
+                      ? "text-red-600"
+                      : "text-gray-800",
                 )}
               >
-                {formatCurrency(dueAmount)}
+                {exchangeAmount > 0
+                  ? formatCurrency(exchangeAmount)
+                  : formatCurrency(dueAmount)}
               </span>
             </div>
 
@@ -944,7 +970,10 @@ export default function CreateBillWorkspace({
                 min="0"
                 step="0.01"
                 value={paidTotal}
-                onChange={(e) => setPaidTotal(e.target.value)}
+                onChange={(e) => {
+                  hasUserEditedPaidRef.current = true;
+                  setPaidTotal(e.target.value);
+                }}
                 placeholder="00.00"
                 className="h-8 flex-1 rounded-lg border border-gray-200 px-2 text-right text-sm text-gray-700 outline-none focus:border-gray-400"
               />

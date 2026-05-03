@@ -123,7 +123,9 @@ function PaymentDetailModal({
             <tr><td>Payment Method</td><td>${PAYMENT_METHOD_LABELS[payment.paymentMethod ?? ""] ?? payment.paymentMethod ?? "—"}</td></tr>
             ${payment.discount ? `<tr><td>Discount</td><td>${Number(payment.discount).toFixed(2)} TK</td></tr>` : ""}
             ${payment.dueAmount ? `<tr><td>Due Amount</td><td>${Number(payment.dueAmount).toFixed(2)} TK</td></tr>` : ""}
-            <tr class="total"><td>Amount Paid</td><td>${Number(payment.paidTotal ?? 0).toFixed(2)} TK</td></tr>
+            <tr class="total"><td>Bill Amount</td><td>${Number(payment.billAmount ?? payment.paidTotal ?? 0).toFixed(2)} TK</td></tr>
+            <tr><td>Cash Paid</td><td>${Number(payment.paidTotal ?? 0).toFixed(2)} TK</td></tr>
+            ${(payment.exchange ?? 0) > 0 ? `<tr><td>Exchange (Change)</td><td>${Number(payment.exchange).toFixed(2)} TK</td></tr>` : ""}
           </table>
         </body>
       </html>
@@ -198,12 +200,22 @@ function PaymentDetailModal({
           ) : null}
           <div className="flex items-center justify-between pt-3 border-t border-gray-100">
             <span className="text-base font-semibold text-gray-700">
-              Amount Paid
+              Bill Amount
             </span>
             <span className="text-base font-bold text-gray-900">
-              {Number(payment.paidTotal ?? 0).toFixed(2)} TK
+              {Number(payment.billAmount ?? payment.paidTotal ?? 0).toFixed(2)} TK
             </span>
           </div>
+          <DetailRow
+            label="Cash Paid"
+            value={`${Number(payment.paidTotal ?? 0).toFixed(2)} TK`}
+          />
+          {(payment.exchange ?? 0) > 0 ? (
+            <DetailRow
+              label="Exchange (Change)"
+              value={`${Number(payment.exchange).toFixed(2)} TK`}
+            />
+          ) : null}
         </div>
 
         <div className="px-6 pb-6">
@@ -283,9 +295,9 @@ export default function IncomeList() {
         PAYMENT_METHOD_LABELS[v as string] ?? (v as string) ?? "—",
     },
     {
-      header: "Amount",
-      key: "paidTotal",
-      formatter: (v) => Number(v ?? 0).toFixed(2),
+      header: "Bill Amount",
+      key: "billAmount",
+      formatter: (v, row) => Number((v as number | undefined) ?? ((row as unknown as Payment).billAmount ?? (row as unknown as Payment).paidTotal ?? 0)).toFixed(2),
     },
   ];
 
@@ -353,7 +365,7 @@ export default function IncomeList() {
   );
 
   const totalIncome = useMemo(
-    () => payments.reduce((sum, p) => sum + Number(p.paidTotal ?? 0), 0),
+    () => payments.reduce((sum, p) => sum + Number(p.billAmount ?? p.paidTotal ?? 0), 0),
     [payments],
   );
 
@@ -365,7 +377,7 @@ export default function IncomeList() {
       const key = toDateKey(p.paymentDate);
       if (!groups[key]) groups[key] = { records: [], total: 0 };
       groups[key].records.push(p);
-      groups[key].total += Number(p.paidTotal ?? 0);
+      groups[key].total += Number(p.billAmount ?? p.paidTotal ?? 0);
     });
     return groups;
   }, [payments]);
@@ -396,7 +408,7 @@ export default function IncomeList() {
           Discount
         </th>
         <th className="px-6 py-4 text-right text-base font-semibold text-text-primary border-b">
-          Amount
+          Bill Amount
         </th>
         <th className="px-6 py-4 text-center text-base font-semibold text-text-primary border-b">
           View
@@ -437,7 +449,7 @@ export default function IncomeList() {
         {p.discount ? Number(p.discount).toFixed(2) : "—"}
       </td>
       <td className="px-6 py-4 text-right text-sm text-gray-medium">
-        {Number(p.paidTotal ?? 0).toFixed(2)}
+        {Number(p.billAmount ?? p.paidTotal ?? 0).toFixed(2)}
       </td>
       <td className="px-6 py-4 text-center text-sm text-gray-medium rounded-r-md">
         <button
@@ -738,7 +750,7 @@ export default function IncomeList() {
         defaultStartDate={exportDateRange.startDate}
         defaultEndDate={exportDateRange.endDate}
         dateField="paymentDate"
-        amountField="paidTotal"
+        amountField="billAmount"
       />
 
       {viewTarget && (

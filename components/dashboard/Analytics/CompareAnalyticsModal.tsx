@@ -2,10 +2,12 @@
 
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogOverlay, DialogTitle } from "@/components/ui/dialog";
-import { comparisonOptions, availableYears } from "@/data/analyticsData";
 import { ImageIcon } from "@/components/utils/ImageIcon";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AnalyticsUpIcon, MoneyReceiveSquareIcon, MoneySendSquareIcon } from "@hugeicons/core-free-icons";
+import { useUser } from "@/hooks/useUser";
+import { useGetAnalyticsConfigQuery } from "@/redux/features/analytics/analyticsApi";
+import type { ComparisonOption } from "@/types/analytics";
 
 interface CompareAnalyticsModalProps {
   isOpen: boolean;
@@ -21,16 +23,54 @@ const iconMap: Record<string, React.ReactNode> = {
   chart: <HugeiconsIcon icon={AnalyticsUpIcon} size={32} className="text-gray-medium" strokeWidth={1} />,
 };
 
+const fallbackOptions: ComparisonOption[] = [
+  {
+    id: "income",
+    label: "Income",
+    description: "Total income generated from member payments",
+    icon: "money-receive",
+  },
+  {
+    id: "expense",
+    label: "Expense",
+    description: "Total expenses recorded for gym operations",
+    icon: "money-send",
+  },
+  {
+    id: "netIncome",
+    label: "Net Income",
+    description: "Difference between total income and total expense",
+    icon: "chart",
+  },
+];
+
 const CompareAnalyticsModal: React.FC<CompareAnalyticsModalProps> = ({
   isOpen,
   onClose,
   onStartCompare,
 }) => {
+  const { activeBranchId } = useUser();
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [startYear, setStartYear] = useState<string>("");
   const [endYear, setEndYear] = useState<string>("");
   const [isStartYearOpen, setIsStartYearOpen] = useState(false);
   const [isEndYearOpen, setIsEndYearOpen] = useState(false);
+
+  const { data: config } = useGetAnalyticsConfigQuery(
+    {
+      branchId: activeBranchId || "",
+    },
+    {
+      skip: !activeBranchId,
+    }
+  );
+
+  const comparisonOptions = config?.comparisonOptions?.length
+    ? config.comparisonOptions
+    : fallbackOptions;
+  const availableYears = config?.availableYears?.length
+    ? config.availableYears
+    : [new Date().getFullYear()];
 
   const handleToggleOption = (optionId: string) => {
     setSelectedOptions((prev) =>

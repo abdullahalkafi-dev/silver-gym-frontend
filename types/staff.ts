@@ -21,6 +21,10 @@ export interface RolePermissions {
   canSendSMS: boolean;
   canViewEmail: boolean;
   canSendEmail: boolean;
+  canViewExpenseCategory: boolean;
+  canManageExpenseCategory: boolean;
+  canViewExpense: boolean;
+  canAddExpense: boolean;
 }
 
 export type RolePermissionKey = keyof RolePermissions;
@@ -110,6 +114,10 @@ export const ROLE_PERMISSION_META: Record<RolePermissionKey, RolePermissionMeta>
   canSendSMS: { label: "Send SMS", category: "SMS Access" },
   canViewEmail: { label: "View Email", category: "Email Access" },
   canSendEmail: { label: "Send Email", category: "Email Access" },
+  canViewExpenseCategory: { label: "View Expense Category", category: "Expense Access" },
+  canManageExpenseCategory: { label: "Manage Expense Category", category: "Expense Access" },
+  canViewExpense: { label: "View Expense", category: "Expense Access" },
+  canAddExpense: { label: "Add Expense", category: "Expense Access" },
 };
 
 export const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
@@ -135,34 +143,51 @@ export const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
   canSendSMS: false,
   canViewEmail: false,
   canSendEmail: false,
+  canViewExpenseCategory: false,
+  canManageExpenseCategory: false,
+  canViewExpense: false,
+  canAddExpense: false,
 };
 
 export const normalizeRolePermissions = (
   permissions?: Partial<RolePermissions> | null,
-): RolePermissions => ({
-  canViewMembers: Boolean(permissions?.canViewMembers),
-  canAddMember: Boolean(permissions?.canAddMember),
-  canEditMember: Boolean(permissions?.canEditMember),
-  canDeleteMember: Boolean(permissions?.canDeleteMember),
-  canViewPackages: Boolean(permissions?.canViewPackages),
-  canAddPackage: Boolean(permissions?.canAddPackage),
-  canEditPackage: Boolean(permissions?.canEditPackage),
-  canDeletePackage: Boolean(permissions?.canDeletePackage),
-  canViewBilling: Boolean(permissions?.canViewBilling),
-  canAddBilling: Boolean(permissions?.canAddBilling),
-  canEditBilling: Boolean(permissions?.canEditBilling),
-  canDeleteBilling: Boolean(permissions?.canDeleteBilling),
-  canAddMonthlyFee: Boolean(permissions?.canAddMonthlyFee),
-  canEditMonthlyFee: Boolean(permissions?.canEditMonthlyFee),
-  canAddAdmissionFee: Boolean(permissions?.canAddAdmissionFee),
-  canEditAdmissionFee: Boolean(permissions?.canEditAdmissionFee),
-  canViewAnalytics: Boolean(permissions?.canViewAnalytics),
-  canExportAnalytics: Boolean(permissions?.canExportAnalytics),
-  canViewSMS: Boolean(permissions?.canViewSMS),
-  canSendSMS: Boolean(permissions?.canSendSMS),
-  canViewEmail: Boolean(permissions?.canViewEmail),
-  canSendEmail: Boolean(permissions?.canSendEmail),
-});
+): RolePermissions => {
+  const normalized = {
+    canViewMembers: Boolean(permissions?.canViewMembers),
+    canAddMember: Boolean(permissions?.canAddMember),
+    canEditMember: Boolean(permissions?.canEditMember),
+    canDeleteMember: Boolean(permissions?.canDeleteMember),
+    canViewPackages: Boolean(permissions?.canViewPackages),
+    canAddPackage: Boolean(permissions?.canAddPackage),
+    canEditPackage: Boolean(permissions?.canEditPackage),
+    canDeletePackage: Boolean(permissions?.canDeletePackage),
+    canViewBilling: Boolean(permissions?.canViewBilling),
+    canAddBilling: Boolean(permissions?.canAddBilling),
+    canEditBilling: Boolean(permissions?.canEditBilling),
+    canDeleteBilling: Boolean(permissions?.canDeleteBilling),
+    canAddMonthlyFee: Boolean(permissions?.canAddMonthlyFee),
+    canEditMonthlyFee: Boolean(permissions?.canEditMonthlyFee),
+    canAddAdmissionFee: Boolean(permissions?.canAddAdmissionFee),
+    canEditAdmissionFee: Boolean(permissions?.canEditAdmissionFee),
+    canViewAnalytics: Boolean(permissions?.canViewAnalytics),
+    canExportAnalytics: Boolean(permissions?.canExportAnalytics),
+    canViewSMS: Boolean(permissions?.canViewSMS),
+    canSendSMS: Boolean(permissions?.canSendSMS),
+    canViewEmail: Boolean(permissions?.canViewEmail),
+    canSendEmail: Boolean(permissions?.canSendEmail),
+    canViewExpenseCategory: Boolean(permissions?.canViewExpenseCategory),
+    canManageExpenseCategory: Boolean(permissions?.canManageExpenseCategory),
+    canViewExpense: Boolean(permissions?.canViewExpense),
+    canAddExpense: Boolean(permissions?.canAddExpense),
+  };
+
+  // Enforce dependency rule: If canAddExpense is true, canViewExpenseCategory must be forced to true
+  if (normalized.canAddExpense) {
+    normalized.canViewExpenseCategory = true;
+  }
+
+  return normalized;
+};
 
 export const countEnabledPermissions = (
   permissions?: Partial<RolePermissions> | null,

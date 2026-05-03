@@ -225,6 +225,9 @@ export default function AddMemberPage() {
   );
   const [admissionFee, setAdmissionFee] = useState("");
   const [paidTotal, setPaidTotal] = useState("");
+  
+  // Track if user has manually edited paid amount
+  const hasUserEditedPaidRef = useRef(false);
 
   // ── Errors ──
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -338,7 +341,15 @@ export default function AddMemberPage() {
   const paidNum = Number(paidTotal) || 0;
   const remaining = Math.max(0, totalDue - paidNum);
   const overpaidAmount = Math.max(0, paidNum - totalDue);
-  const isPaidAmountTooHigh = overpaidAmount > 0;
+
+  // Auto-fill paid amount when total due changes (unless user has manually edited it)
+  useEffect(() => {
+    if (!hasUserEditedPaidRef.current && totalDue > 0) {
+      startTransition(() => {
+        setPaidTotal(String(totalDue));
+      });
+    }
+  }, [totalDue]);
 
   // Next payment date
   const nextPaymentDate = useMemo(() => {
@@ -396,10 +407,6 @@ export default function AddMemberPage() {
       errs.customFee = "Custom monthly fee amount is required";
     }
     if (!paymentMethod) errs.paymentMethod = "Select a payment method";
-    if (isPaidAmountTooHigh) {
-      errs.paidTotal = "Paid amount cannot exceed the current bill total";
-    }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -1260,9 +1267,11 @@ export default function AddMemberPage() {
                     <input
                       type="number"
                       min="0"
-                      max={totalDue > 0 ? totalDue : undefined}
                       value={paidTotal}
-                      onChange={(e) => setPaidTotal(e.target.value)}
+                      onChange={(e) => {
+                        hasUserEditedPaidRef.current = true;
+                        setPaidTotal(e.target.value);
+                      }}
                       className={`w-full pl-7 pr-3 py-2 text-sm text-right border rounded-lg focus:outline-none focus:ring-1 focus:border-purple/40 ${
                         errors.paidTotal
                           ? "border-red-300 focus:ring-red-300"
@@ -1277,30 +1286,21 @@ export default function AddMemberPage() {
                   <p className="text-xs text-red-600">{errors.paidTotal}</p>
                 )}
 
-                {remaining > 0 && (
+                {overpaidAmount > 0 ? (
+                  <div className="flex justify-between text-sm px-3 py-2 bg-blue-50 rounded-lg">
+                    <span className="text-blue-600 font-medium">Exchange</span>
+                    <span className="text-blue-700 font-semibold">
+                      ৳{overpaidAmount.toLocaleString()}
+                    </span>
+                  </div>
+                ) : remaining > 0 ? (
                   <div className="flex justify-between text-sm px-3 py-2 bg-red-50 rounded-lg">
                     <span className="text-red-600 font-medium">Remaining</span>
                     <span className="text-red-700 font-semibold">
                       ৳{remaining.toLocaleString()}
                     </span>
                   </div>
-                )}
-
-                {isPaidAmountTooHigh && (
-                  <div className="space-y-2 rounded-lg bg-red-50 px-3 py-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium text-red-700">
-                        Over limit
-                      </span>
-                      <span className="font-semibold text-red-800">
-                        ৳{overpaidAmount.toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="text-xs leading-5 text-red-700">
-                      Paid amount cannot be higher than the current bill total.
-                    </p>
-                  </div>
-                )}
+                ) : null}
 
                 {/* Payment Method */}
                 <div>
@@ -1335,7 +1335,7 @@ export default function AddMemberPage() {
               </button>
               <button
                 type="submit"
-                disabled={isCreating || isPaidAmountTooHigh}
+                disabled={isCreating}
                 className="flex-1 px-4 py-3 bg-purple text-white rounded-lg hover:bg-purple/90 transition-colors font-medium text-sm disabled:opacity-50"
               >
                 {isCreating ? "Saving..." : "Save"}

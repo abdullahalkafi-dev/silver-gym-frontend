@@ -1,24 +1,41 @@
 // components/dashboard/Overview/OverviewPage.tsx
-import { statsData } from "@/data/statsData";
-import {
-  pieChartData,
-  barChartYearlyData,
-  barChartMonthlyData,
-  lineChartData,
-} from "@/data/chartData";
+"use client";
+
 import StatsCard from "../Common/StatsCard";
 import PieChartCard from "../Common/PieChartCard";
 import BarChartCard from "../Common/BarChartCard";
 import LineChartCard from "../Common/LineChartCard";
 import TransactionTable from "../Common/TransactionTable";
-import { transactionData } from "@/data/transactionData";
+import { useUser } from "@/hooks/useUser";
+import { useGetAnalyticsOverviewQuery } from "@/redux/features/analytics/analyticsApi";
 
 export default function OverviewPage() {
-  // Generate current month and year dynamically
-  const now = new Date();
-  const month = now.toLocaleString("default", { month: "long" });
-  const year = now.getFullYear();
-  const currentMonthYear = `${month} ${year}`;
+  const { activeBranchId } = useUser();
+
+  const { data, isLoading } = useGetAnalyticsOverviewQuery(
+    {
+      branchId: activeBranchId || "",
+      transactionLimit: 20,
+    },
+    {
+      skip: !activeBranchId,
+    }
+  );
+
+  // Generate current month and year dynamically using BD timezone
+  const bdMonth = new Date().toLocaleString("en-US", { month: "long", timeZone: "Asia/Dhaka" });
+  const bdYear = new Date().toLocaleString("en-US", { year: "numeric", timeZone: "Asia/Dhaka" });
+  const currentMonthYear = `${data?.selectedMonth || bdMonth} ${data?.selectedYear || bdYear}`;
+
+  if (isLoading) {
+    return (
+      <main className="w-full space-y-6">
+        <div className="rounded-2xl bg-white p-6">
+          <p className="text-sm text-gray-medium">Loading overview analytics...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="w-full space-y-6">
@@ -31,14 +48,14 @@ export default function OverviewPage() {
           <StatsCard
             title="Monthly Transaction"
             date={currentMonthYear}
-            stats={statsData}
+            stats={data?.stats || []}
           />
           <BarChartCard
             title="Progress Analytics"
-            yearlyData={barChartYearlyData}
-            monthlyData={barChartMonthlyData}
-            totalValue="$79,556.65"
-            subtitle="You achieved a 79% increase in revenue over the previous year"
+            yearlyData={data?.progress.yearlyData || []}
+            monthlyData={data?.progress.monthlyData || []}
+            totalValue={data?.progress.totalValue || "$0.00"}
+            subtitle={data?.progress.subtitle || "No data available for the selected period"}
             showToggle={true}
           />
         </div>
@@ -48,20 +65,20 @@ export default function OverviewPage() {
           {/* Pie Chart - This Month */}
           <PieChartCard
             title="This Month"
-            data={pieChartData}
-            centerValue="25K"
-            description="Your expenses are only 22% of your income"
+            data={data?.pie.data || []}
+            centerValue={data?.pie.centerValue || "0K"}
+            description={data?.pie.description || "No expenses recorded for this period"}
           />
 
           {/* Line Chart - Analytics */}
           <LineChartCard
             title="Analytics"
-            data={lineChartData}
-            percentage="22%"
+            data={data?.line.data || []}
+            percentage={data?.line.percentage || "0.0%"}
           />
         </div>
       </div>
-      <TransactionTable title="Today Transaction" data={transactionData} />
+      <TransactionTable title="Today Transaction" data={data?.transactions || []} />
     </main>
   );
 }

@@ -28,6 +28,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const permissions = useAppSelector((state) => state.auth.permissions);
   const activeBranchId = useAppSelector((state) => state.auth.activeBranchId);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showProfilePreview, setShowProfilePreview] = useState(false);
 
   if (!user) return null;
 
@@ -146,10 +147,16 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         </nav>
 
         <div className="p-4 border-t border-gray-200">
-          <Link 
-            href="/dashboard/profile"
-            onClick={handleNavClick}
-            className="flex items-center gap-3 mb-4 px-2 hover:bg-gray-50 rounded-lg p-2 transition-colors cursor-pointer"
+          <div 
+            onClick={() => setShowProfilePreview(true)}
+            className="flex items-center gap-3 mb-4 px-2 hover:bg-gray-50 rounded-lg p-2 transition-colors cursor-pointer select-none"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setShowProfilePreview(true);
+              }
+            }}
           >
             <div className="w-10 h-10 rounded-full bg-gray-300 overflow-hidden flex items-center justify-center">
               {user.avatar || user.profileImage ? (
@@ -178,11 +185,11 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                 {user.role || "Member"}
               </p>
             </div>
-          </Link>
+          </div>
 
           <button
             onClick={handleLogoutClick}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-[15px] font-medium text-red-600 hover:bg-red-50 transition-colors"
+            className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-[15px] font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
           >
             <HugeiconsIcon icon={Logout01Icon} size={24} />
             <span className="truncate">Logout</span>
@@ -195,6 +202,69 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         onClose={() => setShowLogoutModal(false)}
         onConfirm={handleConfirmLogout}
       />
+
+      {showProfilePreview && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onClick={() => setShowProfilePreview(false)}
+        >
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div 
+            className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-sm mx-4 z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowProfilePreview(false)}
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              ×
+            </button>
+            
+            <div className="flex flex-col items-center">
+              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 overflow-hidden mb-4 ring-4 ring-purple-100">
+                {user.avatar || user.profileImage ? (
+                  <Image
+                    src={user.avatar || user.profileImage || "/images/avatar.png"}
+                    alt={user.name || "User"}
+                    width={128}
+                    height={128}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-white text-5xl font-bold">
+                      {user.name?.charAt(0).toUpperCase() || "U"}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              <h2 className="text-2xl font-bold text-gray-800 mb-1">
+                {user.name || "User"}
+              </h2>
+              <p className="text-gray-500 capitalize mb-4">
+                {user.role || "Member"}
+              </p>
+              
+              {user.email && (
+                <p className="text-sm text-gray-500 mb-6">
+                  {user.email}
+                </p>
+              )}
+              
+              <button
+                onClick={() => {
+                  setShowProfilePreview(false);
+                  router.push("/dashboard/profile");
+                }}
+                className="px-6 py-2.5 bg-purple text-white rounded-lg font-medium hover:bg-purple/90 transition-colors"
+              >
+                View Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

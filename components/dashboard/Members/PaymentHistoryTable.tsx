@@ -54,6 +54,9 @@ const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
               Amount
             </th>
             <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+              Exchange
+            </th>
+            <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
               Status
             </th>
           </tr>
@@ -61,13 +64,13 @@ const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
         <tbody>
           {isLoading ? (
             <tr>
-              <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-500">
+              <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-500">
                 Loading payment history...
               </td>
             </tr>
           ) : records.length === 0 ? (
             <tr>
-              <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-500">
+              <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-500">
                 {emptyMessage}
               </td>
             </tr>
@@ -100,6 +103,15 @@ const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
                 </td>
                 <td className="px-4 py-4 text-sm text-gray-700">
                   {record.amount}
+                </td>
+                <td className="px-4 py-4 text-sm">
+                  {(record.exchange ?? 0) > 0 ? (
+                    <span className="font-medium text-emerald-600">
+                      {Number(record.exchange).toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-4 text-sm">
                   <span

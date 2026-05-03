@@ -1,7 +1,7 @@
 // components/modals/EditMemberModal.tsx
 "use client";
 
-import { startTransition, useState, useEffect } from "react";
+import { startTransition, useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
 import { BackendMember, TrainingGoal } from "@/types/member";
@@ -31,8 +31,8 @@ interface EditMemberModalProps {
 }
 
 type FormState = {
+  memberId: string;
   fullName: string;
-  contact: string;
   email: string;
   dateOfBirth: string;
   emergencyContact: string;
@@ -48,7 +48,6 @@ type FormState = {
 
 type ValidatedField =
   | "fullName"
-  | "contact"
   | "email"
   | "dateOfBirth"
   | "emergencyContact"
@@ -60,7 +59,6 @@ type FormErrors = Partial<Record<ValidatedField, string>>;
 
 const VALIDATED_FIELDS: ValidatedField[] = [
   "fullName",
-  "contact",
   "email",
   "dateOfBirth",
   "emergencyContact",
@@ -78,8 +76,8 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
   const [updateMember, { isLoading }] = useUpdateMemberMutation();
 
   const [form, setForm] = useState<FormState>({
+    memberId: "",
     fullName: "",
-    contact: "",
     email: "",
     dateOfBirth: "",
     emergencyContact: "",
@@ -94,13 +92,18 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
+  // Photo state
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Sync form with member data whenever modal opens
   useEffect(() => {
     if (isOpen && member) {
       startTransition(() => {
         setForm({
+          memberId: member.memberId || "",
           fullName: member.fullName || "",
-          contact: member.contact || "",
           email: member.email || "",
           dateOfBirth: member.dateOfBirth
             ? member.dateOfBirth.slice(0, 10)
@@ -116,16 +119,24 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
           trainingGoals: (member.trainingGoals as TrainingGoal[]) || [],
         });
         setErrors({});
+        setPhotoFile(null);
+        setPhotoPreview(null);
       });
     }
   }, [isOpen, member]);
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
 
   const validateField = (
     field: ValidatedField,
     nextForm: FormState = form
   ): string | undefined => {
     const fullName = nextForm.fullName.trim();
-    const contact = nextForm.contact.trim();
     const email = nextForm.email.trim();
     const dateOfBirth = nextForm.dateOfBirth.trim();
     const emergencyContact = nextForm.emergencyContact.trim();
@@ -142,18 +153,7 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
           return "Full name must be at least 2 characters";
         }
         return undefined;
-      case "contact":
-        if (!contact && !email) {
-          return "Contact or email is required";
-        }
-        if (contact && !PHONE_REGEX.test(contact)) {
-          return "Enter a valid contact number";
-        }
-        return undefined;
       case "email":
-        if (!contact && !email) {
-          return "Contact or email is required";
-        }
         if (email && !EMAIL_REGEX.test(email)) {
           return "Enter a valid email address";
         }
@@ -260,11 +260,6 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
   };
 
   const handleBlur = (field: ValidatedField) => {
-    if (field === "contact" || field === "email") {
-      updateFieldErrors(["contact", "email"]);
-      return;
-    }
-
     updateFieldErrors([field]);
   };
 
@@ -277,14 +272,10 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
     setForm(nextForm);
 
-    if (fieldName === "contact" || fieldName === "email") {
-      updateFieldErrors(["contact", "email"], nextForm);
-      return;
-    }
-
     if (
       [
         "fullName",
+        "email",
         "dateOfBirth",
         "emergencyContact",
         "nid",
@@ -313,15 +304,15 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
     }
 
     const trimmedFullName = form.fullName.trim();
-    const trimmedContact = form.contact.trim();
+    const trimmedMemberId = form.memberId.trim();
     const trimmedEmail = form.email.trim().toLowerCase();
     const trimmedEmergencyContact = form.emergencyContact.trim();
     const trimmedNid = form.nid.trim();
     const trimmedAddress = form.address.trim();
 
     const payload = {
+      memberId: trimmedMemberId || undefined,
       fullName: trimmedFullName,
-      contact: trimmedContact || undefined,
       email: trimmedEmail || undefined,
       dateOfBirth: form.dateOfBirth || undefined,
       emergencyContact: trimmedEmergencyContact
@@ -345,6 +336,7 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
         branchId,
         memberId: member._id,
         payload,
+        photo: photoFile || undefined,
       }).unwrap();
       toast.success("Member updated successfully");
       onClose();
@@ -367,6 +359,8 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
     }`;
   const labelCls = "block text-sm text-gray-500 mb-1.5";
 
+  const avatarSrc = photoPreview || member.photo || null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogOverlay className="bg-black/30 backdrop-blur-sm" />
@@ -374,11 +368,16 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-gray-100">
           <div className="flex items-center gap-3 mb-1">
-            {/* Avatar */}
-            <div className="w-12 h-12 rounded-full bg-orange-400 flex items-center justify-center overflow-hidden shrink-0">
-              {member.photo ? (
+            {/* Clickable avatar with camera overlay */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="relative w-12 h-12 rounded-full bg-orange-400 flex items-center justify-center overflow-hidden shrink-0 group cursor-pointer"
+              title="Change photo"
+            >
+              {avatarSrc ? (
                 <img
-                  src={member.photo}
+                  src={avatarSrc}
                   alt={member.fullName}
                   className="w-full h-full object-cover"
                 />
@@ -387,7 +386,29 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
                   {member.fullName.charAt(0).toUpperCase()}
                 </span>
               )}
-            </div>
+              <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-5 h-5"
+                >
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              </span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoChange}
+            />
             <div>
               <h2 className="text-lg font-semibold text-gray-800">
                 {member.fullName}
@@ -416,38 +437,42 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
         {/* Form Body */}
         <div className="px-6 py-4 space-y-4">
-          {/* Row 1: Full Name + Contact */}
+          {/* Row 0: Member ID + Phone (read-only) */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>
-                Full Name <span className="text-red-500">*</span>
-              </label>
+              <label className={labelCls}>Member ID</label>
               <input
-                name="fullName"
-                value={form.fullName}
+                name="memberId"
+                value={form.memberId}
                 onChange={handleChange}
-                onBlur={() => handleBlur("fullName")}
-                aria-invalid={Boolean(errors.fullName)}
-                className={getInputCls("fullName")}
+                placeholder="e.g. MEM-001"
+                className={getInputCls()}
               />
-              {errors.fullName && (
-                <p className="mt-1 text-xs text-red-500">{errors.fullName}</p>
-              )}
             </div>
             <div>
-              <label className={labelCls}>Contact</label>
-              <input
-                name="contact"
-                value={form.contact}
-                onChange={handleChange}
-                onBlur={() => handleBlur("contact")}
-                aria-invalid={Boolean(errors.contact)}
-                className={getInputCls("contact")}
-              />
-              {errors.contact && (
-                <p className="mt-1 text-xs text-red-500">{errors.contact}</p>
-              )}
+              <label className={labelCls}>Phone Number</label>
+              <div className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700">
+                {member.contact || "—"}
+              </div>
             </div>
+          </div>
+
+          {/* Row 1: Full Name */}
+          <div>
+            <label className={labelCls}>
+              Full Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="fullName"
+              value={form.fullName}
+              onChange={handleChange}
+              onBlur={() => handleBlur("fullName")}
+              aria-invalid={Boolean(errors.fullName)}
+              className={getInputCls("fullName")}
+            />
+            {errors.fullName && (
+              <p className="mt-1 text-xs text-red-500">{errors.fullName}</p>
+            )}
           </div>
 
           {/* Row 2: Email + Date of Birth */}

@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { FileText, Search, SlidersHorizontal } from "lucide-react";
-import { Transaction } from "@/data/transactionData";
+import type { OverviewTransaction as Transaction } from "@/types/analytics";
 import { useRouter } from "next/navigation";
 import { ImageIcon } from "@/components/utils/ImageIcon";
 
@@ -190,7 +190,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                   <td className="py-4 px-4 text-sm text-gray-medium rounded-l-sm">
                     {transaction.id}
                   </td>
-                  <td className="py-4 px-4 text-sm text-gray-medium">
+                  <td className="py-4 px-4 text-sm text-gray-medium whitespace-nowrap">
                     {transaction.date}
                   </td>
                   <td className="py-4 px-4 text-sm text-gray-medium">

@@ -78,8 +78,8 @@ export const ExpenseTab = () => {
       setSelectedCategoryId(result.id);
       setIsCreateModalOpen(false);
       toast.success("Category created successfully!");
-    } catch {
-      toast.error("Failed to create category");
+    } catch (err: any) {
+      if (err?.status !== 403) toast.error("Failed to create category");
     }
   };
 
@@ -98,8 +98,8 @@ export const ExpenseTab = () => {
       setIsEditCategoryModalOpen(false);
       setCategoryToEdit(null);
       toast.success("Category updated successfully!");
-    } catch {
-      toast.error("Failed to update category");
+    } catch (err: any) {
+      if (err?.status !== 403) toast.error("Failed to update category");
     }
   };
 
@@ -117,11 +117,13 @@ export const ExpenseTab = () => {
       setIsDeleteCategoryModalOpen(false);
       setCategoryToDelete(null);
       toast.success("Category deleted successfully!");
-    } catch (err: unknown) {
-      const msg =
-        (err as { data?: { message?: string } })?.data?.message ??
-        "Failed to delete category";
-      toast.error(msg);
+    } catch (err: any) {
+      if (err?.status !== 403) {
+        const msg =
+          (err as { data?: { message?: string } })?.data?.message ??
+          "Failed to delete category";
+        toast.error(msg);
+      }
     }
   };
 

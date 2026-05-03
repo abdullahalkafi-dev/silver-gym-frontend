@@ -31,6 +31,10 @@ const STAFF_PERMISSION_MAP: Record<string, string[]> = {
   canSendSMS: ["sms:send"],
   canViewEmail: ["email:view"],
   canSendEmail: ["email:send"],
+  canViewExpenseCategory: ["expense-category:view"],
+  canManageExpenseCategory: ["expense-category:manage"],
+  canViewExpense: ["expense:view"],
+  canAddExpense: ["expense:create"],
 };
 
 const OWNER_DEFAULT_PERMISSIONS = Object.keys(PERMISSION_DEFINITIONS);

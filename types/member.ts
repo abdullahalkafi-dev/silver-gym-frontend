@@ -83,9 +83,11 @@ export interface BackendPaymentRecord {
   year?: number;
   subTotal?: number;
   discount?: number;
+  billAmount?: number;
   dueAmount?: number;
   paidTotal?: number;
   admissionFee?: number;
+  exchange?: number;
   paymentMethod?: PaymentMethod;
   paymentDate?: string;
   nextPaymentDate?: string;
@@ -268,12 +270,19 @@ export interface ImportBatch {
   source: "google_sheet" | "csv_upload";
   fileName?: string;
   status: "pending" | "processing" | "completed" | "partial_failed" | "failed" | "cancelled";
+  errorMessage?: string;
   totalRows?: number;
   processedRows?: number;
   successRows?: number;
   failedRows?: number;
   warningRows?: number;
   failuresPreview?: { rowIndex: number; reason: string; memberName?: string }[];
+  failedRowsData?: {
+    rowIndex: number;
+    reason: string;
+    memberName?: string;
+    raw?: Record<string, unknown>;
+  }[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -369,6 +378,7 @@ export interface PaymentRecord {
   package: string;
   amount: string;
   status: string;
+  exchange?: number;
   isImportedOpeningBalance?: boolean;
 }
 

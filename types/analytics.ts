@@ -61,6 +61,7 @@ export interface PackageTypeData {
   "Quarter Yearly": number;
   "Half Yearly": number;
   Yearly: number;
+  packageTitle?: string;
 }
 
 export interface PackageStats {
@@ -70,10 +71,32 @@ export interface PackageStats {
   percentage: string;
 }
 
+export interface PackageListItem {
+  id: string;
+  title: string;
+  color: string;
+}
+
+export interface PackageRow {
+  month: number;
+  packageType: string;
+  packageTitle: string;
+  count: number;
+}
+
+export interface MemberPackageSummaryItem {
+  packageId: string | null;
+  packageTitle: string;
+  count: number;
+}
+
 export interface PackagesAnalyticsData {
   chartData: PackageTypeData[];
   stats: PackageStats[];
   year: string;
+  packagesList: PackageListItem[];
+  packageRows: PackageRow[];
+  memberPackageSummary: MemberPackageSummaryItem[];
 }
 
 export interface ComparisonOption {
@@ -104,4 +127,15 @@ export interface FinancialsCompareData {
   tableData: ComparisonDataPoint[];
   balance: string;
   years: string[];
+}
+
+export interface OverviewTransaction {
+  id: string;
+  date: string;
+  categoryName: string;
+  memberId: string | null;
+  category: string;
+  payment: string;
+  amount: number;
+  balance: number;
 }

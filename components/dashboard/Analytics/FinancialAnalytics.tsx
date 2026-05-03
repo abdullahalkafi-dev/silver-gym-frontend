@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   LineChart,
   Line,
@@ -11,7 +11,9 @@ import {
   Tooltip,
 } from "recharts";
 import { ChevronDown } from "lucide-react";
-import { getFinancialData, availableYears } from "@/data/analyticsData";
+import { useUser } from "@/hooks/useUser";
+import { useGetAnalyticsFinancialSummaryQuery } from "@/redux/features/analytics/analyticsApi";
+import type { MonthlyFinancialData } from "@/types/analytics";
 
 const months = [
   "All Months",
@@ -59,11 +61,50 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 const FinancialAnalytics = () => {
+  const { activeBranchId } = useUser();
   const [selectedMonth, setSelectedMonth] = useState("All Months");
-  const [selectedYear, setSelectedYear] = useState(2025);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isYearOpen, setIsYearOpen] = useState(false);
 
-  const currentData = getFinancialData(selectedMonth, selectedYear);
+  const { data: response, isLoading } = useGetAnalyticsFinancialSummaryQuery(
+    {
+      branchId: activeBranchId || "",
+      month: selectedMonth,
+      year: selectedYear,
+    },
+    {
+      skip: !activeBranchId,
+    }
+  );
+
+  const currentData: MonthlyFinancialData = useMemo(
+    () =>
+      response?.data ?? {
+        month: selectedMonth,
+        data: [],
+        metrics: {
+          totalIncome: "0.00 TK",
+          totalExpense: "0.00 TK",
+          totalNetIncome: "0.00 TK",
+          incomeChange: "+0.0%",
+          expenseChange: "+0.0%",
+          netIncomeChange: "+0.0%",
+        },
+      },
+    [response, selectedMonth]
+  );
+
+  const years = response?.availableYears?.length
+    ? response.availableYears
+    : [selectedYear];
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-2xl p-4">
+        <p className="text-sm text-gray-medium">Loading financial analytics...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl p-4">
@@ -81,7 +122,7 @@ const FinancialAnalytics = () => {
           </button>
           {isYearOpen && (
             <div className="absolute top-full mt-2 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[100px] z-10">
-              {availableYears.map((year) => (
+              {years.map((year) => (
                 <button
                   key={year}
                   onClick={() => {

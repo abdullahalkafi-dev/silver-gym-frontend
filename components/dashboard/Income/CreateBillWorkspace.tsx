@@ -66,6 +66,14 @@ const parseInputDate = (value?: string) => {
   return new Date(year, month - 1, day);
 };
 
+// Combine selected date with current time so paymentDate is not stored as midnight
+const buildPaymentDateISO = (dateStr: string): string => {
+  const now = new Date();
+  const selected = parseInputDate(dateStr);
+  selected.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+  return selected.toISOString();
+};
+
 const toInputDate = (value?: string | Date) => {
   const d = value instanceof Date ? value : value ? new Date(value) : new Date();
   if (Number.isNaN(d.getTime())) return format(new Date(), "yyyy-MM-dd");
@@ -495,7 +503,7 @@ export default function CreateBillWorkspace({
           : undefined,
       paidTotal: paidNow,
       paymentMethod,
-      paymentDate: parseInputDate(paymentDate).toISOString(),
+      paymentDate: buildPaymentDateISO(paymentDate),
       discount: rawDiscount > 0 ? rawDiscount : undefined,
       startDate:
         collectionMode === "monthly"

@@ -52,19 +52,15 @@ const formatPaymentDate = (iso?: string): string => {
   if (!iso) return "—";
   try {
     const d = new Date(iso);
-    return (
-      d.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }) +
-      " " +
-      d.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      })
-    );
+    return d.toLocaleString("en-US", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Dhaka",
+    });
   } catch {
     return iso;
   }

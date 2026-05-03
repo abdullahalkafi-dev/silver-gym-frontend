@@ -70,6 +70,13 @@ const BarChartCard: React.FC<BarChartCardProps> = ({
 
   const currentData = viewMode === "Yearly" ? yearlyData : monthlyData;
 
+  const computedTotal = currentData.reduce((sum, item) => sum + item.value, 0);
+  const displayTotal = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  }).format(computedTotal);
+
   const maxValue = Math.max(...currentData.map((item) => item.value));
   const minValue = Math.min(...currentData.map((item) => item.value));
   const threshold = minValue + (maxValue - minValue) * 0.5;
@@ -129,7 +136,7 @@ const BarChartCard: React.FC<BarChartCardProps> = ({
       <div className="flex justify-between items-center">
         <div className="mb-4">
           <h3 className="text-3xl md:text-4xl font-bold text-gray-medium">
-            {totalValue}
+            {displayTotal}
           </h3>
           {subtitle && (
             <p className="text-sm text-text-secondary mt-2">{subtitle}</p>

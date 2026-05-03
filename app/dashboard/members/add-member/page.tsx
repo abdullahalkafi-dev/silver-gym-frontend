@@ -10,7 +10,7 @@ import {
   Delete02Icon,
 } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { addDays, addWeeks, addYears, format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { InputWithUnit } from "@/components/ui/input-with-unit";
@@ -96,26 +96,27 @@ function computeNextPaymentDate(
   membershipType: "package" | "monthly",
   selectedPackage: GymPackage | undefined,
   selectedMonths: MonthYear[],
-  selectedYear: number | null,
+  selectedDates: Date[],
 ): Date | null {
-  // Day/week packages: no next payment date (member renews or switches after expiry)
   if (membershipType === "package" && selectedPackage) {
     const { durationType } = selectedPackage;
-    if (durationType === "day" || durationType === "week") {
-      return null;
-    }
-  }
+    const selectedStartDate = selectedDates[0];
 
-  // Year packages renew on the first day of the same month after N years.
-  if (
-    membershipType === "package" &&
-    selectedPackage?.durationType === "year" &&
-    selectedYear
-  ) {
-    const now = new Date();
-    const startMonth = now.getMonth(); // current month (0-based)
-    const endYear = selectedYear + selectedPackage.duration;
-    return new Date(endYear, startMonth, 1);
+    if (
+      (durationType === "day" || durationType === "week" || durationType === "year") &&
+      selectedStartDate
+    ) {
+      switch (durationType) {
+        case "day":
+          return addDays(selectedStartDate, selectedPackage.duration);
+        case "week":
+          return addWeeks(selectedStartDate, selectedPackage.duration);
+        case "year":
+          return addYears(selectedStartDate, selectedPackage.duration);
+        default:
+          return null;
+      }
+    }
   }
 
   // Month-based packages or monthly flow: use selected months directly
@@ -129,6 +130,49 @@ function computeNextPaymentDate(
   }
 
   return null;
+}
+
+function getCurrentMonthStart(value = new Date()): Date {
+  return new Date(value.getFullYear(), value.getMonth(), 1);
+}
+
+function getNextMonthStart(value = new Date()): Date {
+  return new Date(value.getFullYear(), value.getMonth() + 1, 1);
+}
+
+function getLatestAllowedNewMemberStartDate(value = new Date()): Date {
+  return new Date(value.getFullYear(), value.getMonth() + 2, 0);
+}
+
+function toMonthYearValue(date: Date): MonthYear {
+  return { month: date.getMonth(), year: date.getFullYear() };
+}
+
+function toCalendarDateISOString(date: Date): string {
+  const normalizedDate = new Date(date);
+  normalizedDate.setHours(12, 0, 0, 0);
+  return normalizedDate.toISOString();
+}
+
+function resolvePackageStartDate(
+  selectedPackage: GymPackage | undefined,
+  selectedMonths: MonthYear[],
+  selectedDates: Date[],
+): Date | null {
+  if (!selectedPackage) {
+    return null;
+  }
+
+  if (selectedPackage.durationType === "month") {
+    if (selectedMonths.length === 0) {
+      return null;
+    }
+
+    const firstMonth = selectedMonths[0];
+    return new Date(firstMonth.year, firstMonth.month, 1);
+  }
+
+  return selectedDates[0] ? new Date(selectedDates[0]) : null;
 }
 
 // ─── Component ──────────────────────────────────────────────────────
@@ -167,7 +211,7 @@ export default function AddMemberPage() {
       { skip: !activeBranchId },
     );
 
-  const packages = packagesData?.data || [];
+  const packages = useMemo(() => packagesData?.data || [], [packagesData?.data]);
 
   // ── Profile photo ──
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -237,6 +281,19 @@ export default function AddMemberPage() {
     () => packages.find((p) => p.id === selectedPackageId),
     [packages, selectedPackageId],
   );
+  const newMemberReferenceDate = useMemo(() => new Date(), []);
+  const earliestStartMonth = useMemo(
+    () => toMonthYearValue(getCurrentMonthStart(newMemberReferenceDate)),
+    [newMemberReferenceDate],
+  );
+  const latestStartMonth = useMemo(
+    () => toMonthYearValue(getNextMonthStart(newMemberReferenceDate)),
+    [newMemberReferenceDate],
+  );
+  const latestAllowedPackageStartDate = useMemo(
+    () => getLatestAllowedNewMemberStartDate(newMemberReferenceDate),
+    [newMemberReferenceDate],
+  );
 
   const branchMonthlyFeeAmount = branchMonthlyFee?.monthlyFeeAmount ?? null;
 
@@ -297,17 +354,12 @@ export default function AddMemberPage() {
       selectedPackage.durationType === "month" &&
       pkgSelectedMonths.length === 0
     ) {
-      const now = new Date();
-      const startMy: MonthYear = {
-        month: now.getMonth(),
-        year: now.getFullYear(),
-      };
-      const endIdx = toIndex(startMy) + selectedPackage.duration - 1;
+      const endIdx = toIndex(earliestStartMonth) + selectedPackage.duration - 1;
       startTransition(() => {
-        setPkgSelectedMonths(buildRange(startMy, fromIndex(endIdx)));
+        setPkgSelectedMonths(buildRange(earliestStartMonth, fromIndex(endIdx)));
       });
     }
-  }, [membershipType, selectedPackage, pkgSelectedMonths.length]);
+  }, [earliestStartMonth, membershipType, selectedPackage, pkgSelectedMonths.length]);
 
   // Subtotal calculation
   const subtotal = useMemo(() => {
@@ -357,14 +409,14 @@ export default function AddMemberPage() {
       membershipType,
       selectedPackage,
       membershipType === "monthly" ? monthlySelectedMonths : pkgSelectedMonths,
-      pkgSelectedYear,
+      membershipType === "package" ? pkgSelectedDates : [],
     );
   }, [
     membershipType,
     selectedPackage,
     monthlySelectedMonths,
     pkgSelectedMonths,
-    pkgSelectedYear,
+    pkgSelectedDates,
   ]);
 
   // ── Photo handling ──
@@ -394,6 +446,21 @@ export default function AddMemberPage() {
 
     if (membershipType === "package" && !selectedPackageId) {
       errs.package = "Please select a package";
+    }
+    if (membershipType === "package" && selectedPackage) {
+      if (
+        selectedPackage.durationType === "month" &&
+        pkgSelectedMonths.length === 0
+      ) {
+        errs.packageStart = "Select a package start month";
+      }
+
+      if (
+        selectedPackage.durationType !== "month" &&
+        pkgSelectedDates.length === 0
+      ) {
+        errs.packageStart = "Select a package start date";
+      }
     }
     if (membershipType === "monthly") {
       if (monthlySelectedMonths.length === 0) {
@@ -475,27 +542,24 @@ export default function AddMemberPage() {
     // Membership type specifics
     if (membershipType === "package") {
       payload.currentPackageId = selectedPackageId;
-      // Auto-calculate start date from first selected month or today
-      if (pkgSelectedMonths.length > 0) {
-        const first = pkgSelectedMonths[0];
-        payload.membershipStartDate = new Date(
-          first.year,
-          first.month,
-          1,
-        ).toISOString();
-      } else {
-        payload.membershipStartDate = new Date().toISOString();
-      }
+      const packageStartDate = resolvePackageStartDate(
+        selectedPackage,
+        pkgSelectedMonths,
+        pkgSelectedDates,
+      );
+      payload.membershipStartDate = toCalendarDateISOString(
+        packageStartDate || new Date(),
+      );
     } else {
       // Monthly (no package) — backend triggers monthly mode from paidMonths alone
       payload.paidMonths = monthlySelectedMonths.length;
       if (monthlySelectedMonths.length > 0) {
         const first = monthlySelectedMonths[0];
-        payload.membershipStartDate = new Date(
+        payload.membershipStartDate = toCalendarDateISOString(new Date(
           first.year,
           first.month,
           1,
-        ).toISOString();
+        ));
       }
     }
 
@@ -1042,8 +1106,17 @@ export default function AddMemberPage() {
                       onDatesChange={setPkgSelectedDates}
                       selectedYear={pkgSelectedYear}
                       onYearChange={setPkgSelectedYear}
+                      minMonth={earliestStartMonth}
+                      maxStartMonth={latestStartMonth}
+                      minDate={newMemberReferenceDate}
+                      maxDate={latestAllowedPackageStartDate}
                       fixedCount
                     />
+                  )}
+                  {errors.packageStart && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.packageStart}
+                    </p>
                   )}
 
                   {/* Next Payment Date */}
@@ -1124,7 +1197,8 @@ export default function AddMemberPage() {
                   <MonthGrid
                     selectedMonths={monthlySelectedMonths}
                     onSelectionChange={setMonthlySelectedMonths}
-                    maxMonths={12}
+                    minMonth={earliestStartMonth}
+                    maxStartMonth={latestStartMonth}
                   />
                   {errors.months && (
                     <p className="text-xs text-red-500">{errors.months}</p>

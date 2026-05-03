@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { startTransition, useMemo, useState, useRef, useEffect } from "react";
 import { addDays, addMonths, addWeeks, addYears, format } from "date-fns";
 import { Printer } from "lucide-react";
 import { toast } from "sonner";
@@ -72,6 +72,12 @@ const buildPaymentDateISO = (dateStr: string): string => {
   const selected = parseInputDate(dateStr);
   selected.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
   return selected.toISOString();
+};
+
+const toCalendarDateISO = (date: Date): string => {
+  const normalizedDate = new Date(date);
+  normalizedDate.setHours(12, 0, 0, 0);
+  return normalizedDate.toISOString();
 };
 
 const toInputDate = (value?: string | Date) => {
@@ -294,15 +300,16 @@ export default function CreateBillWorkspace({
     return branchMonthlyFee;
   }, [useCustomMonthlyFee, customFeeInput, branchMonthlyFee]);
 
-  // Month grid
-  const monthlyReferenceDate = useMemo(
+  const requiredStartDate = useMemo(
     () =>
       getReferenceDate(
+        context.billing.requiredStartDate ||
         context.billing.recommendedStartDate ||
           context.billing.nextPaymentDate ||
           member.nextPaymentDate,
       ),
     [
+      context.billing.requiredStartDate,
       context.billing.recommendedStartDate,
       context.billing.nextPaymentDate,
       member.nextPaymentDate,
@@ -310,30 +317,45 @@ export default function CreateBillWorkspace({
   );
 
   const monthlyMinMonth = useMemo(
-    () => toMonthYear(monthlyReferenceDate),
-    [monthlyReferenceDate],
+    () => toMonthYear(requiredStartDate),
+    [requiredStartDate],
   );
 
   const [monthlyMonths, setMonthlyMonths] = useState<MonthYear[]>(() => {
-    const start = toMonthYear(monthlyReferenceDate);
+    const start = toMonthYear(requiredStartDate);
     return buildRange(start, start);
   });
 
-  const monthlyStartDate = useMemo(() => {
-    const firstMonth = monthlyMonths[0] || toMonthYear(monthlyReferenceDate);
-    const lastDay = new Date(firstMonth.year, firstMonth.month + 1, 0).getDate();
-    const day = Math.min(monthlyReferenceDate.getDate(), lastDay);
-    return new Date(firstMonth.year, firstMonth.month, day);
-  }, [monthlyMonths, monthlyReferenceDate]);
+  useEffect(() => {
+    if (collectionMode !== "monthly") {
+      return;
+    }
 
-  // Package start date
-  const [packageStartDate, setPackageStartDate] = useState(() =>
-    toInputDate(new Date()),
-  );
-  const packageStart = useMemo(
-    () => parseInputDate(packageStartDate),
-    [packageStartDate],
-  );
+    const anchoredStart = toMonthYear(requiredStartDate);
+    startTransition(() => {
+      setMonthlyMonths((current) => {
+        const firstMonth = current[0];
+        if (
+          firstMonth &&
+          firstMonth.month === anchoredStart.month &&
+          firstMonth.year === anchoredStart.year
+        ) {
+          return current;
+        }
+
+        return buildRange(anchoredStart, anchoredStart);
+      });
+    });
+  }, [collectionMode, requiredStartDate]);
+
+  const monthlyStartDate = useMemo(() => {
+    const firstMonth = monthlyMonths[0] || toMonthYear(requiredStartDate);
+    const lastDay = new Date(firstMonth.year, firstMonth.month + 1, 0).getDate();
+    const day = Math.min(requiredStartDate.getDate(), lastDay);
+    return new Date(firstMonth.year, firstMonth.month, day);
+  }, [monthlyMonths, requiredStartDate]);
+
+  const packageStart = requiredStartDate;
 
   // Due items (non-admission only — admission dues go through the modal)
   const [selectedDueAmounts, setSelectedDueAmounts] = useState<
@@ -447,7 +469,9 @@ export default function CreateBillWorkspace({
   // Auto-fill paid amount when billable amount changes (unless user has manually edited it)
   useEffect(() => {
     if (!hasUserEditedPaidRef.current && billableAmount > 0) {
-      setPaidTotal(String(billableAmount));
+      startTransition(() => {
+        setPaidTotal(String(billableAmount));
+      });
     }
   }, [billableAmount]);
 
@@ -507,9 +531,9 @@ export default function CreateBillWorkspace({
       discount: rawDiscount > 0 ? rawDiscount : undefined,
       startDate:
         collectionMode === "monthly"
-          ? monthlyStartDate.toISOString()
+          ? toCalendarDateISO(monthlyStartDate)
           : collectionMode === "package"
-            ? packageStart.toISOString()
+            ? toCalendarDateISO(packageStart)
             : undefined,
       paidMonths:
         collectionMode === "monthly" ? monthlyMonths.length : undefined,
@@ -895,7 +919,7 @@ export default function CreateBillWorkspace({
                 selectedMonths={monthlyMonths}
                 onSelectionChange={setMonthlyMonths}
                 minMonth={monthlyMinMonth}
-                maxMonths={12}
+                lockedStartMonth={monthlyMinMonth}
               />
             </div>
           )}
@@ -904,14 +928,14 @@ export default function CreateBillWorkspace({
           {collectionMode === "package" && (
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Package Start Date
+                Billing Start Date
               </label>
-              <input
-                type="date"
-                value={packageStartDate}
-                onChange={(e) => setPackageStartDate(e.target.value)}
-                className="h-10 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none focus:border-gray-400"
-              />
+              <div className="flex h-10 w-full items-center rounded-xl border border-gray-300 bg-gray-50 px-3 text-sm font-medium text-gray-700">
+                {formatDateLabel(packageStart)}
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                Billing starts from the next payable date and cannot skip ahead.
+              </p>
             </div>
           )}
 

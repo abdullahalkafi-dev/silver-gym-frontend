@@ -364,7 +364,9 @@ export const analyticsApi = baseApi.injectEndpoints({
         selectedMonth: response.data.selectedMonth,
         stats: response.data.stats.map((item) => ({
           ...item,
-          value: typeof item.value === "number" ? formatCurrency(item.value) : item.value,
+          value: typeof item.value === "number" && (item.label === "Income" || item.label === "Expense")
+            ? formatCurrency(item.value)
+            : item.value,
         })),
         progress: {
           yearlyData: response.data.progress.yearlyData,

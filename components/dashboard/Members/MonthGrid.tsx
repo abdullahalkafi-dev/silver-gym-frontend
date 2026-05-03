@@ -51,6 +51,10 @@ interface MonthGridProps {
   onSelectionChange: (months: MonthYear[]) => void;
   /** Earliest selectable month (defaults to current month) */
   minMonth?: MonthYear;
+  /** Latest month allowed for the selection start */
+  maxStartMonth?: MonthYear;
+  /** If provided, the range must always start from this month */
+  lockedStartMonth?: MonthYear;
   /** Maximum number of months that can be selected (0 = unlimited) */
   maxMonths?: number;
   /** If true, selection count is locked (e.g. package duration) — user can only shift the range */
@@ -63,6 +67,8 @@ function MonthGrid({
   selectedMonths,
   onSelectionChange,
   minMonth,
+  maxStartMonth,
+  lockedStartMonth,
   maxMonths = 0,
   fixedCount = false,
   className,
@@ -72,7 +78,8 @@ function MonthGrid({
     month: now.getMonth(),
     year: now.getFullYear(),
   };
-  const effectiveMin = minMonth || currentMonth;
+  const effectiveMin = lockedStartMonth || minMonth || currentMonth;
+  const effectiveMaxStart = lockedStartMonth || maxStartMonth;
 
   // Year for the grid display
   const [displayYear, setDisplayYear] = React.useState(() => {
@@ -80,25 +87,57 @@ function MonthGrid({
     return effectiveMin.year;
   });
 
-  // Generate year options (current year - 1 to +5)
+  React.useEffect(() => {
+    if (selectedMonths.length > 0) {
+      setDisplayYear(selectedMonths[0].year);
+      return;
+    }
+
+    setDisplayYear(effectiveMin.year);
+  }, [effectiveMin.year, selectedMonths]);
+
+  // Generate year options with a sliding upper bound so future selection is not capped.
   const yearOptions = React.useMemo(() => {
     const years: number[] = [];
-    const base = currentMonth.year;
-    for (let y = base - 1; y <= base + 5; y++) {
+    const selectedLastYear =
+      selectedMonths.length > 0
+        ? selectedMonths[selectedMonths.length - 1].year
+        : displayYear;
+    const maxYear = Math.max(
+      effectiveMin.year + 5,
+      displayYear + 5,
+      selectedLastYear + 5,
+    );
+
+    for (let y = effectiveMin.year; y <= maxYear; y++) {
       years.push(y);
     }
     return years;
-  }, [currentMonth.year]);
+  }, [displayYear, effectiveMin.year, selectedMonths]);
 
   const handleMonthClick = (clicked: MonthYear) => {
     const clickIdx = toIndex(clicked);
     const minIdx = toIndex(effectiveMin);
+    const maxStartIdx = effectiveMaxStart
+      ? toIndex(effectiveMaxStart)
+      : Number.POSITIVE_INFINITY;
 
     // Can't select past months
     if (clickIdx < minIdx) return;
 
+    if (lockedStartMonth) {
+      const lockedStartIdx = toIndex(lockedStartMonth);
+      if (clickIdx < lockedStartIdx) return;
+
+      const newRange = buildRange(lockedStartMonth, clicked);
+      if (maxMonths > 0 && newRange.length > maxMonths) return;
+      onSelectionChange(newRange);
+      return;
+    }
+
     // No selection yet — start new
     if (selectedMonths.length === 0) {
+      if (clickIdx > maxStartIdx) return;
       onSelectionChange([clicked]);
       return;
     }
@@ -135,6 +174,7 @@ function MonthGrid({
       let startIdx = clickIdx;
       // Ensure we don't go before min
       if (startIdx < minIdx) startIdx = minIdx;
+      if (startIdx > maxStartIdx) return;
       const endIdx = startIdx + count - 1;
       const newRange = buildRange(fromIndex(startIdx), fromIndex(endIdx));
       onSelectionChange(newRange);
@@ -147,6 +187,7 @@ function MonthGrid({
 
     // Ensure range doesn't go before min
     const clampedStart = Math.max(newStart, minIdx);
+    if (clampedStart > maxStartIdx) return;
     let range = buildRange(fromIndex(clampedStart), fromIndex(newEnd));
 
     // Apply max limit

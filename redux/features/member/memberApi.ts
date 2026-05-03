@@ -284,6 +284,10 @@ const normalizeCollectBillBilling = (
       : undefined,
   nextPaymentDate:
     typeof raw?.nextPaymentDate === "string" ? raw.nextPaymentDate : undefined,
+  requiredStartDate:
+    typeof raw?.requiredStartDate === "string"
+      ? raw.requiredStartDate
+      : undefined,
   recommendedStartDate:
     typeof raw?.recommendedStartDate === "string"
       ? raw.recommendedStartDate

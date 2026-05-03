@@ -10,6 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import type { PackageDurationType } from "@/types/package";
 import {
+  addMonths,
   addDays,
   endOfMonth,
   endOfWeek,
@@ -65,6 +66,7 @@ interface DayCalendarProps {
   selectedDates: Date[];
   onSelect: (dates: Date[]) => void;
   minDate?: Date;
+  maxDate?: Date;
   /** For week mode: snap selection to 7-day ranges */
   weekMode?: boolean;
   /** Number of days/weeks to select (from package duration) */
@@ -128,6 +130,7 @@ function DayCalendar({
   selectedDates,
   onSelect,
   minDate,
+  maxDate,
   weekMode = false,
   duration = 1,
   className,
@@ -171,6 +174,7 @@ function DayCalendar({
         onSelect={handleDayClick}
         disabled={(date) => {
           if (minDate && date < minDate) return true;
+          if (maxDate && date > maxDate) return true;
           return false;
         }}
         modifiers={{
@@ -231,6 +235,10 @@ interface DurationCalendarProps {
   /** For year type: selected year */
   selectedYear: number | null;
   onYearChange: (year: number) => void;
+  minMonth?: MonthYear;
+  maxStartMonth?: MonthYear;
+  minDate?: Date;
+  maxDate?: Date;
   /** Whether the count is fixed (package mode) or free (monthly mode) */
   fixedCount?: boolean;
   /** Max months for free selection */
@@ -247,15 +255,22 @@ function DurationCalendar({
   onDatesChange,
   selectedYear,
   onYearChange,
+  minMonth,
+  maxStartMonth,
+  minDate,
+  maxDate,
   fixedCount = false,
   maxMonths = 0,
   className,
 }: DurationCalendarProps) {
   const now = new Date();
-  const currentMonth: MonthYear = {
-    month: now.getMonth(),
-    year: now.getFullYear(),
-  };
+  const currentMonth: MonthYear =
+    minMonth || {
+      month: now.getMonth(),
+      year: now.getFullYear(),
+    };
+  const earliestDate = minDate || now;
+  const latestDate = maxDate || endOfMonth(addMonths(earliestDate, 1));
 
   switch (durationType) {
     case "month":
@@ -264,6 +279,7 @@ function DurationCalendar({
           selectedMonths={selectedMonths}
           onSelectionChange={onMonthsChange}
           minMonth={currentMonth}
+          maxStartMonth={maxStartMonth}
           maxMonths={fixedCount ? durationCount : maxMonths}
           fixedCount={fixedCount}
           className={className}
@@ -275,7 +291,8 @@ function DurationCalendar({
         <DayCalendar
           selectedDates={selectedDates}
           onSelect={onDatesChange}
-          minDate={now}
+          minDate={earliestDate}
+          maxDate={latestDate}
           duration={durationCount}
           className={className}
         />
@@ -286,7 +303,8 @@ function DurationCalendar({
         <DayCalendar
           selectedDates={selectedDates}
           onSelect={onDatesChange}
-          minDate={now}
+          minDate={earliestDate}
+          maxDate={latestDate}
           weekMode
           duration={durationCount}
           className={className}
@@ -295,10 +313,12 @@ function DurationCalendar({
 
     case "year":
       return (
-        <YearGrid
-          selectedYear={selectedYear}
-          onSelect={onYearChange}
-          minYear={now.getFullYear()}
+        <DayCalendar
+          selectedDates={selectedDates}
+          onSelect={onDatesChange}
+          minDate={earliestDate}
+          maxDate={latestDate}
+          duration={1}
           className={className}
         />
       );
@@ -309,6 +329,7 @@ function DurationCalendar({
           selectedMonths={selectedMonths}
           onSelectionChange={onMonthsChange}
           minMonth={currentMonth}
+          maxStartMonth={maxStartMonth}
           fixedCount={fixedCount}
           maxMonths={fixedCount ? durationCount : maxMonths}
           className={className}

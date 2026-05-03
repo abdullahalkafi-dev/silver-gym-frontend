@@ -10,9 +10,29 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
-import { smsTemplates } from "@/data/memberData";
 import { SMSDeliveryMethod } from "@/types/member";
 import { HugeiconsIcon } from "@hugeicons/react";
+
+const smsTemplates = [
+  {
+    id: "due-payment",
+    title: "Due Payment Reminder",
+    message: "Hello Annette Black, your membership fee of 3-M...",
+    type: "reminder",
+  },
+  {
+    id: "package-renewal",
+    title: "Package Renewal Reminder",
+    message: "Hello Annette Black, your membership fee of 3-M...",
+    type: "renewal",
+  },
+  {
+    id: "occasion-greeting",
+    title: "Occasion Greeting",
+    message: "Eid Mubarak! Stay strong and fit with Silver Gym",
+    type: "greeting",
+  },
+];
 import { MailSend01Icon, Calendar03Icon, CheckmarkSquare02Icon, ArrowRight04Icon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 import SMSSuccessModal from "./SMSSuccessModal";

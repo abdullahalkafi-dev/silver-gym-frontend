@@ -113,6 +113,7 @@ export interface CollectBillContext {
     accruedAmount: number;
     monthlyFeeAmount?: number;
     nextPaymentDate?: string;
+    requiredStartDate?: string;
     recommendedStartDate?: string;
     isActive: boolean;
     dueBreakdown: CollectBillDueItem[];

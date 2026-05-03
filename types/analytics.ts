@@ -134,6 +134,7 @@ export interface OverviewTransaction {
   date: string;
   categoryName: string;
   memberId: string | null;
+  memberCustomId: string | null;
   category: string;
   payment: string;
   amount: number;

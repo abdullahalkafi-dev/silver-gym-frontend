@@ -197,7 +197,7 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                     {transaction.categoryName}
                   </td>
                   <td className="py-4 px-4 text-sm text-text-secondary">
-                    {transaction.memberId || "———"}
+                    {transaction.memberCustomId || transaction.memberId || "———"}
                   </td>
                   <td className="py-4 px-4">
                     <span

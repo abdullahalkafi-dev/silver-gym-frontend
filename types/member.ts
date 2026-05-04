@@ -76,6 +76,8 @@ export interface BackendPaymentRecord {
   memberName?: string;
   packageId?: string;
   packageName?: string;
+  packageDuration?: number;
+  packageDurationType?: string;
   paymentType?: BackendPaymentType;
   periodStart?: string;
   periodEnd?: string;

@@ -128,6 +128,7 @@ type OverviewRaw = {
     date: string;
     categoryName: string;
     memberId: string | null;
+    memberCustomId: string | null;
     category: string;
     payment: string;
     amount: number;
@@ -386,7 +387,11 @@ export const analyticsApi = baseApi.injectEndpoints({
           percentage: `${response.data.line.percentage.toFixed(1)}%`,
           data: response.data.line.data,
         },
-        transactions: response.data.transactions,
+        transactions: response.data.transactions.map((item) => ({
+          ...item,
+          memberCustomId:
+            typeof item.memberCustomId === "string" ? item.memberCustomId : null,
+        })),
         availableYears: response.data.availableYears,
       }),
       providesTags: (_result, _error, { branchId }) => [

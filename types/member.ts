@@ -115,6 +115,13 @@ export interface CollectBillContext {
     nextPaymentDate?: string;
     requiredStartDate?: string;
     recommendedStartDate?: string;
+    monthlyStartDate?: string;
+    transitionToMonthly?: {
+      packageExpiryDate?: string;
+      suggestedDiscountAmount: number;
+      coveredDaysInAnchorMonth: number;
+      daysInAnchorMonth: number;
+    };
     isActive: boolean;
     dueBreakdown: CollectBillDueItem[];
   };
@@ -146,6 +153,12 @@ export interface CollectBillResult {
     monthlyFeeAmount?: number;
     overdueMonths: number;
     effectiveDuePaymentAmount: number;
+    waivedDueAmount: number;
+    waivedDueItemCount: number;
+    waivedDueLabels: string[];
+    discountedCycleAmount: number;
+    paidDueAmount: number;
+    paidDueItemCount: number;
   };
 }
 

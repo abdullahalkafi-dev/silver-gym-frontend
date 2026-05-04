@@ -150,6 +150,22 @@ const formatPeriodPoint = (value?: string) => {
   });
 };
 
+const formatExactPeriodPoint = (value?: string) => {
+  if (!value) return undefined;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Dhaka",
+  });
+};
+
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
   package: "Package",
   monthly: "Monthly",
@@ -204,10 +220,19 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
       ? new Date(new Date(payment.periodEnd).getTime() - 24 * 60 * 60 * 1000).toISOString()
       : undefined;
   const endLabel = formatPeriodPoint(adjustedPeriodEnd);
+  const exactStartLabel = formatExactPeriodPoint(payment.periodStart);
+  const exactEndLabel = formatExactPeriodPoint(adjustedPeriodEnd);
+  const isShortTermPackage =
+    payment.paymentType === "package" &&
+    (payment.packageDurationType === "day" || payment.packageDurationType === "week");
 
   let month = "—";
   if (isImportedOpeningBalance) {
     month = "Imported opening balance";
+  } else if (isShortTermPackage && exactStartLabel && exactEndLabel && exactStartLabel !== exactEndLabel) {
+    month = `${exactStartLabel} - ${exactEndLabel}`;
+  } else if (isShortTermPackage && exactStartLabel) {
+    month = exactStartLabel;
   } else if (startLabel && endLabel && startLabel !== endLabel) {
     month = `${startLabel} - ${endLabel}`;
   } else if (startLabel) {
@@ -224,12 +249,16 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
       PAYMENT_TYPE_LABELS[payment.paymentType || ""] ||
       "Other";
 
+  const settledAmount = payment.billAmount ?? 0;
+  const receivedAmount = payment.paidTotal ?? 0;
   const amount = isImportedOpeningBalance
     ? dueAmount > 0
       ? `Opening due ${formatCurrency(dueAmount)}`
       : formatCurrency(billAmount)
-    : billAmount > 0
-      ? formatCurrency(billAmount)
+    : settledAmount > 0
+      ? formatCurrency(settledAmount)
+      : receivedAmount > 0
+        ? formatCurrency(receivedAmount)
       : dueAmount > 0
         ? `Due ${formatCurrency(dueAmount)}`
         : formatCurrency(0);
@@ -274,31 +303,55 @@ const normalizeCollectBillDueItem = (raw: Record<string, unknown>) => ({
 
 const normalizeCollectBillBilling = (
   raw: Record<string, unknown> | undefined,
-): CollectBillContext["billing"] => ({
-  currentDueAmount: Number(raw?.currentDueAmount ?? 0),
-  overdueMonths: Number(raw?.overdueMonths ?? 0),
-  accruedAmount: Number(raw?.accruedAmount ?? 0),
-  monthlyFeeAmount:
-    typeof raw?.monthlyFeeAmount === "number"
-      ? raw.monthlyFeeAmount
+): CollectBillContext["billing"] => {
+  const transitionRaw =
+    raw?.transitionToMonthly && typeof raw.transitionToMonthly === "object"
+      ? (raw.transitionToMonthly as Record<string, unknown>)
+      : undefined;
+
+  return {
+    currentDueAmount: Number(raw?.currentDueAmount ?? 0),
+    overdueMonths: Number(raw?.overdueMonths ?? 0),
+    accruedAmount: Number(raw?.accruedAmount ?? 0),
+    monthlyFeeAmount:
+      typeof raw?.monthlyFeeAmount === "number"
+        ? raw.monthlyFeeAmount
+        : undefined,
+    nextPaymentDate:
+      typeof raw?.nextPaymentDate === "string" ? raw.nextPaymentDate : undefined,
+    requiredStartDate:
+      typeof raw?.requiredStartDate === "string"
+        ? raw.requiredStartDate
+        : undefined,
+    recommendedStartDate:
+      typeof raw?.recommendedStartDate === "string"
+        ? raw.recommendedStartDate
+        : undefined,
+    monthlyStartDate:
+      typeof raw?.monthlyStartDate === "string" ? raw.monthlyStartDate : undefined,
+    transitionToMonthly: transitionRaw
+      ? {
+          packageExpiryDate:
+            typeof transitionRaw.packageExpiryDate === "string"
+              ? transitionRaw.packageExpiryDate
+              : undefined,
+          suggestedDiscountAmount: Number(
+            transitionRaw.suggestedDiscountAmount ?? 0,
+          ),
+          coveredDaysInAnchorMonth: Number(
+            transitionRaw.coveredDaysInAnchorMonth ?? 0,
+          ),
+          daysInAnchorMonth: Number(transitionRaw.daysInAnchorMonth ?? 0),
+        }
       : undefined,
-  nextPaymentDate:
-    typeof raw?.nextPaymentDate === "string" ? raw.nextPaymentDate : undefined,
-  requiredStartDate:
-    typeof raw?.requiredStartDate === "string"
-      ? raw.requiredStartDate
-      : undefined,
-  recommendedStartDate:
-    typeof raw?.recommendedStartDate === "string"
-      ? raw.recommendedStartDate
-      : undefined,
-  isActive: raw?.isActive !== false,
-  dueBreakdown: Array.isArray(raw?.dueBreakdown)
-    ? raw.dueBreakdown
-        .filter((item): item is Record<string, unknown> => Boolean(item))
-        .map(normalizeCollectBillDueItem)
-    : [],
-});
+    isActive: raw?.isActive !== false,
+    dueBreakdown: Array.isArray(raw?.dueBreakdown)
+      ? raw.dueBreakdown
+          .filter((item): item is Record<string, unknown> => Boolean(item))
+          .map(normalizeCollectBillDueItem)
+      : [],
+  };
+};
 
 const normalizeCollectBillResultBilling = (
   raw: Record<string, unknown> | undefined,
@@ -312,6 +365,16 @@ const normalizeCollectBillResultBilling = (
       : undefined,
   overdueMonths: Number(raw?.overdueMonths ?? 0),
   effectiveDuePaymentAmount: Number(raw?.effectiveDuePaymentAmount ?? 0),
+  waivedDueAmount: Number(raw?.waivedDueAmount ?? 0),
+  waivedDueItemCount: Number(raw?.waivedDueItemCount ?? 0),
+  waivedDueLabels: Array.isArray(raw?.waivedDueLabels)
+    ? raw.waivedDueLabels.filter(
+        (label): label is string => typeof label === "string" && label.length > 0,
+      )
+    : [],
+  discountedCycleAmount: Number(raw?.discountedCycleAmount ?? 0),
+  paidDueAmount: Number(raw?.paidDueAmount ?? 0),
+  paidDueItemCount: Number(raw?.paidDueItemCount ?? 0),
 });
 
 // ─── Normalizer ─────────────────────────────────────────────────────

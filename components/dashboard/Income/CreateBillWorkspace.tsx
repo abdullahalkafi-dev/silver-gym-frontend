@@ -93,6 +93,47 @@ const formatDateLabel = (value?: string | Date) => {
   return format(d, "dd/MM/yyyy");
 };
 
+const formatBillingWindowLabel = (
+  periodStart?: Date,
+  periodEndExclusive?: Date,
+) => {
+  if (!periodStart) return "Pending cycle";
+
+  const startLabel = format(periodStart, "MMM yyyy");
+
+  if (!periodEndExclusive) {
+    return startLabel;
+  }
+
+  const inclusivePeriodEnd = addDays(periodEndExclusive, -1);
+  const endLabel = format(inclusivePeriodEnd, "MMM yyyy");
+
+  return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
+};
+
+const formatExactWindowLabel = (
+  periodStart?: Date,
+  periodEndExclusive?: Date,
+) => {
+  if (!periodStart) return "Pending cycle";
+
+  if (!periodEndExclusive) {
+    return format(periodStart, "dd MMM yyyy");
+  }
+
+  const inclusivePeriodEnd = addDays(periodEndExclusive, -1);
+  const startLabel = format(periodStart, "dd MMM yyyy");
+  const endLabel = format(inclusivePeriodEnd, "dd MMM yyyy");
+
+  return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
+};
+
+const formatCompactLabels = (labels: string[], maxLabels = 2) => {
+  if (labels.length === 0) return "old dues";
+  if (labels.length <= maxLabels) return labels.join(", ");
+  return `${labels.slice(0, maxLabels).join(", ")} +${labels.length - maxLabels} more`;
+};
+
 const getReferenceDate = (value?: string) => {
   const d = value ? new Date(value) : new Date();
   return Number.isNaN(d.getTime()) ? new Date() : d;
@@ -129,6 +170,10 @@ const isShortTermDuration = (durationType?: GymPackage["durationType"]) =>
 
 const isLongTermDuration = (durationType?: GymPackage["durationType"]) =>
   durationType === "month" || durationType === "year";
+
+const isSameMonthYear = (left: Date, right: Date) =>
+  left.getFullYear() === right.getFullYear() &&
+  left.getMonth() === right.getMonth();
 
 // Union type for billing mode selection
 type BillingSelection =
@@ -316,13 +361,33 @@ export default function CreateBillWorkspace({
     ],
   );
 
+  const monthlyRequiredStartDate = useMemo(
+    () =>
+      getReferenceDate(
+        context.billing.monthlyStartDate ||
+          context.billing.requiredStartDate ||
+          context.billing.recommendedStartDate ||
+          context.billing.nextPaymentDate ||
+          member.nextPaymentDate,
+      ),
+    [
+      context.billing.monthlyStartDate,
+      context.billing.requiredStartDate,
+      context.billing.recommendedStartDate,
+      context.billing.nextPaymentDate,
+      member.nextPaymentDate,
+    ],
+  );
+
+  const transitionToMonthly = context.billing.transitionToMonthly;
+
   const monthlyMinMonth = useMemo(
-    () => toMonthYear(requiredStartDate),
-    [requiredStartDate],
+    () => toMonthYear(monthlyRequiredStartDate),
+    [monthlyRequiredStartDate],
   );
 
   const [monthlyMonths, setMonthlyMonths] = useState<MonthYear[]>(() => {
-    const start = toMonthYear(requiredStartDate);
+    const start = toMonthYear(monthlyRequiredStartDate);
     return buildRange(start, start);
   });
 
@@ -331,7 +396,7 @@ export default function CreateBillWorkspace({
       return;
     }
 
-    const anchoredStart = toMonthYear(requiredStartDate);
+    const anchoredStart = toMonthYear(monthlyRequiredStartDate);
     startTransition(() => {
       setMonthlyMonths((current) => {
         const firstMonth = current[0];
@@ -346,14 +411,14 @@ export default function CreateBillWorkspace({
         return buildRange(anchoredStart, anchoredStart);
       });
     });
-  }, [collectionMode, requiredStartDate]);
+  }, [collectionMode, monthlyRequiredStartDate]);
 
   const monthlyStartDate = useMemo(() => {
-    const firstMonth = monthlyMonths[0] || toMonthYear(requiredStartDate);
+    const firstMonth = monthlyMonths[0] || toMonthYear(monthlyRequiredStartDate);
     const lastDay = new Date(firstMonth.year, firstMonth.month + 1, 0).getDate();
-    const day = Math.min(requiredStartDate.getDate(), lastDay);
+    const day = Math.min(monthlyRequiredStartDate.getDate(), lastDay);
     return new Date(firstMonth.year, firstMonth.month, day);
-  }, [monthlyMonths, requiredStartDate]);
+  }, [monthlyMonths, monthlyRequiredStartDate]);
 
   const packageStart = requiredStartDate;
 
@@ -417,9 +482,32 @@ export default function CreateBillWorkspace({
 
   // Track if user has manually edited paid amount
   const hasUserEditedPaidRef = useRef(false);
+  const hasUserEditedDiscountRef = useRef(false);
 
   const paidNow = normalizeMoney(parseAmount(paidTotal));
   const rawDiscount = normalizeMoney(parseAmount(discount));
+  const dueWriteOffPreviewAmount = normalizeMoney(
+    Math.min(rawDiscount, selectedDueAmount),
+  );
+  const cycleDiscountPreviewAmount = normalizeMoney(
+    Math.max(0, rawDiscount - dueWriteOffPreviewAmount),
+  );
+  const cycleDiscountTargetLabel =
+    collectionMode === "monthly"
+      ? "new monthly charge"
+      : collectionMode === "package"
+        ? "new package charge"
+        : "current bill";
+  const discountPreviewMessage =
+    rawDiscount <= 0
+      ? ""
+      : dueWriteOffPreviewAmount > 0 && cycleDiscountPreviewAmount > 0
+        ? `This discount clears TK ${formatCurrency(dueWriteOffPreviewAmount)} from selected old dues and reduces the ${cycleDiscountTargetLabel} by TK ${formatCurrency(cycleDiscountPreviewAmount)}.`
+        : dueWriteOffPreviewAmount > 0
+          ? `This discount clears TK ${formatCurrency(dueWriteOffPreviewAmount)} from selected old dues.`
+          : cycleDiscountPreviewAmount > 0
+            ? `This discount only reduces the ${cycleDiscountTargetLabel} by TK ${formatCurrency(cycleDiscountPreviewAmount)}. Older dues stay unchanged.`
+            : "This discount has not been applied to any selected amount yet.";
 
   // Cycle charge
   const cycleCharge = useMemo(() => {
@@ -458,6 +546,39 @@ export default function CreateBillWorkspace({
     selectedPackage,
   ]);
 
+  const pendingCyclePreview = useMemo(() => {
+    if (collectionMode === "monthly" && monthlyMonths.length > 0 && cycleCharge > 0) {
+      return {
+        monthLabel: formatBillingWindowLabel(
+          monthlyStartDate,
+          projectedNextPaymentDate,
+        ),
+        packageLabel: "Monthly Renewal",
+        amount: cycleCharge,
+      };
+    }
+
+    if (collectionMode === "package" && selectedPackage && cycleCharge > 0) {
+      return {
+        monthLabel: isShortTermDuration(selectedPackage.durationType)
+          ? formatExactWindowLabel(packageStart, projectedNextPaymentDate)
+          : formatBillingWindowLabel(packageStart, projectedNextPaymentDate),
+        packageLabel: selectedPackage.title,
+        amount: cycleCharge,
+      };
+    }
+
+    return null;
+  }, [
+    collectionMode,
+    cycleCharge,
+    monthlyMonths.length,
+    monthlyStartDate,
+    packageStart,
+    projectedNextPaymentDate,
+    selectedPackage,
+  ]);
+
   // Summary
   const subTotal = normalizeMoney(selectedDueAmount + cycleCharge);
   const appliedDiscount = normalizeMoney(Math.min(rawDiscount, subTotal));
@@ -474,6 +595,38 @@ export default function CreateBillWorkspace({
       });
     }
   }, [billableAmount]);
+
+  useEffect(() => {
+    if (collectionMode !== "monthly") {
+      return;
+    }
+
+    if (!transitionToMonthly?.suggestedDiscountAmount) {
+      return;
+    }
+
+    if (!context.billing.monthlyStartDate) {
+      return;
+    }
+
+    if (!isSameMonthYear(monthlyStartDate, monthlyRequiredStartDate)) {
+      return;
+    }
+
+    if (hasUserEditedDiscountRef.current) {
+      return;
+    }
+
+    startTransition(() => {
+      setDiscount(String(transitionToMonthly.suggestedDiscountAmount));
+    });
+  }, [
+    collectionMode,
+    context.billing.monthlyStartDate,
+    monthlyRequiredStartDate,
+    monthlyStartDate,
+    transitionToMonthly?.suggestedDiscountAmount,
+  ]);
 
   // Save
   const handleSave = async () => {
@@ -553,6 +706,7 @@ export default function CreateBillWorkspace({
       setDiscount("");
       setPaidTotal("");
       hasUserEditedPaidRef.current = false;
+      hasUserEditedDiscountRef.current = false;
       setPaymentDate(toInputDate(new Date()));
       setNote("");
       toast.success(
@@ -704,6 +858,25 @@ export default function CreateBillWorkspace({
                 );
               })}
 
+              {pendingCyclePreview && (
+                <tr className="border-b border-gray-100 bg-emerald-50/70">
+                  <td className="px-4 py-3 font-medium text-emerald-800">
+                    {pendingCyclePreview.monthLabel}
+                  </td>
+                  <td className="px-4 py-3 text-emerald-700">
+                    {pendingCyclePreview.packageLabel}
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-emerald-900">
+                    {formatCurrency(pendingCyclePreview.amount)}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      Pending
+                    </span>
+                  </td>
+                </tr>
+              )}
+
               {/* Payment history rows */}
               {canViewPayments &&
                 paymentHistory.map((record) => (
@@ -781,6 +954,32 @@ export default function CreateBillWorkspace({
               <span className="ml-2 font-semibold text-emerald-700">
                 · Exchange {formatCurrency(lastSavedBill.payment.exchange!)} TK
               </span>
+            )}
+            {(lastSavedBill.billing.paidDueAmount > 0 ||
+              lastSavedBill.billing.waivedDueAmount > 0 ||
+              lastSavedBill.billing.discountedCycleAmount > 0) && (
+              <div className="mt-1 text-xs text-emerald-700">
+                {lastSavedBill.billing.paidDueAmount > 0 && (
+                  <span>
+                    Settled old dues TK {formatCurrency(lastSavedBill.billing.paidDueAmount)}
+                  </span>
+                )}
+                {lastSavedBill.billing.waivedDueAmount > 0 && (
+                  <span>
+                    {lastSavedBill.billing.paidDueAmount > 0 ? " · " : ""}
+                    Waived {formatCompactLabels(lastSavedBill.billing.waivedDueLabels)} TK {formatCurrency(lastSavedBill.billing.waivedDueAmount)}
+                  </span>
+                )}
+                {lastSavedBill.billing.discountedCycleAmount > 0 && (
+                  <span>
+                    {(lastSavedBill.billing.paidDueAmount > 0 ||
+                      lastSavedBill.billing.waivedDueAmount > 0)
+                      ? " · "
+                      : ""}
+                    Current cycle discount TK {formatCurrency(lastSavedBill.billing.discountedCycleAmount)}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -967,11 +1166,28 @@ export default function CreateBillWorkspace({
                 min="0"
                 step="0.01"
                 value={discount}
-                onChange={(e) => setDiscount(e.target.value)}
+                onChange={(e) => {
+                  hasUserEditedDiscountRef.current = true;
+                  setDiscount(e.target.value);
+                }}
                 placeholder="00.00"
                 className="h-8 flex-1 rounded-lg border border-gray-200 px-2 text-right text-sm text-gray-700 outline-none focus:border-gray-400"
               />
             </div>
+
+            {collectionMode === "monthly" && transitionToMonthly && (
+              <p className="text-xs text-gray-500">
+                This package already covered {transitionToMonthly.coveredDaysInAnchorMonth} day
+                {transitionToMonthly.coveredDaysInAnchorMonth === 1 ? "" : "s"} in this month.
+                A suggested discount of TK {formatCurrency(transitionToMonthly.suggestedDiscountAmount)} has been filled in, and you can still change it.
+              </p>
+            )}
+
+            {rawDiscount > 0 && (
+              <p className="text-xs text-gray-500">
+                {discountPreviewMessage}
+              </p>
+            )}
 
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500">

@@ -156,15 +156,10 @@ function MonthGrid({
         onSelectionChange(newRange);
         return;
       }
-      // For free selection, clicking a selected month at the edges shrinks the range
-      if (clickIdx === firstIdx && selectedMonths.length > 1) {
-        onSelectionChange(selectedMonths.slice(1));
-      } else if (clickIdx === lastIdx && selectedMonths.length > 1) {
-        onSelectionChange(selectedMonths.slice(0, -1));
-      } else {
-        // Clicking in the middle — shrink to start..clicked
-        onSelectionChange(buildRange(selectedMonths[0], clicked));
-      }
+      // For free selection, clicking a selected month truncates the range
+      // to only include months strictly before the clicked month
+      const newRange = selectedMonths.filter((m) => toIndex(m) < clickIdx);
+      onSelectionChange(newRange);
       return;
     }
 

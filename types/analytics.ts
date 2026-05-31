@@ -139,4 +139,6 @@ export interface OverviewTransaction {
   payment: string;
   amount: number;
   balance: number;
+  type: string;
+  description: string;
 }

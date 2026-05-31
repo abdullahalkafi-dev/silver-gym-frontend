@@ -33,6 +33,7 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   monthly: "Monthly",
   admission: "Admission",
   registration: "Registration",
+  locker: "Locker",
   other: "Other",
 };
 
@@ -128,8 +129,14 @@ function PaymentDetailModal({
     `);
     printWindow.document.close();
     printWindow.focus();
+    printWindow.onafterprint = () => {
+      try { printWindow.close(); } catch { /* already closed */ }
+    };
     printWindow.print();
-    printWindow.close();
+    // Fallback: close after 30s if onafterprint never fires (some browsers)
+    setTimeout(() => {
+      try { printWindow.close(); } catch { /* already closed */ }
+    }, 30000);
   };
 
   return (

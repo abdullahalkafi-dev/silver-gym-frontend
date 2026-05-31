@@ -153,7 +153,7 @@ export const BaseFeesSetup = () => {
 
   if (isLoadingFees) {
     return (
-      <Card className="p-5 shadow-none border-none space-y-4">
+      <Card className="h-full p-5 shadow-none border-none space-y-4">
         <div className="space-y-2">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-4 w-72" />
@@ -168,7 +168,7 @@ export const BaseFeesSetup = () => {
 
   if (!businessId || !activeBranchId) {
     return (
-      <Card className="p-5 shadow-none border-none">
+      <Card className="h-full p-5 shadow-none border-none">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-gray-900">Base Fees Setup</h2>
           <p className="text-sm text-gray-600">
@@ -180,7 +180,7 @@ export const BaseFeesSetup = () => {
   }
 
   return (
-    <Card className="p-5 shadow-none border-none">
+    <Card className="h-full p-5 shadow-none border-none">
       <div>
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold text-gray-900">

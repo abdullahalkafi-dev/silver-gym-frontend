@@ -49,7 +49,7 @@ const durationTypeLabelMap: Record<PackageDurationType, string> = {
   year: "Year",
 };
 
-const formatAmount = (amount: number) => `BDT ${currencyFormatter.format(amount)}`;
+const formatAmount = (amount: number) => `৳${currencyFormatter.format(amount)}`;
 
 const formatDuration = (
   duration: number,

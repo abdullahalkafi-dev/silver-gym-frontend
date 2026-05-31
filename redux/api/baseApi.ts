@@ -9,7 +9,7 @@ import { cookieUtils } from "@/redux/utils/cookies";
 import { toast } from "sonner";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5004/api/v1";
 
 type RefreshTokenResponse = {
   success: boolean;
@@ -91,6 +91,6 @@ const baseQueryWithReAuth: BaseQueryFn<
 export const baseApi = createApi({
   reducerPath: "api",
   baseQuery: baseQueryWithReAuth,
-  tagTypes: ["Auth", "Profile", "Role", "Branch", "BranchFee", "Staff", "Package", "Member", "Payment", "Expense", "ExpenseCategory", "Analytics"],
+  tagTypes: ["Auth", "Profile", "Role", "Branch", "BranchFee", "Staff", "Package", "Member", "Payment", "Expense", "ExpenseCategory", "Analytics", "SMS", "Transaction", "Locker"],
   endpoints: () => ({}),
 });

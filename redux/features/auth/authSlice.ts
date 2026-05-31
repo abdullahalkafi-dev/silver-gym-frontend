@@ -5,7 +5,7 @@ import type { ApiSuccessResponse, AuthState, LoginResponse, User } from "@/redux
 import { cookieUtils } from "@/redux/utils/cookies";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5004/api/v1";
 
 const initialState: AuthState = {
   user: null,

@@ -6,6 +6,8 @@ export type SMSDeliveryMethod = "email" | "phone" | "both";
 export type MemberListStatusFilter = "all" | "active" | "inactive";
 export type MemberListPaymentFilter = "all" | "due" | "complete";
 export type MemberPaymentQueryStatus = Exclude<MemberListPaymentFilter, "all">;
+export type MemberListBillingFilter = "all" | "custom" | "system";
+export type MemberBillingQueryPlan = Exclude<MemberListBillingFilter, "all">;
 
 // ─── Backend-aligned types ──────────────────────────────────────────
 
@@ -40,6 +42,7 @@ export type BackendPaymentType =
   | "monthly"
   | "admission"
   | "registration"
+  | "locker"
   | "other";
 
 export type CollectBillMode = "due_only" | "monthly" | "package";
@@ -114,6 +117,7 @@ export interface CollectBillContext {
     overdueMonths: number;
     accruedAmount: number;
     monthlyFeeAmount?: number;
+    branchMonthlyFeeAmount?: number;
     nextPaymentDate?: string;
     requiredStartDate?: string;
     recommendedStartDate?: string;
@@ -242,6 +246,7 @@ export interface MemberQueryArgs {
   isActive?: "true" | "false";
   includeInactive?: "true";
   paymentStatus?: MemberPaymentQueryStatus;
+  billingPlan?: MemberBillingQueryPlan;
   page?: number;
   limit?: number;
   sort?: string;

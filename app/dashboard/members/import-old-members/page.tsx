@@ -25,7 +25,7 @@ import {
 const EXPECTED_COLUMNS = [
   { name: "full_name / name", required: true, description: "Member's full name" },
   { name: "contact / phone", required: true, description: "Phone number" },
-  { name: "next_payment_date", required: true, description: "Next due date (YYYY-MM-DD)" },
+  { name: "next_payment_date", required: false, description: "Next due date – formats: DD-Mon-YYYY (01-May-2026), DD-Mon-YY (01-May-26), Mon-YYYY (May-2026), Mon-YY (May-26)" },
   { name: "monthly_fee", required: false, description: "Monthly fee amount" },
   { name: "due_amount", required: false, description: "Current due amount" },
   { name: "status", required: false, description: "active / inactive" },
@@ -134,11 +134,23 @@ export default function ImportOldMembersPage() {
   }, []);
 
   const validateFile = (f: File): string | null => {
-    if (!f.name.toLowerCase().endsWith(".csv")) {
-      return "Only CSV files are accepted.";
+    const ext = f.name.toLowerCase();
+    if (!ext.endsWith(".csv") && !ext.endsWith(".xlsx")) {
+      return "Only CSV and Excel (.xlsx) files are accepted.";
     }
-    if (f.size > 5 * 1024 * 1024) {
-      return "File size must be under 5MB.";
+    // 14MB limit — data is stored in MongoDB (16MB document limit).
+    // Leave 2MB headroom for metadata and encoding overhead.
+    const MAX_FILE_BYTES = 14 * 1024 * 1024;
+    if (f.size > MAX_FILE_BYTES) {
+      const avgRowBytes = 200;
+      const estimatedMaxRows = Math.floor(MAX_FILE_BYTES / avgRowBytes);
+      const estimatedRows = Math.floor(f.size / avgRowBytes);
+      return (
+        `File is too large (${(f.size / 1024 / 1024).toFixed(1)}MB). ` +
+        `Maximum allowed is 14MB (approximately ${estimatedMaxRows.toLocaleString()} rows). ` +
+        `Your file has roughly ${estimatedRows.toLocaleString()} rows. ` +
+        `Please split into smaller files and import them one at a time.`
+      );
     }
     return null;
   };
@@ -252,7 +264,7 @@ export default function ImportOldMembersPage() {
               Import Old Members
             </h1>
             <p className="text-sm text-gray-500">
-              Upload a CSV file to bulk-import existing members
+              Upload a CSV or Excel file to bulk-import existing members
             </p>
           </div>
         </div>
@@ -267,10 +279,10 @@ export default function ImportOldMembersPage() {
             />
             <div>
               <h3 className="text-sm font-semibold text-blue-800">
-                Expected CSV Columns
+                Expected Columns
               </h3>
               <p className="text-xs text-blue-600 mt-0.5">
-                Your CSV file should include the following columns. The first row
+                Your CSV or Excel file should include the following columns. The first row
                 must be headers.
               </p>
             </div>
@@ -321,7 +333,7 @@ export default function ImportOldMembersPage() {
                 className="text-gray-400 mx-auto mb-4"
               />
               <p className="text-sm font-medium text-gray-700 mb-1">
-                Drag & drop your CSV file here
+                Drag & drop your CSV or Excel file here
               </p>
               <p className="text-xs text-gray-500 mb-3">or click to browse</p>
               <span className="inline-block px-4 py-2 bg-purple text-white text-sm rounded-md">
@@ -330,7 +342,7 @@ export default function ImportOldMembersPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx"
                 onChange={handleFileSelect}
                 className="hidden"
               />
@@ -379,7 +391,7 @@ export default function ImportOldMembersPage() {
                     className="text-blue-600 animate-spin"
                   />
                   <span className="text-sm text-blue-700">
-                    Uploading CSV file...
+                    Uploading file...
                   </span>
                 </div>
               )}

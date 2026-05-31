@@ -52,6 +52,7 @@ export const PERMISSION_DEFINITIONS = {
   // SMS
   "sms:view": { label: "View SMS", category: "SMS Access" },
   "sms:send": { label: "Send SMS", category: "SMS Access" },
+  "sms:template-edit": { label: "Edit SMS Templates", category: "SMS Access" },
 
   // Email
   "email:view": { label: "View Email", category: "Email Access" },
@@ -62,6 +63,16 @@ export const PERMISSION_DEFINITIONS = {
   "expense-category:manage": { label: "Manage Expense Category", category: "Expense Access" },
   "expense:view": { label: "View Expense", category: "Expense Access" },
   "expense:create": { label: "Add Expense", category: "Expense Access" },
+
+  // Transaction Access
+  "transaction:view": { label: "View Transactions", category: "Transaction Access" },
+
+  // Locker Management
+  "locker:view": { label: "View Lockers", category: "Locker Management" },
+  "locker:create": { label: "Create Lockers", category: "Locker Management" },
+  "locker:delete": { label: "Delete Lockers", category: "Locker Management" },
+  "locker:assign": { label: "Assign Members", category: "Locker Management" },
+  "locker:collect": { label: "Collect Locker Payment", category: "Locker Management" },
 
   // User Access Management
   "access:view-users": { label: "View User Access", category: "User Access" },
@@ -93,7 +104,7 @@ export const ROLE_TEMPLATES = {
   },
   manager: {
     roleName: "Manager",
-    description: "Access to members, packages, analytics and transactions",
+    description: "Access to members, packages, analytics, transactions and lockers",
     permissions: [
       "member:view",
       "member:create",
@@ -103,6 +114,10 @@ export const ROLE_TEMPLATES = {
       "package:edit",
       "analytics:view",
       "access:view-users",
+      "locker:view",
+      "locker:create",
+      "locker:assign",
+      "locker:collect",
     ] as PermissionKey[],
   },
   member: {
@@ -146,8 +161,16 @@ export const PERMISSION_GROUPS = {
     "expense:view",
     "expense:create",
   ],
+  TRANSACTION: ["transaction:view"],
+  LOCKER_MANAGEMENT: [
+    "locker:view",
+    "locker:create",
+    "locker:delete",
+    "locker:assign",
+    "locker:collect",
+  ],
   ANALYTICS: ["analytics:view", "analytics:export"],
-  SMS: ["sms:view", "sms:send"],
+  SMS: ["sms:view", "sms:send", "sms:template-edit"],
   EMAIL: ["email:view", "email:send"],
   USER_ACCESS: [
     "access:view-users",

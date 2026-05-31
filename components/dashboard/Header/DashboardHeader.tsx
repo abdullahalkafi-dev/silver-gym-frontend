@@ -85,6 +85,9 @@ export default function DashboardHeader({
   const { user, activeBranchId } = useUser();
   const [modalType, setModalType] = useState<ModalType>(null);
 
+  // Special case: create-bill pages show "Income" instead of the raw MongoDB ID
+  const isCreateBillPage = pathname.startsWith("/dashboard/income/create-bill/");
+
   // Extract MongoDB _id from member details URL
   const memberDetailsMatch = pathname.match(/\/members\/details\/([0-9a-f]{24})$/i);
   const urlMemberId = memberDetailsMatch ? memberDetailsMatch[1] : null;
@@ -94,9 +97,11 @@ export default function DashboardHeader({
     { skip: !urlMemberId || !activeBranchId }
   );
 
-  const pageTitle = urlMemberId && memberForTitle
-    ? `${memberForTitle.fullName}${memberForTitle.contact ? ` - ${memberForTitle.contact}` : ""}`
-    : getPageTitle(pathname);
+  const pageTitle = isCreateBillPage
+    ? "Income"
+    : urlMemberId && memberForTitle
+      ? `${memberForTitle.fullName}${memberForTitle.contact ? ` - ${memberForTitle.contact}` : ""}`
+      : getPageTitle(pathname);
 
   const actions = user && user.actorType !== "owner"
     ? getRoleBasedActions(user.role)

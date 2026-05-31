@@ -179,11 +179,13 @@ Component Renders
 │  ├─ billing:view            ├─ analytics:view                 │
 │  ├─ billing:create          └─ analytics:export               │
 │  ├─ billing:edit                                              │
-│  └─ billing:delete          SMS (2)                           │
+│  └─ billing:delete          SMS (3)                           │
 │                             ├─ sms:view                       │
-│  USER ACCESS (5)            └─ sms:send                       │
+│                             ├─ sms:send                       │
+│                             └─ sms:template-edit              │
+│  USER ACCESS (5)                                              │
 │  ├─ access:view-users                                         │
-│  ├─ access:create-role      TOTAL: 21 PERMISSIONS            │
+│  ├─ access:create-role      TOTAL: 22 PERMISSIONS            │
 │  ├─ access:edit-role                                         │
 │  ├─ access:delete-role                                       │
 │  └─ access:assign-role                                       │

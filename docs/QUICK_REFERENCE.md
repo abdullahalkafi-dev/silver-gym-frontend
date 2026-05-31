@@ -124,6 +124,10 @@ if (hasAllPermissions(["billing:view", "billing:edit"])) {
 
 - `sms:view` - View SMS
 - `sms:send` - Send SMS
+- `sms:template-edit` - Edit saved SMS templates
+
+SMS behavior note:
+The SMS workspace now uses masking SMS only and accepts English text only. Due reminder template changes remain admin-only.
 
 ### User Access Management
 

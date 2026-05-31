@@ -171,6 +171,7 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   monthly: "Monthly",
   admission: "Admission",
   registration: "Registration",
+  locker: "Locker",
   other: "Other",
 };
 
@@ -317,6 +318,10 @@ const normalizeCollectBillBilling = (
       typeof raw?.monthlyFeeAmount === "number"
         ? raw.monthlyFeeAmount
         : undefined,
+    branchMonthlyFeeAmount:
+      typeof raw?.branchMonthlyFeeAmount === "number"
+        ? raw.branchMonthlyFeeAmount
+        : undefined,
     nextPaymentDate:
       typeof raw?.nextPaymentDate === "string" ? raw.nextPaymentDate : undefined,
     requiredStartDate:
@@ -455,6 +460,7 @@ export const memberApi = baseApi.injectEndpoints({
         isActive,
         includeInactive,
         paymentStatus,
+        billingPlan,
         page,
         limit,
         sort,
@@ -466,6 +472,7 @@ export const memberApi = baseApi.injectEndpoints({
           ...(typeof isActive !== "undefined" ? { isActive } : {}),
           ...(typeof includeInactive !== "undefined" ? { includeInactive } : {}),
           ...(typeof paymentStatus !== "undefined" ? { paymentStatus } : {}),
+          ...(typeof billingPlan !== "undefined" ? { billingPlan } : {}),
           ...(page ? { page: String(page) } : {}),
           ...(limit ? { limit: String(limit) } : {}),
           sort: sort || "-createdAt",
@@ -558,7 +565,10 @@ export const memberApi = baseApi.injectEndpoints({
     }),
 
     // ── Create member ───────────────────────────────────────────────
-    createMember: builder.mutation<BackendMember, CreateMemberArgs>({
+    createMember: builder.mutation<
+      BackendMember & { invoiceNo?: string },
+      CreateMemberArgs
+    >({
       query: ({ branchId, payload, photo }) => {
         if (photo) {
           const formData = new FormData();
@@ -576,8 +586,11 @@ export const memberApi = baseApi.injectEndpoints({
           body: { data: payload },
         };
       },
-      transformResponse: (response: RawSingleMemberResponse) =>
-        normalizeMember(response.data.member),
+      transformResponse: (response: RawSingleMemberResponse) => ({
+        ...normalizeMember(response.data.member),
+        invoiceNo: (response.data.payment as Record<string, unknown>)
+          ?.invoiceNo as string | undefined,
+      }),
       invalidatesTags: (_result, _error, { branchId }) => [
         { type: "Member", id: `LIST-${branchId}` },
         { type: "Payment", id: `LIST-${branchId}` },

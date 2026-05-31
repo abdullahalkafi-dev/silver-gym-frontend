@@ -17,7 +17,10 @@ const formatDate = (dateStr?: string) => {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = d.toLocaleDateString("en-US", { month: "short" });
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
 };
 
 const formatCurrency = (amount?: number) => {

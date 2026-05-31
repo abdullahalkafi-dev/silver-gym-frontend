@@ -19,12 +19,14 @@ export interface RolePermissions {
   canExportAnalytics: boolean;
   canViewSMS: boolean;
   canSendSMS: boolean;
+  canEditSMSTemplate: boolean;
   canViewEmail: boolean;
   canSendEmail: boolean;
   canViewExpenseCategory: boolean;
   canManageExpenseCategory: boolean;
   canViewExpense: boolean;
   canAddExpense: boolean;
+  canViewTransactions: boolean;
 }
 
 export type RolePermissionKey = keyof RolePermissions;
@@ -112,12 +114,14 @@ export const ROLE_PERMISSION_META: Record<RolePermissionKey, RolePermissionMeta>
   canExportAnalytics: { label: "Export Analytics", category: "Analytics Access" },
   canViewSMS: { label: "View SMS", category: "SMS Access" },
   canSendSMS: { label: "Send SMS", category: "SMS Access" },
+  canEditSMSTemplate: { label: "Edit SMS Templates", category: "SMS Access" },
   canViewEmail: { label: "View Email", category: "Email Access" },
   canSendEmail: { label: "Send Email", category: "Email Access" },
   canViewExpenseCategory: { label: "View Expense Category", category: "Expense Access" },
   canManageExpenseCategory: { label: "Manage Expense Category", category: "Expense Access" },
   canViewExpense: { label: "View Expense", category: "Expense Access" },
   canAddExpense: { label: "Add Expense", category: "Expense Access" },
+  canViewTransactions: { label: "View Transactions", category: "Transaction Access" },
 };
 
 export const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
@@ -141,12 +145,14 @@ export const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
   canExportAnalytics: false,
   canViewSMS: false,
   canSendSMS: false,
+  canEditSMSTemplate: false,
   canViewEmail: false,
   canSendEmail: false,
   canViewExpenseCategory: false,
   canManageExpenseCategory: false,
   canViewExpense: false,
   canAddExpense: false,
+  canViewTransactions: false,
 };
 
 export const normalizeRolePermissions = (
@@ -173,12 +179,14 @@ export const normalizeRolePermissions = (
     canExportAnalytics: Boolean(permissions?.canExportAnalytics),
     canViewSMS: Boolean(permissions?.canViewSMS),
     canSendSMS: Boolean(permissions?.canSendSMS),
+    canEditSMSTemplate: Boolean(permissions?.canEditSMSTemplate),
     canViewEmail: Boolean(permissions?.canViewEmail),
     canSendEmail: Boolean(permissions?.canSendEmail),
     canViewExpenseCategory: Boolean(permissions?.canViewExpenseCategory),
     canManageExpenseCategory: Boolean(permissions?.canManageExpenseCategory),
     canViewExpense: Boolean(permissions?.canViewExpense),
     canAddExpense: Boolean(permissions?.canAddExpense),
+    canViewTransactions: Boolean(permissions?.canViewTransactions),
   };
 
   // Enforce dependency rule: If canAddExpense is true, canViewExpenseCategory must be forced to true

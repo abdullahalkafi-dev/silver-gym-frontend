@@ -3,9 +3,12 @@ import type { ApiSuccessResponse } from "@/redux/types/auth";
 import type {
   Branch,
   BranchAdmissionFee,
+  BranchAutoDeactivationSettings,
   BranchMonthlyFee,
+  BranchStartingBalance,
   CreateBranchPayload,
 } from "@/types/branch";
+import { DEFAULT_AUTO_DEACTIVATE_AFTER_UNPAID_MONTHS } from "@/types/branch";
 
 type BranchFeeQueryArgs = {
   businessId: string;
@@ -20,6 +23,14 @@ type UpdateBranchAdmissionFeePayload = BranchFeeQueryArgs & {
   admissionFeeAmount: number;
 };
 
+type UpdateBranchAutoDeactivationSettingsPayload = BranchFeeQueryArgs & {
+  autoDeactivateAfterUnpaidMonths: number;
+};
+
+type SetBranchStartingBalancePayload = BranchFeeQueryArgs & {
+  startingBalance: number;
+};
+
 type RawBranch = {
   _id?: string;
   id?: string;
@@ -28,6 +39,7 @@ type RawBranch = {
   branchAddress?: string;
   monthlyFeeAmount?: number | null;
   admissionFeeAmount?: number | null;
+  autoDeactivateAfterUnpaidMonths?: number | null;
   logo?: string | null;
   favicon?: string | null;
   isDefault?: boolean;
@@ -48,6 +60,19 @@ type RawBranchAdmissionFee = {
   admissionFeeAmount?: number | null;
 };
 
+type RawBranchAutoDeactivationSettings = {
+  branchId?: string;
+  branchName?: string;
+  autoDeactivateAfterUnpaidMonths?: number | null;
+};
+
+type RawBranchStartingBalance = {
+  branchId?: string;
+  branchName?: string;
+  startingBalance?: number | null;
+  startingBalanceSetAt?: string | null;
+};
+
 const normalizeBranch = (rawBranch?: RawBranch | null): Branch => {
   const safeBranch = rawBranch || {};
   const id = String(safeBranch.id || safeBranch._id || "");
@@ -60,6 +85,12 @@ const normalizeBranch = (rawBranch?: RawBranch | null): Branch => {
     branchAddress: safeBranch.branchAddress,
     monthlyFeeAmount: safeBranch.monthlyFeeAmount ?? null,
     admissionFeeAmount: safeBranch.admissionFeeAmount ?? null,
+    autoDeactivateAfterUnpaidMonths:
+      typeof safeBranch.autoDeactivateAfterUnpaidMonths === "number" &&
+      Number.isFinite(safeBranch.autoDeactivateAfterUnpaidMonths) &&
+      safeBranch.autoDeactivateAfterUnpaidMonths >= 1
+        ? Math.floor(safeBranch.autoDeactivateAfterUnpaidMonths)
+        : DEFAULT_AUTO_DEACTIVATE_AFTER_UNPAID_MONTHS,
     logo: safeBranch.logo ?? null,
     favicon: safeBranch.favicon ?? null,
     isDefault: Boolean(safeBranch.isDefault),
@@ -83,6 +114,31 @@ const normalizeAdmissionFee = (
   branchId: String(rawFee.branchId || ""),
   branchName: rawFee.branchName || "Untitled Branch",
   admissionFeeAmount: rawFee.admissionFeeAmount ?? null,
+});
+
+const normalizeAutoDeactivationSettings = (
+  rawSettings: RawBranchAutoDeactivationSettings,
+): BranchAutoDeactivationSettings => ({
+  branchId: String(rawSettings.branchId || ""),
+  branchName: rawSettings.branchName || "Untitled Branch",
+  autoDeactivateAfterUnpaidMonths:
+    typeof rawSettings.autoDeactivateAfterUnpaidMonths === "number" &&
+    Number.isFinite(rawSettings.autoDeactivateAfterUnpaidMonths) &&
+    rawSettings.autoDeactivateAfterUnpaidMonths >= 1
+      ? Math.floor(rawSettings.autoDeactivateAfterUnpaidMonths)
+      : DEFAULT_AUTO_DEACTIVATE_AFTER_UNPAID_MONTHS,
+});
+
+const normalizeStartingBalance = (
+  raw: RawBranchStartingBalance,
+): BranchStartingBalance => ({
+  branchId: String(raw.branchId || ""),
+  branchName: raw.branchName || "Untitled Branch",
+  startingBalance:
+    typeof raw.startingBalance === "number" && Number.isFinite(raw.startingBalance)
+      ? raw.startingBalance
+      : null,
+  startingBalanceSetAt: raw.startingBalanceSetAt ?? null,
 });
 
 export const branchApi = baseApi.injectEndpoints({
@@ -224,6 +280,93 @@ export const branchApi = baseApi.injectEndpoints({
         { type: "Branch", id: `DEFAULT-${businessId}` },
       ],
     }),
+
+    getBranchAutoDeactivationSettings: builder.query<
+      BranchAutoDeactivationSettings,
+      BranchFeeQueryArgs
+    >({
+      query: ({ businessId, branchId }) => ({
+        url: `/branches/${businessId}/branches/${branchId}/auto-deactivation-settings`,
+        method: "GET",
+      }),
+      transformResponse: (
+        response: ApiSuccessResponse<RawBranchAutoDeactivationSettings>,
+      ) => {
+        return normalizeAutoDeactivationSettings(response.data);
+      },
+      providesTags: (_result, _error, { branchId }) => [
+        { type: "BranchFee", id: `AUTO-DEACTIVATE-${branchId}` },
+        { type: "Branch", id: branchId },
+      ],
+    }),
+
+    updateBranchAutoDeactivationSettings: builder.mutation<
+      BranchAutoDeactivationSettings,
+      UpdateBranchAutoDeactivationSettingsPayload
+    >({
+      query: ({ businessId, branchId, autoDeactivateAfterUnpaidMonths }) => ({
+        url: `/branches/${businessId}/branches/${branchId}/auto-deactivation-settings`,
+        method: "PATCH",
+        body: {
+          data: { autoDeactivateAfterUnpaidMonths },
+        },
+      }),
+      transformResponse: (
+        response: ApiSuccessResponse<RawBranchAutoDeactivationSettings>,
+      ) => {
+        return normalizeAutoDeactivationSettings(response.data);
+      },
+      invalidatesTags: (_result, _error, { businessId, branchId }) => [
+        { type: "BranchFee", id: `AUTO-DEACTIVATE-${branchId}` },
+        { type: "Branch", id: branchId },
+        { type: "Branch", id: `LIST-${businessId}` },
+        { type: "Branch", id: `DEFAULT-${businessId}` },
+      ],
+    }),
+
+    getBranchStartingBalance: builder.query<
+      BranchStartingBalance,
+      BranchFeeQueryArgs
+    >({
+      query: ({ businessId, branchId }) => ({
+        url: `/branches/${businessId}/branches/${branchId}/starting-balance`,
+        method: "GET",
+      }),
+      transformResponse: (
+        response: ApiSuccessResponse<RawBranchStartingBalance>,
+      ) => {
+        return normalizeStartingBalance(response.data);
+      },
+      providesTags: (_result, _error, { branchId }) => [
+        { type: "BranchFee", id: `STARTING-BALANCE-${branchId}` },
+        { type: "Branch", id: branchId },
+      ],
+    }),
+
+    setBranchStartingBalance: builder.mutation<
+      BranchStartingBalance,
+      SetBranchStartingBalancePayload
+    >({
+      query: ({ businessId, branchId, startingBalance }) => ({
+        url: `/branches/${businessId}/branches/${branchId}/starting-balance`,
+        method: "PATCH",
+        body: {
+          data: { startingBalance },
+        },
+      }),
+      transformResponse: (
+        response: ApiSuccessResponse<RawBranchStartingBalance>,
+      ) => {
+        return normalizeStartingBalance(response.data);
+      },
+      invalidatesTags: (_result, _error, { businessId, branchId }) => [
+        { type: "BranchFee", id: `STARTING-BALANCE-${branchId}` },
+        { type: "Branch", id: branchId },
+        { type: "Branch", id: `LIST-${businessId}` },
+        { type: "Branch", id: `DEFAULT-${businessId}` },
+        { type: "Analytics", id: `OVERVIEW-${branchId}` },
+      ],
+    }),
   }),
 });
 
@@ -236,9 +379,15 @@ export const {
   useUpdateBranchMonthlyFeeMutation,
   useGetBranchAdmissionFeeQuery,
   useUpdateBranchAdmissionFeeMutation,
+  useGetBranchAutoDeactivationSettingsQuery,
+  useUpdateBranchAutoDeactivationSettingsMutation,
+  useGetBranchStartingBalanceQuery,
+  useSetBranchStartingBalanceMutation,
 } = branchApi;
 export type {
   BranchFeeQueryArgs,
   UpdateBranchAdmissionFeePayload,
+  UpdateBranchAutoDeactivationSettingsPayload,
   UpdateBranchMonthlyFeePayload,
+  SetBranchStartingBalancePayload,
 };

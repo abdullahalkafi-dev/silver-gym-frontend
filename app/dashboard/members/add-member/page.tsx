@@ -37,6 +37,8 @@ import type {
   TrainingGoal,
 } from "@/types/member";
 import type { GymPackage } from "@/types/package";
+import { useGetBusinessProfileQuery } from "@/redux/features/profile/profileApi";
+import { openMemberInvoice } from "@/lib/memberInvoice";
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -204,6 +206,8 @@ export default function AddMemberPage() {
   );
 
   const [createMember, { isLoading: isCreating }] = useCreateMemberMutation();
+
+  const { data: businessProfile } = useGetBusinessProfileQuery();
 
   const { data: packagesData, isLoading: packagesLoading } =
     useGetBranchPackagesQuery(
@@ -479,14 +483,17 @@ export default function AddMemberPage() {
   };
 
   // ── Submit ──
-  const submitMember = async (payload: CreateMemberPayload) => {
+  const submitMember = async (
+    payload: CreateMemberPayload,
+    onSuccess?: (result: { invoiceNo?: string }) => void,
+  ) => {
     if (!activeBranchId) {
       toast.error("No branch selected");
       return;
     }
 
     try {
-      await createMember({
+      const result = await createMember({
         branchId: activeBranchId,
         payload,
         photo: photoFile || undefined,
@@ -495,7 +502,11 @@ export default function AddMemberPage() {
       toast.success("Member created successfully!", {
         description: `${fullName} has been added`,
       });
-      router.push("/dashboard/members");
+      if (onSuccess) {
+        onSuccess({ invoiceNo: result.invoiceNo });
+      } else {
+        router.push("/dashboard/members");
+      }
     } catch (err: unknown) {
       const apiErr = err as { data?: { message?: string } };
       toast.error(apiErr?.data?.message || "Failed to create member");
@@ -566,6 +577,17 @@ export default function AddMemberPage() {
     return payload;
   };
 
+  const MONTH_NAMES_SHORT = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
+
+  const getSelectedMonthLabels = (): string[] => {
+    const months =
+      membershipType === "monthly" ? monthlySelectedMonths : pkgSelectedMonths;
+    return months.map((m) => `${MONTH_NAMES_SHORT[m.month]} ${m.year}`);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) {
@@ -574,13 +596,47 @@ export default function AddMemberPage() {
     }
 
     const payload = buildPayload();
-
     await submitMember(payload);
   };
 
-  // ── Print handler ──
-  const handlePrint = () => {
-    window.print();
+  // ── Save & Print handler ──
+  const handleSaveAndPrint = async () => {
+    if (!validate()) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const payload = buildPayload();
+
+    await submitMember(payload, (result) => {
+      openMemberInvoice({
+        fullName: fullName.trim(),
+        memberId: memberId.trim() || undefined,
+        contact: contact.trim() || undefined,
+        membershipType,
+        packageName: selectedPackage?.title,
+        monthlyFee: effectiveMonthlyFee,
+        selectedMonthLabels: getSelectedMonthLabels(),
+        membershipStartDate: payload.membershipStartDate,
+        nextPaymentDate: nextPaymentDate
+          ? nextPaymentDate.toISOString()
+          : undefined,
+        admissionFee: admissionFeeNum,
+        discount: discountNum,
+        subtotal,
+        totalDue,
+        paidAmount: paidNum,
+        paymentMethod,
+        invoiceNo: result.invoiceNo,
+        businessName: businessProfile?.businessName,
+        branchName: branchAdmissionFee?.branchName || branchMonthlyFee?.branchName,
+      });
+
+      // Redirect after a short delay so the print window has time to open
+      setTimeout(() => {
+        router.push("/dashboard/members");
+      }, 800);
+    });
   };
 
   // ── Fee setup guard ──
@@ -1126,7 +1182,7 @@ export default function AddMemberPage() {
                         Next Payment Date
                       </span>
                       <span className="text-sm font-semibold text-gray-800">
-                        {format(nextPaymentDate, "dd/MM/yyyy")}
+                        {format(nextPaymentDate, "dd-MMM-yyyy")}
                       </span>
                     </div>
                   )}
@@ -1211,7 +1267,7 @@ export default function AddMemberPage() {
                         Next Payment Date
                       </span>
                       <span className="text-sm font-semibold text-gray-800">
-                        {format(nextPaymentDate, "dd/MM/yyyy")}
+                        {format(nextPaymentDate, "dd-MMM-yyyy")}
                       </span>
                     </div>
                   )}
@@ -1416,10 +1472,11 @@ export default function AddMemberPage() {
               </button>
               <button
                 type="button"
-                onClick={handlePrint}
-                className="flex-1 px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium text-sm"
+                disabled={isCreating}
+                onClick={handleSaveAndPrint}
+                className="flex-1 px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium text-sm disabled:opacity-50"
               >
-                Print
+                {isCreating ? "Saving..." : "Save & Print"}
               </button>
             </div>
           </div>

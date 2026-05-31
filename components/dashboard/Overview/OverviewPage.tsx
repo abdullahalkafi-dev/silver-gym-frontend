@@ -54,7 +54,7 @@ export default function OverviewPage() {
             title="Progress Analytics"
             yearlyData={data?.progress.yearlyData || []}
             monthlyData={data?.progress.monthlyData || []}
-            totalValue={data?.progress.totalValue || "$0.00"}
+            totalValue={data?.progress.totalValue || "৳0.00"}
             subtitle={data?.progress.subtitle || "No data available for the selected period"}
             showToggle={true}
           />
@@ -78,7 +78,12 @@ export default function OverviewPage() {
           />
         </div>
       </div>
-      <TransactionTable title="Today Transaction" data={data?.transactions || []} />
+      <TransactionTable
+        title="Today Transaction"
+        data={data?.transactions || []}
+        openingBalance={data?.openingBalanceBeforeToday ?? 0}
+        runningBalance={data?.runningBalance}
+      />
     </main>
   );
 }

@@ -1,14 +1,14 @@
 // app/dashboard/members/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import MemberStatsCards from "@/components/dashboard/Members/MemberStatsCards";
 import MemberTable from "@/components/dashboard/Members/MemberTable";
 import {
-  BackendMember,
   MemberListPaymentFilter,
   MemberListStatusFilter,
+  MemberListBillingFilter,
 } from "@/types/member";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -42,6 +42,15 @@ const PAYMENT_FILTER_OPTIONS: Array<{
   { value: "complete", label: "Complete" },
 ];
 
+const BILLING_FILTER_OPTIONS: Array<{
+  value: MemberListBillingFilter;
+  label: string;
+}> = [
+  { value: "all", label: "All billing" },
+  { value: "custom", label: "Custom" },
+  { value: "system", label: "System" },
+];
+
 export default function MembersPage() {
   const router = useRouter();
   const { isOwner, hasPermission, activeBranchId } = useUser();
@@ -61,10 +70,10 @@ export default function MembersPage() {
     useState<MemberListStatusFilter>("all");
   const [paymentFilter, setPaymentFilter] =
     useState<MemberListPaymentFilter>("all");
+  const [billingFilter, setBillingFilter] =
+    useState<MemberListBillingFilter>("all");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedMember, setSelectedMember] = useState<BackendMember | null>(null);
-  const [showSMSModal, setShowSMSModal] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
 
   // Debounce search
@@ -101,6 +110,7 @@ export default function MembersPage() {
       : {}),
     ...(statusFilter === "inactive" ? { isActive: "false" as const } : {}),
     ...(paymentFilter !== "all" ? { paymentStatus: paymentFilter } : {}),
+    ...(billingFilter !== "all" ? { billingPlan: billingFilter } : {}),
     page: currentPage,
     limit: 20,
   };
@@ -139,17 +149,13 @@ export default function MembersPage() {
   const meta = memberData?.meta;
   const totalPages = meta?.totalPage || 1;
   const activeFilterCount =
-    (statusFilter !== "all" ? 1 : 0) + (paymentFilter !== "all" ? 1 : 0);
+    (statusFilter !== "all" ? 1 : 0) +
+    (paymentFilter !== "all" ? 1 : 0) +
+    (billingFilter !== "all" ? 1 : 0);
   const hasActiveFilters = activeFilterCount > 0;
 
-  const handleSendSMS = useCallback((member: BackendMember) => {
-    setSelectedMember(member);
-    setShowSMSModal(true);
-  }, []);
-
-  const handleCloseSMSModal = () => {
-    setShowSMSModal(false);
-    setSelectedMember(null);
+  const handleSendSMS = (memberId: string) => {
+    router.push(`/dashboard/send-sms?memberId=${memberId}`);
   };
 
   const handleStatusFilterSelect = (nextFilter: MemberListStatusFilter) => {
@@ -162,9 +168,15 @@ export default function MembersPage() {
     setCurrentPage(1);
   };
 
+  const handleBillingFilterSelect = (nextFilter: MemberListBillingFilter) => {
+    setBillingFilter(nextFilter);
+    setCurrentPage(1);
+  };
+
   const handleResetFilters = () => {
     setStatusFilter("all");
     setPaymentFilter("all");
+    setBillingFilter("all");
     setCurrentPage(1);
   };
 
@@ -320,6 +332,27 @@ export default function MembersPage() {
                         </div>
                       </div>
 
+                      <div className="border-t border-gray-100 pt-4">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Billing Plan
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {BILLING_FILTER_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => handleBillingFilterSelect(option.value)}
+                              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                                billingFilter === option.value
+                                  ? "bg-primary text-white"
+                                  : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-4">
                         <button
                           onClick={handleResetFilters}
@@ -345,7 +378,7 @@ export default function MembersPage() {
           {/* Member Table */}
           <MemberTable
             members={members}
-            onSendSMS={handleSendSMS}
+            onSendSMS={(member) => handleSendSMS(member._id)}
             isLoading={membersLoading || membersFetching}
           />
 
@@ -375,25 +408,6 @@ export default function MembersPage() {
           )}
         </div>
 
-        {/* SMS Modal */}
-        {selectedMember && showSMSModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-            <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
-              <h3 className="text-lg font-semibold mb-2">Send SMS</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Send SMS to {selectedMember.fullName}
-              </p>
-              <div className="flex justify-end">
-                <button
-                  onClick={handleCloseSMSModal}
-                  className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

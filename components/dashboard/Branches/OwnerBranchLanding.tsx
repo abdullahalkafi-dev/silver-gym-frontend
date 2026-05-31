@@ -24,12 +24,10 @@ import {
   useGetOwnerBranchesQuery,
   useLazyGetOwnerDefaultBranchQuery,
 } from "@/redux/features/branch/branchApi";
+import { useGetBranchTodaySummaryQuery } from "@/redux/features/analytics/analyticsApi";
 import type { Branch, CreateBranchPayload } from "@/types/branch";
 
 const DEFAULT_BRANCH_LOOKUP_ATTEMPTS = 3;
-// TODO: Replace demo report values with branch-wise analytics API data.
-const DEMO_EXPENSE_AMOUNT = "12,151.00";
-const DEMO_INCOME_AMOUNT = "12,151.00";
 
 type DefaultLookupState = "idle" | "loading" | "ready" | "missing" | "error";
 
@@ -70,6 +68,12 @@ const getBranchInitials = (branchName: string) => {
     .join("");
 };
 
+const formatAmount = (value: number) =>
+  value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 function AddBranchCard({
   onCreateClick,
 }: {
@@ -92,6 +96,19 @@ function AddBranchCard({
   );
 }
 
+function BranchCardSkeleton() {
+  return (
+    <div className="w-full rounded-2xl border border-[#E1E1E1] bg-[#F2F2F2] p-4">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-14 w-14 rounded-xl" />
+        <Skeleton className="h-6 w-32" />
+      </div>
+      <Skeleton className="mt-3 h-4 w-full" />
+      <Skeleton className="mt-4 h-24 w-full rounded-2xl" />
+    </div>
+  );
+}
+
 function BranchPreviewCard({
   branch,
   isSelected,
@@ -101,6 +118,10 @@ function BranchPreviewCard({
   isSelected: boolean;
   onOpen: () => void;
 }) {
+  const { data: todaySummary, isLoading } = useGetBranchTodaySummaryQuery({
+    branchId: branch.id,
+  });
+
   return (
     <button
       type="button"
@@ -128,26 +149,48 @@ function BranchPreviewCard({
 
       <div className="mt-4 rounded-2xl bg-[#ECECEC] p-3">
         <p className="text-sm font-semibold text-[#2C2C2C]">Today&apos;s Report</p>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <div className="flex items-center justify-between rounded-xl bg-[#F4F4F4] px-3 py-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-[#727272]">Expense</span>
-              <span className="text-[#B0B0B0]">/</span>
-            </div>
-            <span className="text-sm font-semibold text-[#F16464]">
-              {DEMO_EXPENSE_AMOUNT}
-            </span>
+
+        {isLoading ? (
+          <div className="mt-2 space-y-2">
+            <Skeleton className="h-4 w-full rounded-xl" />
+            <Skeleton className="h-4 w-full rounded-xl" />
+            <Skeleton className="h-4 w-3/4 rounded-xl" />
           </div>
-          <div className="flex items-center justify-between rounded-xl bg-[#F4F4F4] px-3 py-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-[#727272]">Income</span>
-              <span className="text-[#B0B0B0]">/</span>
+        ) : (
+          <>
+            <div className="mt-2 flex items-center justify-between rounded-xl bg-[#F4F4F4] px-3 py-2">
+              <span className="text-xs text-[#727272]">Opening Balance</span>
+              <span className="text-sm font-semibold text-[#4A4A4A]">
+                {formatAmount(todaySummary?.openingBalance ?? 0)} TK
+              </span>
             </div>
-            <span className="text-sm font-semibold text-[#36A86B]">
-              {DEMO_INCOME_AMOUNT}
-            </span>
-          </div>
-        </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-[#F4F4F4] px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[#727272]">Income</span>
+                  <span className="text-sm font-semibold text-[#36A86B]">
+                    {formatAmount(todaySummary?.todayIncome ?? 0)}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[10px] text-[#9A9A9A]">
+                  {todaySummary?.todayIncomeCount ?? 0} transactions
+                </p>
+              </div>
+              <div className="rounded-xl bg-[#F4F4F4] px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[#727272]">Expense</span>
+                  <span className="text-sm font-semibold text-[#F16464]">
+                    {formatAmount(todaySummary?.todayExpense ?? 0)}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[10px] text-[#9A9A9A]">
+                  {todaySummary?.todayExpenseCount ?? 0} transactions
+                </p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </button>
   );
@@ -372,12 +415,7 @@ export default function OwnerBranchLanding() {
         {isBranchesFetching && branches.length === 0 ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[1, 2, 3].map((item) => (
-              <div key={item} className="space-y-3 rounded-lg border border-border-2 p-4">
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-9 w-28" />
-              </div>
+              <BranchCardSkeleton key={item} />
             ))}
           </div>
         ) : (

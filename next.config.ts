@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      {
+        protocol: "https",
+        hostname: "nwqs97k3-5004.asse.devtunnels.ms",
+      },
     ],
   },
 };

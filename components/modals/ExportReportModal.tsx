@@ -17,7 +17,7 @@ interface ExportReportModalProps {
   onClose: () => void;
   exportFormat: "pdf" | "excel";
   data: Record<string, unknown>[];
-  reportType: "Income" | "Expense";
+  reportType: "Income" | "Expense" | "Transaction";
   columns: ExportColumn[];
   /** Pre-fill the start date from the page's current date filter */
   defaultStartDate?: Date;

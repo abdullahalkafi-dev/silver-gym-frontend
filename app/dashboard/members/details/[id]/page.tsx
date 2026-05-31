@@ -24,6 +24,8 @@ import EditMemberModal from "@/components/modals/EditMemberModal";
 import MemberImageViewModal from "@/components/modals/MemberImageViewModal";
 import PaymentHistoryTable from "@/components/dashboard/Members/PaymentHistoryTable";
 import MemberActivitiesCalendar from "@/components/dashboard/Members/MemberActivitiesCalendar";
+import SmsHistoryTable from "@/components/dashboard/SMS/SmsHistoryTable";
+import { useGetMemberSmsHistoryQuery } from "@/redux/features/sms/smsApi";
 
 const formatDisplayDate = (value?: string) => {
   if (!value) return "—";
@@ -63,9 +65,11 @@ export default function MemberDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const memberId = params.id as string;
-  const { activeBranchId, hasPermission, isOwner } = useUser();
+  const { user, activeBranchId, hasPermission, isOwner } = useUser();
   const canViewPayments = isOwner || hasPermission("canViewPayments");
   const canCollectBills = isOwner || hasPermission("canAddPayment");
+  const canSendSms = isOwner || hasPermission("sms:send");
+  const businessId = user?.businessProfile?.id || "";
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -91,6 +95,19 @@ export default function MemberDetailsPage() {
   );
 
   const [updateMember] = useUpdateMemberMutation();
+  const {
+    data: smsHistory,
+    isLoading: isSmsHistoryLoading,
+  } = useGetMemberSmsHistoryQuery(
+    {
+      businessId,
+      branchId: activeBranchId || "",
+      memberId,
+      page: 1,
+      limit: 5,
+    },
+    { skip: !canSendSms || !businessId || !activeBranchId || !memberId }
+  );
 
   const handleStatusToggle = async () => {
     if (!member || !activeBranchId) return;
@@ -251,6 +268,14 @@ export default function MemberDetailsPage() {
                 <span className="font-mono font-medium text-gray-700">
                   ID: {displayId}
                 </span>
+                {canSendSms && (
+                  <button
+                    onClick={() => router.push(`/dashboard/send-sms?memberId=${memberId}`)}
+                    className="rounded-lg border border-orange-100 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 transition-colors hover:bg-orange-100"
+                  >
+                    Send SMS
+                  </button>
+                )}
                 <button
                   onClick={() => setShowEditModal(true)}
                   className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
@@ -481,6 +506,32 @@ export default function MemberDetailsPage() {
               }
             />
           </div>
+
+          {canSendSms && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-5">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">SMS History</h2>
+                  <p className="text-sm text-gray-500">
+                    Recent dry-run and blocked SMS activity for this member.
+                  </p>
+                </div>
+                <button
+                  onClick={() => router.push(`/dashboard/send-sms?memberId=${memberId}`)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50"
+                >
+                  Open SMS Workspace
+                </button>
+              </div>
+
+              <SmsHistoryTable
+                records={smsHistory?.data || []}
+                isLoading={isSmsHistoryLoading}
+                emptyMessage="No SMS history found for this member yet."
+                showMemberColumn={false}
+              />
+            </div>
+          )}
         </div>
 
         {/* ── RIGHT SIDEBAR ─────────────────────────────────────── */}

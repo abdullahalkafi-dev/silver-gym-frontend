@@ -146,6 +146,7 @@ export default function CreateBillPage() {
         paymentHistory={paymentHistory}
         isPaymentHistoryLoading={isPaymentHistoryLoading}
         canViewPayments={canViewPayments}
+        canOverrideFee={isOwner}
         onCancel={() => router.push(`/dashboard/members/details/${memberId}`)}
       />
     </div>

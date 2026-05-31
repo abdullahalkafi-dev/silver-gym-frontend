@@ -1,8 +1,39 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+const bdDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: true,
+  timeZone: "Asia/Dhaka",
+})
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+export function formatBdDateTime(value?: string | null): string {
+  if (!value) return "—"
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "—"
+
+  const parts = bdDateTimeFormatter.formatToParts(date)
+  const day = parts.find((part) => part.type === "day")?.value
+  const month = parts.find((part) => part.type === "month")?.value
+  const year = parts.find((part) => part.type === "year")?.value
+  const hour = parts.find((part) => part.type === "hour")?.value
+  const minute = parts.find((part) => part.type === "minute")?.value
+  const dayPeriod = parts.find((part) => part.type === "dayPeriod")?.value?.toUpperCase()
+
+  if (!day || !month || !year || !hour || !minute || !dayPeriod) {
+    return bdDateTimeFormatter.format(date)
+  }
+
+  return `${day} ${month} ${year}, ${hour}:${minute} ${dayPeriod}`
 }
 
 export const colorPalette = [

@@ -82,26 +82,31 @@ export default function BusinessInfoForm() {
       return;
     }
 
-    // Clear old business logo data from previous sessions to prevent data leak
-    // Only clear if this is a fresh load (not a refresh with existing data)
     const existingBusinessInfo = localStorage.getItem("businessInfo");
-    if (!existingBusinessInfo) {
+    if (existingBusinessInfo) {
+      const parsed = JSON.parse(existingBusinessInfo);
+      // If the draft belongs to a different user, clear everything
+      if (parsed.userId && parsed.userId !== (user?.id || "")) {
+        localStorage.removeItem("businessInfo");
+        sessionStorage.removeItem("businessLogo_data");
+        sessionStorage.removeItem("businessLogo_name");
+        sessionStorage.removeItem("businessLogo_type");
+        setLogoPreview("");
+        setLogo(null);
+      } else {
+        // Same user — restore draft
+        setValue("businessName", parsed.businessName || "");
+        setValue("businessType", parsed.businessType || "");
+        setValue("registrationNumber", parsed.registrationNumber || "");
+        if (parsed.logoPreview) {
+          setLogoPreview(parsed.logoPreview);
+        }
+      }
+    } else {
+      // No draft exists — clear any stale session data
       sessionStorage.removeItem("businessLogo_data");
       sessionStorage.removeItem("businessLogo_name");
       sessionStorage.removeItem("businessLogo_type");
-      setLogoPreview("");
-      setLogo(null);
-    }
-
-    const savedData = localStorage.getItem("businessInfo");
-    if (savedData) {
-      const parsed = JSON.parse(savedData);
-      setValue("businessName", parsed.businessName || "");
-      setValue("businessType", parsed.businessType || "");
-      setValue("registrationNumber", parsed.registrationNumber || "");
-      if (parsed.logoPreview) {
-        setLogoPreview(parsed.logoPreview);
-      }
     }
   }, [isAuthenticated, router, setValue, user]);
 
@@ -150,6 +155,7 @@ export default function BusinessInfoForm() {
         businessType: data.businessType,
         registrationNumber: data.registrationNumber,
         logoPreview: logoPreview,
+        userId: user?.id || "",
       };
 
       localStorage.setItem("businessInfo", JSON.stringify(businessInfo));

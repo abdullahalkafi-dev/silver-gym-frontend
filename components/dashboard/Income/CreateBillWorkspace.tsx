@@ -1,17 +1,25 @@
 ﻿"use client";
 
 import { startTransition, useMemo, useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { addDays, addMonths, addWeeks, addYears, format } from "date-fns";
-import { Printer } from "lucide-react";
+import { Check, Loader2, Printer } from "lucide-react";
 import { toast } from "sonner";
+import { useGetBusinessProfileQuery } from "@/redux/features/profile/profileApi";
+import { openBillInvoice } from "@/lib/billInvoice";
 import {
   MonthGrid,
   buildRange,
   type MonthYear,
 } from "@/components/dashboard/Members/MonthGrid";
 import { cn } from "@/lib/utils";
-import { useCollectBillMutation } from "@/redux/features/member/memberApi";
+import {
+  useCollectBillMutation,
+  useUpdateMemberMutation,
+} from "@/redux/features/member/memberApi";
 import PayAdmissionDueModal from "@/components/modals/PayAdmissionDueModal";
+import DeactivateMemberModal from "@/components/modals/DeactivateMemberModal";
+import Modal from "@/components/ui/modal";
 import type {
   CollectBillContext,
   CollectBillDueItem,
@@ -31,6 +39,7 @@ interface CreateBillWorkspaceProps {
   paymentHistory: PaymentRecord[];
   isPaymentHistoryLoading?: boolean;
   canViewPayments: boolean;
+  canOverrideFee: boolean;
   onCancel: () => void;
 }
 
@@ -202,9 +211,16 @@ export default function CreateBillWorkspace({
   paymentHistory,
   isPaymentHistoryLoading = false,
   canViewPayments,
+  canOverrideFee,
   onCancel,
 }: CreateBillWorkspaceProps) {
   const [collectBill, { isLoading: isCollecting }] = useCollectBillMutation();
+  const [updateMember] = useUpdateMemberMutation();
+  const { data: businessProfile } = useGetBusinessProfileQuery();
+
+  const [showMemberPopup, setShowMemberPopup] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [isSavingFee, setIsSavingFee] = useState(false);
 
   const member = context.member;
   const dueBreakdown = context.billing.dueBreakdown;
@@ -222,6 +238,7 @@ export default function CreateBillWorkspace({
   const [showAdmissionModal, setShowAdmissionModal] = useState(false);
 
   const branchMonthlyFee = normalizeMoney(context.billing.monthlyFeeAmount ?? 0);
+  const systemMonthlyFee = normalizeMoney(context.billing.branchMonthlyFeeAmount ?? 0);
   const nonAdmissionCurrentDue = normalizeMoney(
     nonAdmissionDueItems.reduce((s, i) => s + i.remainingAmount, 0)
   );
@@ -342,8 +359,8 @@ export default function CreateBillWorkspace({
       const parsed = parseAmount(customFeeInput);
       return parsed > 0 ? parsed : branchMonthlyFee;
     }
-    return branchMonthlyFee;
-  }, [useCustomMonthlyFee, customFeeInput, branchMonthlyFee]);
+    return systemMonthlyFee;
+  }, [useCustomMonthlyFee, customFeeInput, branchMonthlyFee, systemMonthlyFee]);
 
   const requiredStartDate = useMemo(
     () =>
@@ -629,7 +646,7 @@ export default function CreateBillWorkspace({
   ]);
 
   // Save
-  const handleSave = async () => {
+  const handleSave = async (printAfterSave = false) => {
     if (collectionMode === "monthly" && effectiveMonthlyFee <= 0) {
       toast.error("Monthly fee is not configured for this member or branch");
       return;
@@ -693,7 +710,7 @@ export default function CreateBillWorkspace({
       packageId:
         collectionMode === "package" ? selectedPackage?.id : undefined,
       note: note.trim() || undefined,
-      useCustomMonthlyFee: useCustomMonthlyFee || undefined,
+      useCustomMonthlyFee,
       customMonthlyFeeAmount:
         useCustomMonthlyFee && parseAmount(customFeeInput) > 0
           ? parseAmount(customFeeInput)
@@ -714,13 +731,107 @@ export default function CreateBillWorkspace({
           ? `Invoice ${result.payment.invoiceNo} saved`
           : "Bill collected successfully",
       );
+
+      if (printAfterSave) {
+        let cycleDesc = "";
+        if (collectionMode === "monthly" && monthlyMonths.length > 0) {
+          const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+          const labels = monthlyMonths.map((m) => `${MONTH_SHORT[m.month]} ${m.year}`);
+          cycleDesc = `Monthly (${labels.join(", ")})`;
+        } else if (collectionMode === "package" && selectedPackage) {
+          cycleDesc = selectedPackage.title;
+        }
+
+        let oldDueDesc = "";
+        if (validSelectedDueItems.length > 0) {
+          const count = validSelectedDueItems.length;
+          oldDueDesc = `${count} ${count === 1 ? "item" : "items"}`;
+        }
+
+        openBillInvoice({
+          fullName: member.fullName,
+          memberId: member.memberId || member._id,
+          contact: member.contact,
+          invoiceNo: result.payment.invoiceNo,
+          collectionMode,
+          oldDueAmount: selectedDueAmount,
+          oldDueDescription: oldDueDesc || undefined,
+          cycleCharge,
+          cycleDescription: cycleDesc || undefined,
+          subtotal: subTotal,
+          discount: appliedDiscount,
+          totalDue: billableAmount,
+          paidAmount: paidTotalFinal,
+          paymentMethod,
+          businessName: businessProfile?.businessName,
+        });
+      }
     } catch (error) {
       const apiError = error as { data?: { message?: string } };
       toast.error(apiError.data?.message || "Failed to collect bill");
     }
   };
 
-  const handlePrint = () => window.print();
+  const handleStatusToggle = async () => {
+    if (!member || !branchId) return;
+    try {
+      await updateMember({
+        branchId,
+        memberId: member._id,
+        payload: { isActive: !member.isActive },
+      }).unwrap();
+      toast.success(
+        member.isActive !== false
+          ? "Member deactivated successfully"
+          : "Member reactivated successfully"
+      );
+      setShowStatusModal(false);
+    } catch {
+      toast.error("Failed to update member status. Please try again.");
+    }
+  };
+
+  const handleSaveFeeOverride = async () => {
+    if (!canOverrideFee || !branchId) return;
+    setIsSavingFee(true);
+    try {
+      if (useCustomMonthlyFee) {
+        const parsed = parseAmount(customFeeInput);
+        if (parsed <= 0) {
+          toast.error("Enter a valid custom fee amount");
+          setIsSavingFee(false);
+          return;
+        }
+        if (parsed === systemMonthlyFee) {
+          toast.error("Custom fee cannot be the same as the system fee");
+          setIsSavingFee(false);
+          return;
+        }
+        await updateMember({
+          branchId,
+          memberId: member._id,
+          payload: {
+            isCustomMonthlyFee: true,
+            customMonthlyFeeAmount: parsed,
+          },
+        }).unwrap();
+        toast.success("Custom billing saved");
+      } else {
+        await updateMember({
+          branchId,
+          memberId: member._id,
+          payload: {
+            isCustomMonthlyFee: false,
+          },
+        }).unwrap();
+        toast.success("Switched to system billing");
+      }
+    } catch {
+      toast.error("Failed to update billing. Please try again.");
+    } finally {
+      setIsSavingFee(false);
+    }
+  };
 
   const dueMonthCount = nonAdmissionDueItems.length;
 
@@ -744,12 +855,26 @@ export default function CreateBillWorkspace({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="truncate text-base font-semibold text-gray-900">
+              <button
+                type="button"
+                onClick={() => setShowMemberPopup(true)}
+                className="truncate text-base font-semibold text-gray-900 cursor-pointer hover:underline"
+              >
                 {member.fullName}
-              </p>
-              <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowStatusModal(true)}
+                title="Click to change status"
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80",
+                  member.isActive === false
+                    ? "bg-gray-200 text-gray-500"
+                    : "bg-emerald-100 text-emerald-700",
+                )}
+              >
                 {member.isActive === false ? "inactive" : "active"}
-              </span>
+              </button>
             </div>
             <p className="text-xs text-gray-500">
               ID: {memberDisplayId}
@@ -1044,23 +1169,27 @@ export default function CreateBillWorkspace({
             )}
           </div>
 
-          {/* Monthly fee with override toggle */}
+          {/* Monthly fee with override toggle — owner only */}
           {collectionMode === "monthly" && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                   Monthly Fee
                 </label>
-                <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-600">
-                  <span>Override</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">
+                    {canOverrideFee ? "Override" : "Admin only"}
+                  </span>
                   <button
                     type="button"
                     role="switch"
                     aria-checked={useCustomMonthlyFee}
-                    onClick={() => setUseCustomMonthlyFee((v) => !v)}
+                    disabled={!canOverrideFee}
+                    onClick={() => canOverrideFee && setUseCustomMonthlyFee((v) => !v)}
                     className={cn(
                       "relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200",
                       useCustomMonthlyFee ? "bg-orange-500" : "bg-gray-300",
+                      !canOverrideFee && "opacity-50 cursor-not-allowed",
                     )}
                   >
                     <span
@@ -1070,31 +1199,48 @@ export default function CreateBillWorkspace({
                       )}
                     />
                   </button>
-                </label>
+                </div>
               </div>
 
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={
-                    useCustomMonthlyFee
-                      ? customFeeInput
-                      : String(branchMonthlyFee)
-                  }
-                  readOnly={!useCustomMonthlyFee}
-                  onChange={(e) =>
-                    useCustomMonthlyFee && setCustomFeeInput(e.target.value)
-                  }
-                  placeholder="Monthly Amount"
-                  className={cn(
-                    "h-10 w-full rounded-xl border px-3 text-sm text-gray-700 outline-none",
-                    useCustomMonthlyFee
-                      ? "border-orange-300 bg-white focus:border-orange-400"
-                      : "border-gray-200 bg-gray-50 text-gray-500",
-                  )}
-                />
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={
+                      useCustomMonthlyFee
+                        ? customFeeInput
+                        : String(systemMonthlyFee)
+                    }
+                    readOnly={!useCustomMonthlyFee || !canOverrideFee}
+                    onChange={(e) =>
+                      useCustomMonthlyFee && setCustomFeeInput(e.target.value)
+                    }
+                    placeholder="Monthly Amount"
+                    className={cn(
+                      "h-10 w-full rounded-xl border px-3 text-sm text-gray-700 outline-none",
+                      useCustomMonthlyFee
+                        ? "border-orange-300 bg-white focus:border-orange-400"
+                        : "border-gray-200 bg-gray-50 text-gray-500",
+                    )}
+                  />
+                </div>
+                {canOverrideFee && (
+                  <button
+                    type="button"
+                    disabled={isSavingFee}
+                    onClick={handleSaveFeeOverride}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50 hover:text-green-600 disabled:opacity-50"
+                    title={useCustomMonthlyFee ? "Save custom fee" : "Switch to system billing"}
+                  >
+                    {isSavingFee ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1284,7 +1430,7 @@ export default function CreateBillWorkspace({
             </button>
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => handleSave(false)}
               disabled={isCollecting}
               className="flex-1 rounded-xl bg-violet-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
             >
@@ -1292,12 +1438,13 @@ export default function CreateBillWorkspace({
             </button>
             <button
               type="button"
-              onClick={handlePrint}
-              className="flex-1 rounded-xl bg-orange-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600"
+              onClick={() => handleSave(true)}
+              disabled={isCollecting}
+              className="flex-1 rounded-xl bg-orange-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600 disabled:opacity-60"
             >
               <span className="flex items-center justify-center gap-1.5">
                 <Printer className="h-4 w-4" />
-                Print
+                {isCollecting ? "Saving..." : "Save & Print"}
               </span>
             </button>
           </div>
@@ -1314,6 +1461,117 @@ export default function CreateBillWorkspace({
           admissionDueItems={admissionDueItems}
         />
       )}
+
+      {/* Member Detail Popup */}
+      <Modal
+        isOpen={showMemberPopup}
+        onClose={() => setShowMemberPopup(false)}
+        title="Member Details"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-stone-800 text-lg font-semibold text-white">
+              {member.photo ? (
+                <Image
+                  src={member.photo}
+                  alt={member.fullName}
+                  width={56}
+                  height={56}
+                  unoptimized
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                member.fullName.charAt(0).toUpperCase()
+              )}
+            </div>
+            <div>
+              <p className="text-base font-semibold text-gray-900">
+                {member.fullName}
+              </p>
+              <p className="text-xs text-gray-500">
+                ID: {memberDisplayId}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {member.contact && (
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Phone</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  {member.contact}
+                </div>
+              </div>
+            )}
+            {member.email && (
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Email</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  {member.email}
+                </div>
+              </div>
+            )}
+            {member.gender && (
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Gender</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  {member.gender}
+                </div>
+              </div>
+            )}
+            {member.address && (
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Address</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  {member.address}
+                </div>
+              </div>
+            )}
+            {member.dateOfBirth && (
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Date of Birth</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  {format(new Date(member.dateOfBirth), "dd MMM yyyy")}
+                </div>
+              </div>
+            )}
+            {member.height != null && (
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Height</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  {member.height}{member.heightUnit ? ` ${member.heightUnit}` : ""}
+                </div>
+              </div>
+            )}
+            {member.weight != null && (
+              <div>
+                <p className="mb-1 text-xs text-gray-400">Weight</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  {member.weight}{member.weightUnit ? ` ${member.weightUnit}` : ""}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {member.emergencyContact?.contactNumber && (
+            <div>
+              <p className="mb-1 text-xs text-gray-400">Emergency Contact</p>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                {member.emergencyContact.contactNumber}
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Status Toggle Modal */}
+      <DeactivateMemberModal
+        isOpen={showStatusModal}
+        onClose={() => setShowStatusModal(false)}
+        onConfirm={handleStatusToggle}
+        memberName={member.fullName}
+        isCurrentlyActive={member.isActive !== false}
+      />
     </div>
   );
 }

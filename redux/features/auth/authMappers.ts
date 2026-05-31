@@ -29,12 +29,19 @@ const STAFF_PERMISSION_MAP: Record<string, string[]> = {
   canExportAnalytics: ["analytics:export"],
   canViewSMS: ["sms:view"],
   canSendSMS: ["sms:send"],
+  canEditSMSTemplate: ["sms:template-edit"],
   canViewEmail: ["email:view"],
   canSendEmail: ["email:send"],
   canViewExpenseCategory: ["expense-category:view"],
   canManageExpenseCategory: ["expense-category:manage"],
   canViewExpense: ["expense:view"],
   canAddExpense: ["expense:create"],
+  canViewTransactions: ["transaction:view"],
+  canViewLockers: ["locker:view"],
+  canAddLocker: ["locker:create"],
+  canDeleteLocker: ["locker:delete"],
+  canAssignLocker: ["locker:assign"],
+  canCollectLockerPayment: ["locker:collect"],
 };
 
 const OWNER_DEFAULT_PERMISSIONS = Object.keys(PERMISSION_DEFINITIONS);

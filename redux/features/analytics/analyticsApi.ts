@@ -133,8 +133,12 @@ type OverviewRaw = {
     payment: string;
     amount: number;
     balance: number;
+    type: string;
+    description: string;
   }>;
   availableYears: number[];
+  runningBalance: number | null;
+  openingBalanceBeforeToday: number;
 };
 
 export type MemberAnalyticsResponse = {
@@ -182,11 +186,21 @@ export type OverviewResponse = {
   };
   transactions: OverviewRaw["transactions"];
   availableYears: number[];
+  runningBalance: number | null;
+  openingBalanceBeforeToday: number;
 };
 
 export type AnalyticsConfigResponse = {
   comparisonOptions: ComparisonOption[];
   availableYears: number[];
+};
+
+export type TodaySummaryResponse = {
+  todayIncome: number;
+  todayExpense: number;
+  todayIncomeCount: number;
+  todayExpenseCount: number;
+  openingBalance: number;
 };
 
 const formatCurrency = (value: number) => `${value.toLocaleString("en-US", {
@@ -365,14 +379,14 @@ export const analyticsApi = baseApi.injectEndpoints({
         selectedMonth: response.data.selectedMonth,
         stats: response.data.stats.map((item) => ({
           ...item,
-          value: typeof item.value === "number" && (item.label === "Income" || item.label === "Expense")
+          value: typeof item.value === "number" && (item.label === "Income" || item.label === "Expense" || item.label === "Balance")
             ? formatCurrency(item.value)
             : item.value,
         })),
         progress: {
           yearlyData: response.data.progress.yearlyData,
           monthlyData: response.data.progress.monthlyData,
-          totalValue: `$${response.data.progress.totalValue.toLocaleString("en-US", {
+          totalValue: `৳${response.data.progress.totalValue.toLocaleString("en-US", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}`,
@@ -391,8 +405,12 @@ export const analyticsApi = baseApi.injectEndpoints({
           ...item,
           memberCustomId:
             typeof item.memberCustomId === "string" ? item.memberCustomId : null,
+          type: item.type || "income",
+          description: item.description || "",
         })),
         availableYears: response.data.availableYears,
+        runningBalance: response.data.runningBalance,
+        openingBalanceBeforeToday: response.data.openingBalanceBeforeToday ?? 0,
       }),
       providesTags: (_result, _error, { branchId }) => [
         { type: "Analytics", id: `OVERVIEW-${branchId}` },
@@ -413,6 +431,17 @@ export const analyticsApi = baseApi.injectEndpoints({
         { type: "Analytics" as const },
       ],
     }),
+
+    getBranchTodaySummary: builder.query<TodaySummaryResponse, BranchArgs>({
+      query: ({ branchId }) => ({
+        url: `/analytics/${branchId}/today-summary`,
+      }),
+      transformResponse: (response: ApiSuccessResponse<TodaySummaryResponse>) => response.data,
+      providesTags: (_result, _error, { branchId }) => [
+        { type: "Analytics", id: `TODAY-${branchId}` },
+        { type: "Analytics" as const },
+      ],
+    }),
   }),
 });
 
@@ -424,4 +453,5 @@ export const {
   useGetAnalyticsCompareSummaryQuery,
   useGetAnalyticsOverviewQuery,
   useGetAnalyticsConfigQuery,
+  useGetBranchTodaySummaryQuery,
 } = analyticsApi;

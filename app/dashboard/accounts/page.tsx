@@ -3,7 +3,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { AutoDeactivationSetup } from "@/components/accounts/AutoDeactivationSetup";
 import { BaseFeesSetup } from "@/components/accounts/BaseFeesSetup";
+import { StartingBalanceSetup } from "@/components/accounts/StartingBalanceSetup";
 import { AddDetails } from "@/components/accounts/AddDetails";
 import { useUser } from "@/hooks/useUser";
 import { ACCOUNTS_ACCESS_PERMISSIONS } from "@/lib/branchFees";
@@ -31,7 +33,11 @@ export default function AccountsPage() {
   return (
     <div className="min-h-screen">
       <div className="w-full space-y-6">
-        {canViewFeeSection ? <BaseFeesSetup /> : null}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {canViewFeeSection ? <div className="lg:col-span-2"><BaseFeesSetup /></div> : null}
+          <StartingBalanceSetup />
+          <AutoDeactivationSetup />
+        </div>
 
         <AddDetails
           activeTab={activeTab}

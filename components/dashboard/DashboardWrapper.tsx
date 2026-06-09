@@ -4,7 +4,6 @@
 import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { BranchFeeSetupProvider } from "@/components/dashboard/BranchFeeSetupGuard";
-import DashboardHeader from "@/components/dashboard/Header/DashboardHeader";
 import Sidebar from "@/components/dashboard/Sidebar/Sidebar";
 import { getSidebarForRole } from "@/config/sidebarConfig";
 import { useUser } from "@/hooks/useUser";
@@ -12,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useAppDispatch } from "@/redux/hooks";
 import { logoutUser } from "@/redux/features/auth/authSlice";
 import { toast } from "sonner";
+import { Menu, X } from "lucide-react";
 
 export default function DashboardWrapper({
   children,
@@ -20,7 +20,7 @@ export default function DashboardWrapper({
 }) {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const { user, permissions, activeBranchId } = useUser();
+  const { user, activeBranchId } = useUser();
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -32,9 +32,9 @@ export default function DashboardWrapper({
       user.actorType === "owner" && (isOwnerModePath || !activeBranchId)
         ? "owner"
         : "branch";
-    const sections = getSidebarForRole(sidebarRole, permissions);
+    const sections = getSidebarForRole(sidebarRole);
     return sections.some((section) => section.items.length > 0);
-  }, [activeBranchId, pathname, permissions, user]);
+  }, [activeBranchId, pathname, user]);
 
   const handleSignOut = async () => {
     try {
@@ -70,11 +70,18 @@ export default function DashboardWrapper({
       <BranchFeeSetupProvider>
         <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
         <div className="md:pl-70">
-          <DashboardHeader
-            onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            isSidebarOpen={isSidebarOpen}
-          />
-          <main className="p-4 md:px-6 pt-24 md:pt-28 ">{children}</main>
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="fixed top-4 left-4 z-40 p-2 bg-white rounded-lg shadow-md border border-gray-200 md:hidden"
+            aria-label="Toggle menu"
+          >
+            {isSidebarOpen ? (
+              <X className="w-5 h-5 text-gray-700" />
+            ) : (
+              <Menu className="w-5 h-5 text-gray-700" />
+            )}
+          </button>
+          <main className="p-4 md:px-6">{children}</main>
         </div>
       </BranchFeeSetupProvider>
     </div>

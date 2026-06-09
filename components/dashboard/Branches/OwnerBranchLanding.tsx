@@ -259,7 +259,7 @@ export default function OwnerBranchLanding() {
 
           setDefaultBranchId(branch.id);
           setSelectedBranchId((currentValue) => currentValue || branch.id);
-          dispatch(setActiveBranchId(branch.id));
+          dispatch(setActiveBranchId({ id: branch.id, name: branch.branchName }));
           setDefaultLookupState("ready");
           return;
         } catch (error) {
@@ -335,7 +335,7 @@ export default function OwnerBranchLanding() {
         payload,
       }).unwrap();
 
-      dispatch(setActiveBranchId(newBranch.id));
+      dispatch(setActiveBranchId({ id: newBranch.id, name: newBranch.branchName }));
       setSelectedBranchId(newBranch.id);
       setIsCreateBranchModalOpen(false);
       setCreateForm({
@@ -356,7 +356,7 @@ export default function OwnerBranchLanding() {
       return;
     }
 
-    dispatch(setActiveBranchId(branch.id));
+    dispatch(setActiveBranchId({ id: branch.id, name: branch.branchName }));
     setSelectedBranchId(branch.id);
     router.push("/dashboard/branch-dashboard");
   };

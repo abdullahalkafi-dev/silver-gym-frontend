@@ -4,39 +4,25 @@ export type BranchFeeFieldKey = "monthly" | "admission";
 
 export type BranchFeeAccessState = {
   label: string;
-  addPermission: PermissionKey;
-  editPermission: PermissionKey;
   isConfigured: boolean;
   canAdd: boolean;
   canEdit: boolean;
   canManage: boolean;
-  requiredPermissionHint: string;
 };
 
 export const BRANCH_FEE_PERMISSION_KEYS: Record<
   BranchFeeFieldKey,
-  { add: PermissionKey; edit: PermissionKey; label: string }
+  { label: string }
 > = {
   monthly: {
-    add: "monthly-fee:add",
-    edit: "monthly-fee:edit",
     label: "Monthly fee",
   },
   admission: {
-    add: "admission-fee:add",
-    edit: "admission-fee:edit",
     label: "Admission fee",
   },
 };
 
-export const ACCOUNTS_ACCESS_PERMISSIONS: PermissionKey[] = [
-  "billing:view",
-  "package:view",
-  "monthly-fee:add",
-  "monthly-fee:edit",
-  "admission-fee:add",
-  "admission-fee:edit",
-];
+export const ACCOUNTS_ACCESS_PERMISSIONS: PermissionKey[] = [];
 
 export const parseBranchFeeInput = (value: string, label: string) => {
   if (value.trim() === "") {
@@ -60,27 +46,17 @@ export const getBranchFeeAccessState = (
   currentValue: number | null | undefined,
   options: {
     isOwner: boolean;
-    hasPermission: (permission: PermissionKey) => boolean;
   },
 ): BranchFeeAccessState => {
   const meta = BRANCH_FEE_PERMISSION_KEYS[field];
   const isConfigured = typeof currentValue === "number";
-  const canAdd = options.isOwner || options.hasPermission(meta.add);
-  const canEdit = options.isOwner || options.hasPermission(meta.edit);
-  const canManage = isConfigured ? canEdit : canAdd;
-  const requiredPermissionHint = isConfigured
-    ? `${meta.label} edit permission is required to change this value.`
-    : `${meta.label} add permission is required to set this value.`;
 
   return {
     label: meta.label,
-    addPermission: meta.add,
-    editPermission: meta.edit,
     isConfigured,
-    canAdd,
-    canEdit,
-    canManage,
-    requiredPermissionHint,
+    canAdd: true,
+    canEdit: true,
+    canManage: true,
   };
 };
 

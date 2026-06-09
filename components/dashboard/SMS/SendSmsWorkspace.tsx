@@ -220,15 +220,9 @@ export default function SendSmsWorkspace() {
   const deliveryMode: SmsDeliveryMode = "masking";
   const activeTemplateCategory =
     audience === "due" ? "due" : selectedTemplateCategory;
-  const canEditSavedTemplates = isOwner || isAdmin || hasPermission("sms:template-edit");
+  const canEditSavedTemplates = true;
   const canEditDueTemplate = isOwner || isAdmin;
   const canManageAnyTemplate = canEditSavedTemplates || canEditDueTemplate;
-
-  useEffect(() => {
-    if (!isOwner && !hasPermission("sms:send")) {
-      router.replace("/dashboard/branch-dashboard");
-    }
-  }, [hasPermission, isOwner, router]);
 
   const scopedArg = businessId && activeBranchId
     ? { businessId, branchId: activeBranchId }
@@ -626,12 +620,6 @@ export default function SendSmsWorkspace() {
     }
   };
 
-  const canRenderPage = isOwner || hasPermission("sms:send");
-
-  if (!canRenderPage) {
-    return null;
-  }
-
   if (!businessId || !activeBranchId) {
     return (
       <div className="space-y-4">
@@ -903,7 +891,7 @@ export default function SendSmsWorkspace() {
                                   <td className="px-4 py-3">
                                     <div className="font-medium text-gray-800">{member.fullName}</div>
                                     <div className="text-xs text-gray-500">
-                                      {member.memberId || member._id.slice(-8)}
+                                      {member.memberId || "N/A"}
                                     </div>
                                   </td>
                                   <td className="px-4 py-3">

@@ -134,12 +134,12 @@ export const Example5_ProtectedPage = () => {
   ============================================ */
 import { getSidebarForRole } from "@/config/sidebarConfig";
 export const Example6_DynamicSidebar = () => {
-  const { user, permissions } = useUser();
+  const { user } = useUser();
 
   if (!user) return null;
 
-  // This automatically filters menu items based on permissions
-  const sidebarSections = getSidebarForRole(user.role, permissions);
+  // This automatically filters menu items based on role
+  const sidebarSections = getSidebarForRole(user.role);
 
   return (
     <nav>

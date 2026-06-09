@@ -4,7 +4,7 @@ export type MemberStatus = "Active" | "Inactive";
 export type PaymentStatus = "Complete" | "Due";
 export type SMSDeliveryMethod = "email" | "phone" | "both";
 export type MemberListStatusFilter = "all" | "active" | "inactive";
-export type MemberListPaymentFilter = "all" | "due" | "complete";
+export type MemberListPaymentFilter = "all" | "due" | "complete" | "monthly_due" | "admission_due";
 export type MemberPaymentQueryStatus = Exclude<MemberListPaymentFilter, "all">;
 export type MemberListBillingFilter = "all" | "custom" | "system";
 export type MemberBillingQueryPlan = Exclude<MemberListBillingFilter, "all">;
@@ -200,6 +200,7 @@ export interface BackendMember {
   customMonthlyFeeAmount?: number;
   paidMonths?: number;
   currentDueAmount?: number;
+  primaryDueType?: "monthly_due" | "admission_due" | "due";
   source?: string;
   importBatchId?: string;
   createdAt?: string;

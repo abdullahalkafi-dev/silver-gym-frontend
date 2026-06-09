@@ -67,9 +67,9 @@ export const PackageTab = () => {
   const [editingPackage, setEditingPackage] = useState<GymPackage | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const canCreatePackage = isOwner || hasPermission("package:create");
-  const canEditPackage = isOwner || hasPermission("package:edit");
-  const canDeletePackage = isOwner || hasPermission("package:delete");
+  const canCreatePackage = true;
+  const canEditPackage = isOwner || hasPermission("canManagePackages");
+  const canDeletePackage = isOwner || hasPermission("canManagePackages");
   const showArchivedPackages = packageView === "archived";
 
   const packageQueryArg = activeBranchId

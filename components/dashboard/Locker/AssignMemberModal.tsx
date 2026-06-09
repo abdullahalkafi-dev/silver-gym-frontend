@@ -29,9 +29,9 @@ export const AssignMemberModal = ({
   );
   const [months, setMonths] = useState(1);
   const [useSystemPrice, setUseSystemPrice] = useState(true);
-  const [customAmount, setCustomAmount] = useState(0);
+  const [customAmount, setCustomAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [discount, setDiscount] = useState(0);
+  const [discount, setDiscount] = useState<string>("");
 
   const [assignMember, { isLoading }] = useAssignMemberMutation();
 
@@ -62,16 +62,16 @@ export const AssignMemberModal = ({
       setSelectedMember(null);
       setMonths(1);
       setUseSystemPrice(true);
-      setCustomAmount(0);
+      setCustomAmount("");
       setPaymentMethod("cash");
-      setDiscount(0);
+      setDiscount("");
     }
   }, [isOpen]);
 
   if (!isOpen || !locker) return null;
 
-  const paymentAmount = useSystemPrice ? effectivePrice : customAmount;
-  const totalDue = Math.max(0, paymentAmount * months - discount);
+  const paymentAmount = useSystemPrice ? effectivePrice : (Number(customAmount) || 0);
+  const totalDue = Math.max(0, paymentAmount * months - (Number(discount) || 0));
   const paidAmount = totalDue;
 
   const handleAssign = async () => {
@@ -93,7 +93,7 @@ export const AssignMemberModal = ({
           months,
           paymentAmount,
           paymentMethod,
-          discount,
+          discount: Number(discount) || 0,
         },
       }).unwrap();
       toast.success(
@@ -253,7 +253,7 @@ export const AssignMemberModal = ({
                 type="number"
                 min={0}
                 value={customAmount}
-                onChange={(e) => setCustomAmount(Number(e.target.value))}
+                onChange={(e) => setCustomAmount(e.target.value)}
                 className="input-primary w-full"
                 placeholder="Enter custom amount"
               />
@@ -290,7 +290,7 @@ export const AssignMemberModal = ({
             type="number"
             min={0}
             value={discount}
-            onChange={(e) => setDiscount(Number(e.target.value))}
+            onChange={(e) => setDiscount(e.target.value)}
             className="input-primary w-full"
             placeholder="0"
           />
@@ -310,10 +310,10 @@ export const AssignMemberModal = ({
             <span className="text-text-secondary">Subtotal</span>
             <span className="font-medium">৳{paymentAmount * months}</span>
           </div>
-          {discount > 0 && (
+          {Number(discount) > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-text-secondary">Discount</span>
-              <span className="font-medium text-green-600">-৳{discount}</span>
+              <span className="font-medium text-green-600">-৳{Number(discount)}</span>
             </div>
           )}
           <div className="border-t border-gray-200 pt-2 flex justify-between text-sm font-bold">

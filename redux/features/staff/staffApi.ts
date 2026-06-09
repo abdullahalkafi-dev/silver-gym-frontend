@@ -21,48 +21,12 @@ type RawRole = Partial<RolePermissions> & {
 };
 
 type RawStaffPermissionTree = {
-  members?: {
-    canView?: boolean;
-    canAdd?: boolean;
-    canEdit?: boolean;
-    canDelete?: boolean;
-  };
-  packages?: {
-    canView?: boolean;
-    canAdd?: boolean;
-    canEdit?: boolean;
-    canDelete?: boolean;
-  };
-  billing?: {
-    canView?: boolean;
-    canAdd?: boolean;
-    canEdit?: boolean;
-    canDelete?: boolean;
-  };
-  fees?: {
-    monthly?: {
-      canAdd?: boolean;
-      canEdit?: boolean;
-    };
-    admission?: {
-      canAdd?: boolean;
-      canEdit?: boolean;
-    };
-  };
-  analytics?: {
-    canView?: boolean;
-    canExport?: boolean;
-  };
-  communications?: {
-    sms?: {
-      canView?: boolean;
-      canSend?: boolean;
-    };
-    email?: {
-      canView?: boolean;
-      canSend?: boolean;
-    };
-  };
+  canManageMembers?: boolean;
+  canManagePackages?: boolean;
+  canManagePayments?: boolean;
+  canManageBilling?: boolean;
+  canManageExpenses?: boolean;
+  canManageLockers?: boolean;
 };
 
 type RawStaffRolePermissions = {
@@ -102,28 +66,12 @@ const normalizePermissionsFromTree = (
   tree?: RawStaffPermissionTree,
 ): RolePermissions => {
   return normalizeRolePermissions({
-    canViewMembers: tree?.members?.canView,
-    canAddMember: tree?.members?.canAdd,
-    canEditMember: tree?.members?.canEdit,
-    canDeleteMember: tree?.members?.canDelete,
-    canViewPackages: tree?.packages?.canView,
-    canAddPackage: tree?.packages?.canAdd,
-    canEditPackage: tree?.packages?.canEdit,
-    canDeletePackage: tree?.packages?.canDelete,
-    canViewBilling: tree?.billing?.canView,
-    canAddBilling: tree?.billing?.canAdd,
-    canEditBilling: tree?.billing?.canEdit,
-    canDeleteBilling: tree?.billing?.canDelete,
-    canAddMonthlyFee: tree?.fees?.monthly?.canAdd,
-    canEditMonthlyFee: tree?.fees?.monthly?.canEdit,
-    canAddAdmissionFee: tree?.fees?.admission?.canAdd,
-    canEditAdmissionFee: tree?.fees?.admission?.canEdit,
-    canViewAnalytics: tree?.analytics?.canView,
-    canExportAnalytics: tree?.analytics?.canExport,
-    canViewSMS: tree?.communications?.sms?.canView,
-    canSendSMS: tree?.communications?.sms?.canSend,
-    canViewEmail: tree?.communications?.email?.canView,
-    canSendEmail: tree?.communications?.email?.canSend,
+    canManageMembers: tree?.canManageMembers,
+    canManagePackages: tree?.canManagePackages,
+    canManagePayments: tree?.canManagePayments,
+    canManageBilling: tree?.canManageBilling,
+    canManageExpenses: tree?.canManageExpenses,
+    canManageLockers: tree?.canManageLockers,
   });
 };
 

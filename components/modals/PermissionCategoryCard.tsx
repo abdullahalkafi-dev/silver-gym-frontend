@@ -25,19 +25,9 @@ const PermissionCategoryCard: React.FC<PermissionCategoryCardProps> = ({
   };
 
   const togglePermission = (permissionId: string) => {
-    let updatedPermissions = category.permissions.map((p) =>
+    const updatedPermissions = category.permissions.map((p) =>
       p.id === permissionId ? { ...p, enabled: !p.enabled } : p
     );
-
-    // Apply specific constraint
-    if (permissionId === "canAddExpense") {
-      const addExpenseEnabled = updatedPermissions.find((p) => p.id === "canAddExpense")?.enabled;
-      if (addExpenseEnabled) {
-        updatedPermissions = updatedPermissions.map((p) =>
-          p.id === "canViewExpenseCategory" ? { ...p, enabled: true } : p
-        );
-      }
-    }
 
     const allEnabled = updatedPermissions.every((p) => p.enabled);
 
@@ -65,9 +55,12 @@ const PermissionCategoryCard: React.FC<PermissionCategoryCardProps> = ({
         {category.permissions.map((permission) => (
           <div
             key={permission.id}
-            className="flex items-center justify-between"
+            className="flex items-center justify-between gap-3"
           >
-            <span className="text-sm text-gray-600">{permission.label}</span>
+            <div className="flex-1">
+              <span className="text-sm text-gray-600 block">{permission.label}</span>
+              <span className="text-xs text-gray-400 block">{permission.description}</span>
+            </div>
             <PermissionToggle
               checked={permission.enabled}
               onToggle={() => togglePermission(permission.id)}

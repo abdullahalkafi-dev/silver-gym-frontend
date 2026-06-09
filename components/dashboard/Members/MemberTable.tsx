@@ -208,13 +208,23 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
                     {/* Payment Status */}
                     <td className="px-6 py-4 text-sm">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                           hasDue
-                            ? "bg-red-100 text-red-600"
+                            ? member.primaryDueType === "monthly_due"
+                              ? "bg-orange-100 text-orange-600"
+                              : member.primaryDueType === "admission_due"
+                                ? "bg-blue-100 text-blue-600"
+                                : "bg-red-100 text-red-600"
                             : "bg-green-100 text-green-600"
                         }`}
                       >
-                        {hasDue ? "Due" : "Complete"}
+                        {hasDue
+                          ? member.primaryDueType === "monthly_due"
+                            ? "Monthly Due"
+                            : member.primaryDueType === "admission_due"
+                              ? "Admission Due"
+                              : "Due"
+                          : "Complete"}
                       </span>
                     </td>
 

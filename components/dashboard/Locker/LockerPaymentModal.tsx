@@ -24,10 +24,10 @@ export const LockerPaymentModal = ({
 }: LockerPaymentModalProps) => {
   const [months, setMonths] = useState(1);
   const [useSystemPrice, setUseSystemPrice] = useState(true);
-  const [customAmount, setCustomAmount] = useState(0);
+  const [customAmount, setCustomAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [discount, setDiscount] = useState(0);
-  const [paidAmount, setPaidAmount] = useState(0);
+  const [discount, setDiscount] = useState<string>("");
+  const [paidAmount, setPaidAmount] = useState<string>("");
   const [autoFillPaid, setAutoFillPaid] = useState(true);
 
   const [collectPayment, { isLoading }] = useCollectLockerPaymentMutation();
@@ -44,28 +44,29 @@ export const LockerPaymentModal = ({
     if (isOpen) {
       setMonths(1);
       setUseSystemPrice(true);
-      setCustomAmount(0);
+      setCustomAmount("");
       setPaymentMethod("cash");
-      setDiscount(0);
+      setDiscount("");
+      setPaidAmount("");
       setAutoFillPaid(true);
     }
   }, [isOpen]);
 
-  const paymentAmount = useSystemPrice ? effectivePrice : customAmount;
+  const paymentAmount = useSystemPrice ? effectivePrice : (Number(customAmount) || 0);
   const subTotal = paymentAmount * months;
-  const totalDue = Math.max(0, subTotal - discount);
-  const exchange = Math.max(0, paidAmount - totalDue);
+  const totalDue = Math.max(0, subTotal - (Number(discount) || 0));
+  const exchange = Math.max(0, (Number(paidAmount) || 0) - totalDue);
 
   useEffect(() => {
     if (autoFillPaid) {
-      setPaidAmount(totalDue);
+      setPaidAmount(String(totalDue));
     }
   }, [totalDue, autoFillPaid]);
 
   if (!isOpen || !locker) return null;
 
   const handleSave = async (print: boolean = false) => {
-    if (!paidAmount || paidAmount <= 0) {
+    if (!paidAmount || Number(paidAmount) <= 0) {
       toast.error("Please enter a valid paid amount");
       return;
     }
@@ -76,9 +77,9 @@ export const LockerPaymentModal = ({
         lockerId: locker.id,
         payload: {
           months,
-          paymentAmount: useSystemPrice ? undefined : customAmount,
+          paymentAmount: useSystemPrice ? undefined : (Number(customAmount) || 0),
           paymentMethod,
-          discount,
+          discount: Number(discount) || 0,
         },
       }).unwrap();
 
@@ -92,9 +93,9 @@ export const LockerPaymentModal = ({
           months,
           amountPerMonth: paymentAmount,
           subTotal,
-          discount,
+          discount: Number(discount) || 0,
           totalDue,
-          paidAmount,
+          paidAmount: Number(paidAmount) || 0,
           exchange,
           paymentMethod,
           periodStart: result.payment.periodStart,
@@ -169,7 +170,7 @@ export const LockerPaymentModal = ({
                 min={0}
                 value={customAmount}
                 onChange={(e) => {
-                  setCustomAmount(Number(e.target.value));
+                  setCustomAmount(e.target.value);
                   setAutoFillPaid(true);
                 }}
                 className="input-primary w-full"
@@ -209,7 +210,7 @@ export const LockerPaymentModal = ({
             min={0}
             value={discount}
             onChange={(e) => {
-              setDiscount(Number(e.target.value));
+              setDiscount(e.target.value);
               setAutoFillPaid(true);
             }}
             className="input-primary w-full"
@@ -231,10 +232,10 @@ export const LockerPaymentModal = ({
             <span className="text-text-secondary">Subtotal</span>
             <span className="font-medium">৳{subTotal}</span>
           </div>
-          {discount > 0 && (
+          {Number(discount) > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-text-secondary">Discount</span>
-              <span className="font-medium text-green-600">-৳{discount}</span>
+              <span className="font-medium text-green-600">-৳{Number(discount)}</span>
             </div>
           )}
           <div className="border-t border-gray-200 pt-2 flex justify-between text-sm font-bold">
@@ -253,7 +254,7 @@ export const LockerPaymentModal = ({
             min={0}
             value={paidAmount}
             onChange={(e) => {
-              setPaidAmount(Number(e.target.value));
+              setPaidAmount(e.target.value);
               setAutoFillPaid(false);
             }}
             className="input-primary w-full"

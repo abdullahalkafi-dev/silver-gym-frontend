@@ -32,6 +32,7 @@ interface EditMemberModalProps {
 
 type FormState = {
   memberId: string;
+  contact: string;
   fullName: string;
   email: string;
   dateOfBirth: string;
@@ -77,6 +78,7 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
   const [form, setForm] = useState<FormState>({
     memberId: "",
+    contact: "",
     fullName: "",
     email: "",
     dateOfBirth: "",
@@ -103,6 +105,7 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
       startTransition(() => {
         setForm({
           memberId: member.memberId || "",
+          contact: member.contact || "",
           fullName: member.fullName || "",
           email: member.email || "",
           dateOfBirth: member.dateOfBirth
@@ -311,6 +314,7 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
     const trimmedAddress = form.address.trim();
 
     const payload = {
+      contact: form.contact.trim() || undefined,
       memberId: trimmedMemberId || undefined,
       fullName: trimmedFullName,
       email: trimmedEmail || undefined,
@@ -340,8 +344,12 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
       }).unwrap();
       toast.success("Member updated successfully");
       onClose();
-    } catch {
-      toast.error("Failed to update member. Please try again.");
+    } catch (err: any) {
+      const message =
+        err?.data?.errorSources?.[0]?.message ||
+        err?.data?.message ||
+        "Failed to update member. Please try again.";
+      toast.error(message);
     }
   };
 
@@ -426,7 +434,7 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
             <div className="ml-auto text-sm text-gray-500">
               ID:{" "}
               <span className="font-mono font-medium text-gray-700">
-                {member.memberId || member._id.slice(-8).toUpperCase()}
+                {member.memberId || "N/A"}
               </span>
             </div>
           </div>
@@ -437,7 +445,7 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
 
         {/* Form Body */}
         <div className="px-6 py-4 space-y-4">
-          {/* Row 0: Member ID + Phone (read-only) */}
+          {/* Row 0: Member ID + Phone */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Member ID</label>
@@ -451,9 +459,13 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
             </div>
             <div>
               <label className={labelCls}>Phone Number</label>
-              <div className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700">
-                {member.contact || "—"}
-              </div>
+              <input
+                name="contact"
+                value={form.contact}
+                onChange={handleChange}
+                placeholder="e.g. 01XXXXXXXXX"
+                className={getInputCls()}
+              />
             </div>
           </div>
 

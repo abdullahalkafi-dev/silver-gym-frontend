@@ -18,9 +18,10 @@ const normalizeLocker = (raw: RawLocker): Locker => ({
   lockerNumber: Number(raw.lockerNumber || 0),
   status: (raw.status as Locker["status"]) || "available",
   isCustomPrice: Boolean(raw.isCustomPrice),
-  customPrice: Number(raw.customPrice || 0),
+  customPrice: raw.customPrice != null ? Number(raw.customPrice) : 0,
   assignedMemberId: (raw.assignedMemberId as string) || null,
   assignedMemberName: (raw.assignedMemberName as string) || null,
+  assignedMemberCode: (raw.assignedMemberCode as string) || null,
   assignedAt: (raw.assignedAt as string) || null,
   nextBillingDate: (raw.nextBillingDate as string) || null,
   isDeleted: Boolean(raw.isDeleted),
@@ -163,6 +164,7 @@ export const lockerApi = baseApi.injectEndpoints({
         normalizeLocker(response.data),
       invalidatesTags: (_result, _error, { branchId, lockerId }) => [
         { type: "Locker", id: `LIST-${branchId}` },
+        { type: "Locker", id: `STATS-${branchId}` },
         { type: "Locker", id: lockerId },
       ],
     }),
@@ -176,6 +178,7 @@ export const lockerApi = baseApi.injectEndpoints({
         normalizeLocker(response.data),
       invalidatesTags: (_result, _error, { branchId, lockerId }) => [
         { type: "Locker", id: `LIST-${branchId}` },
+        { type: "Locker", id: `STATS-${branchId}` },
         { type: "Locker", id: lockerId },
       ],
     }),
@@ -195,9 +198,10 @@ export const lockerApi = baseApi.injectEndpoints({
         locker: normalizeLocker(response.data.locker),
         payment: normalizePayment(response.data.payment),
       }),
-      invalidatesTags: (_result, _error, { branchId }) => [
+      invalidatesTags: (_result, _error, { branchId, lockerId }) => [
         { type: "Locker", id: `LIST-${branchId}` },
         { type: "Locker", id: `STATS-${branchId}` },
+        { type: "Locker", id: lockerId },
         { type: "Payment" },
         { type: "Transaction" },
       ],
@@ -218,9 +222,10 @@ export const lockerApi = baseApi.injectEndpoints({
         locker: normalizeLocker(response.data.locker),
         payment: normalizePayment(response.data.payment),
       }),
-      invalidatesTags: (_result, _error, { branchId }) => [
+      invalidatesTags: (_result, _error, { branchId, lockerId }) => [
         { type: "Locker", id: `LIST-${branchId}` },
         { type: "Locker", id: `STATS-${branchId}` },
+        { type: "Locker", id: lockerId },
         { type: "Payment" },
         { type: "Transaction" },
       ],
@@ -233,9 +238,10 @@ export const lockerApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: { data: RawLocker }) =>
         normalizeLocker(response.data),
-      invalidatesTags: (_result, _error, { branchId }) => [
+      invalidatesTags: (_result, _error, { branchId, lockerId }) => [
         { type: "Locker", id: `LIST-${branchId}` },
         { type: "Locker", id: `STATS-${branchId}` },
+        { type: "Locker", id: lockerId },
       ],
     }),
 

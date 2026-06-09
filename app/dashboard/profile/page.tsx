@@ -4,18 +4,20 @@
 import { useState } from "react";
 import MyProfile from "@/components/dashboard/Profile/MyProfile";
 import BusinessProfile from "@/components/dashboard/Profile/BusinessProfile";
+import MyPermissions from "@/components/dashboard/Profile/MyPermissions";
+import { useUser } from "@/hooks/useUser";
 import { cn } from "@/lib/utils";
 
-type TabType = "my-profile" | "business-profile" | "subscription" | "invoice";
+type TabType = "my-profile" | "business-profile" | "my-permissions";
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<TabType>("my-profile");
+  const { isOwner } = useUser();
 
   const tabs = [
     { id: "my-profile", label: "My Profile" },
-    { id: "business-profile", label: "Business Profile" },
-    { id: "subscription", label: "Subscription" },
-    { id: "invoice", label: "Invoice Details" },
+    ...(isOwner ? [{ id: "business-profile", label: "Business Profile" }] : []),
+    { id: "my-permissions", label: "My Permissions" },
   ];
 
   return (
@@ -57,15 +59,7 @@ export default function ProfilePage() {
 
           {activeTab === "business-profile" && <BusinessProfile />}
 
-          {(activeTab === "subscription" || activeTab === "invoice") && (
-            <div className="bg-white rounded-2xl p-12 text-center border border-gray-100 mb-5">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🚧</span>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Coming Soon</h3>
-              <p className="text-gray-500">This section is currently under development.</p>
-            </div>
-            )}
+          {activeTab === "my-permissions" && <MyPermissions />}
           </div>
         </div>
       </div>

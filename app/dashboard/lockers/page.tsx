@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/useUser";
 import {
   useGetLockersQuery,
@@ -19,8 +18,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Locker01Icon } from "@hugeicons/core-free-icons";
 
 export default function LockersPage() {
-  const router = useRouter();
-  const { isOwner, hasPermission, activeBranchId } = useUser();
+  const { activeBranchId } = useUser();
 
   const [statusFilter, setStatusFilter] = useState<LockerStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,16 +60,6 @@ export default function LockersPage() {
   );
 
   const systemPrice = lockerFee?.lockerFeeAmount || 0;
-
-  useEffect(() => {
-    if (!isOwner && !hasPermission("locker:view")) {
-      router.replace("/dashboard/branch-dashboard");
-    }
-  }, [isOwner, hasPermission, router]);
-
-  if (!isOwner && !hasPermission("locker:view")) {
-    return null;
-  }
 
   if (!activeBranchId) {
     return (
@@ -172,7 +160,7 @@ export default function LockersPage() {
           <div className="relative flex-1">
             <input
               type="text"
-              placeholder="Search by locker number..."
+              placeholder="Search by locker number, member name, or ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="input-primary w-full pl-10"
@@ -206,18 +194,45 @@ export default function LockersPage() {
 
       {/* Content */}
       {isLoading || isFetching ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-xl p-4 border border-gray-200 animate-pulse"
-            >
-              <div className="h-6 bg-gray-200 rounded w-16 mb-3" />
-              <div className="h-4 bg-gray-200 rounded w-12 mb-2" />
-              <div className="h-4 bg-gray-200 rounded w-20" />
+        <>
+          {/* Desktop skeleton: table */}
+          <div className="hidden lg:block overflow-x-auto rounded-xl bg-white border border-gray-200">
+            <div className="animate-pulse">
+              <div className="h-12 bg-gray-100 border-b border-gray-200" />
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-14 border-b border-gray-100 flex items-center px-4 gap-4"
+                >
+                  <div className="h-4 bg-gray-200 rounded w-10" />
+                  <div className="h-4 bg-gray-200 rounded w-14" />
+                  <div className="h-4 bg-gray-200 rounded w-24" />
+                  <div className="h-4 bg-gray-200 rounded w-16" />
+                  <div className="h-4 bg-gray-200 rounded w-20" />
+                  <div className="h-5 bg-gray-200 rounded-full w-20" />
+                  <div className="flex gap-1.5 ml-auto">
+                    <div className="h-7 bg-gray-200 rounded w-14" />
+                    <div className="h-7 bg-gray-200 rounded w-14" />
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+
+          {/* Mobile skeleton: cards */}
+          <div className="lg:hidden grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-xl p-4 border border-gray-200 animate-pulse"
+              >
+                <div className="h-6 bg-gray-200 rounded w-16 mb-3" />
+                <div className="h-4 bg-gray-200 rounded w-12 mb-2" />
+                <div className="h-4 bg-gray-200 rounded w-20" />
+              </div>
+            ))}
+          </div>
+        </>
       ) : !stats?.total ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <HugeiconsIcon
@@ -259,6 +274,9 @@ export default function LockersPage() {
           lockers={lockers}
           systemPrice={systemPrice}
           onLockerClick={handleLockerClick}
+          onAssignMember={handleAssignMember}
+          onCollectPayment={handleCollectPayment}
+          onEditPrice={handleEditPrice}
         />
       )}
 
@@ -277,6 +295,7 @@ export default function LockersPage() {
         }}
         branchId={activeBranchId || ""}
         locker={selectedLocker}
+        systemPrice={systemPrice}
       />
 
       <AssignMemberModal

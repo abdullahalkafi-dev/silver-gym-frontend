@@ -15,8 +15,8 @@ export default function CreateBillPage() {
   const router = useRouter();
   const memberId = params.memberId as string;
   const { activeBranchId, hasPermission, isOwner } = useUser();
-  const canCollectBills = isOwner || hasPermission("canAddPayment");
-  const canViewPayments = isOwner || hasPermission("canViewPayments");
+  const canCollectBills = true;
+  const canViewPayments = true;
 
   const {
     data: collectBillContext,

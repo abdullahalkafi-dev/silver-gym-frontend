@@ -25,8 +25,8 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useUser();
-  const permissions = useAppSelector((state) => state.auth.permissions);
   const activeBranchId = useAppSelector((state) => state.auth.activeBranchId);
+  const activeBranchName = useAppSelector((state) => state.auth.activeBranchName);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showProfilePreview, setShowProfilePreview] = useState(false);
 
@@ -40,7 +40,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     user.actorType === "owner" && (isOwnerModePath || !activeBranchId)
       ? "owner"
       : "branch";
-  const sidebarSections = getSidebarForRole(sidebarRole, permissions);
+  const sidebarSections = getSidebarForRole(sidebarRole);
 
   const handleNavClick = () => {
     setIsOpen(false);
@@ -84,6 +84,13 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
             <Image src="/silver-gym.png" alt="Logo" width={200} height={200} />
           </div>
         </div>
+        {user.actorType === "owner" && sidebarRole === "branch" && activeBranchName && (
+          <div className="px-6 pb-2 text-center">
+            <span className="text-xl font-bold text-black italic">
+              {activeBranchName}
+            </span>
+          </div>
+        )}
 
         <nav className="flex-1 overflow-y-auto py-6 px-4">
           {/* Back to Branches button — shown when owner is inside a specific branch */}
@@ -91,7 +98,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
             <button
               type="button"
               onClick={() => {
-                dispatch(setActiveBranchId(null));
+                dispatch(setActiveBranchId({ id: null, name: null }));
                 router.push("/dashboard");
                 setIsOpen(false);
               }}

@@ -14,6 +14,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   role: null,
   activeBranchId: null,
+  activeBranchName: null,
   isLoading: false,
   error: null,
   permissions: [],
@@ -252,6 +253,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.role = null;
       state.activeBranchId = null;
+      state.activeBranchName = null;
       state.permissions = [];
       state.customRoleId = undefined;
       state.error = null;
@@ -263,15 +265,38 @@ const authSlice = createSlice({
       cookieUtils.setAccessToken(action.payload, true);
     },
 
-    setActiveBranchId: (state, action: PayloadAction<string | null>) => {
-      state.activeBranchId = action.payload;
-      if (action.payload) {
+    setActiveBranchId: (
+      state,
+      action: PayloadAction<{ id: string | null; name?: string | null } | string | null>
+    ) => {
+      const payload = action.payload;
+      let id: string | null;
+      let name: string | null = null;
+
+      if (payload === null || typeof payload === "string") {
+        id = typeof payload === "string" ? payload : null;
+      } else {
+        id = payload.id;
+        name = payload.name ?? null;
+      }
+
+      state.activeBranchId = id;
+      state.activeBranchName = name;
+
+      if (id) {
         cookieUtils.setActiveBranchId(
-          action.payload,
+          id,
           Boolean(state.user?.rememberMe)
         );
+        if (name) {
+          cookieUtils.setActiveBranchName(
+            name,
+            Boolean(state.user?.rememberMe)
+          );
+        }
       } else {
         cookieUtils.deleteActiveBranchId();
+        cookieUtils.deleteActiveBranchName();
       }
     },
 
@@ -292,6 +317,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.role = null;
         state.activeBranchId = null;
+        state.activeBranchName = null;
         state.permissions = [];
         state.customRoleId = undefined;
         state.error = null;
@@ -316,6 +342,10 @@ const authSlice = createSlice({
           action.payload.user.branchId ||
           cookieUtils.getActiveBranchId() ||
           null;
+        state.activeBranchName =
+          action.payload.user.branchId
+            ? null
+            : cookieUtils.getActiveBranchName() || null;
         state.permissions = action.payload.user.permissions || [];
         state.customRoleId = action.payload.user.customRoleId;
         state.error = null;
@@ -328,6 +358,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.role = null;
         state.activeBranchId = null;
+        state.activeBranchName = null;
         state.permissions = [];
         state.customRoleId = undefined;
         state.error = (action.payload as string) || "Authentication failed";

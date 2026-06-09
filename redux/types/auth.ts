@@ -26,6 +26,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   role: string | null;
   activeBranchId: string | null;
+  activeBranchName: string | null;
   isLoading: boolean;
   error: string | null;
   permissions: string[];

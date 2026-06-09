@@ -13,8 +13,8 @@ import { ACCOUNTS_ACCESS_PERMISSIONS } from "@/lib/branchFees";
 export default function AccountsPage() {
   const router = useRouter();
   const { isOwner, hasPermission, hasAnyPermission } = useUser();
-  const canViewPackageSection = isOwner || hasPermission("package:view");
-  const canViewBillingSection = isOwner || hasPermission("billing:view");
+  const canViewPackageSection = true;
+  const canViewBillingSection = true;
   const canViewFeeSection = isOwner || hasAnyPermission(ACCOUNTS_ACCESS_PERMISSIONS);
   const canAccessAccounts =
     isOwner || hasAnyPermission(ACCOUNTS_ACCESS_PERMISSIONS);

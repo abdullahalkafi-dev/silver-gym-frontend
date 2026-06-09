@@ -14,6 +14,7 @@ interface LockerPricingModalProps {
   onClose: () => void;
   branchId: string;
   locker?: Locker | null;
+  systemPrice: number;
 }
 
 export const LockerPricingModal = ({
@@ -21,8 +22,9 @@ export const LockerPricingModal = ({
   onClose,
   branchId,
   locker,
+  systemPrice,
 }: LockerPricingModalProps) => {
-  const [price, setPrice] = useState<number>(200);
+  const [price, setPrice] = useState<number>(systemPrice || 200);
   const isCustomMode = !!locker;
 
   const [setBranchPrice, { isLoading: isSettingBranch }] =
@@ -34,11 +36,11 @@ export const LockerPricingModal = ({
 
   useEffect(() => {
     if (locker) {
-      setPrice(locker.isCustomPrice ? locker.customPrice : 200);
+      setPrice(locker.isCustomPrice ? locker.customPrice : systemPrice || 200);
     } else {
-      setPrice(200);
+      setPrice(systemPrice || 200);
     }
-  }, [locker, isOpen]);
+  }, [locker, isOpen, systemPrice]);
 
   if (!isOpen) return null;
 

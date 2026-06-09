@@ -92,7 +92,7 @@ const CreateCustomRoleModal: React.FC<CreateCustomRoleModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:min-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full md:min-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Manage Role Permissions</DialogTitle>
           <p className="text-sm text-gray-500">

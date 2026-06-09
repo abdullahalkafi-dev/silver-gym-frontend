@@ -26,7 +26,12 @@ import { DurationCalendar } from "@/components/dashboard/Members/DurationCalenda
 import { useBranchFeeSetupGuard } from "@/components/dashboard/BranchFeeSetupGuard";
 import { useUser } from "@/hooks/useUser";
 import { useCreateMemberMutation } from "@/redux/features/member/memberApi";
-import { useGetBranchPackagesQuery } from "@/redux/features/package/packageApi";
+import {
+  useGetBranchPackagesQuery,
+  useCreateBranchPackageMutation,
+} from "@/redux/features/package/packageApi";
+import { PackageModal } from "@/components/accounts/modals/PackageModal";
+import type { PackageFormPayload } from "@/types/package";
 import {
   useGetBranchAdmissionFeeQuery,
   useGetBranchMonthlyFeeQuery,
@@ -206,6 +211,8 @@ export default function AddMemberPage() {
   );
 
   const [createMember, { isLoading: isCreating }] = useCreateMemberMutation();
+  const [createBranchPackage, { isLoading: isCreatingPackage }] =
+    useCreateBranchPackageMutation();
 
   const { data: businessProfile } = useGetBusinessProfileQuery();
 
@@ -216,6 +223,26 @@ export default function AddMemberPage() {
     );
 
   const packages = useMemo(() => packagesData?.data || [], [packagesData?.data]);
+
+  const [showPackageModal, setShowPackageModal] = useState(false);
+
+  const handleCreatePackage = async (payload: PackageFormPayload) => {
+    if (!activeBranchId) {
+      toast.error("Select a branch before creating a package");
+      return;
+    }
+    try {
+      await createBranchPackage({
+        branchId: activeBranchId,
+        payload,
+      }).unwrap();
+      toast.success("Package created successfully");
+      setShowPackageModal(false);
+    } catch (error: unknown) {
+      const err = error as { data?: { message?: string } };
+      toast.error(err?.data?.message || "Failed to create package");
+    }
+  };
 
   // ── Profile photo ──
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1061,8 +1088,17 @@ export default function AddMemberPage() {
                         Loading packages...
                       </div>
                     ) : packages.length === 0 ? (
-                      <div className="text-sm text-amber-600 py-2">
-                        No active packages found. Create a package first.
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                        <p className="text-sm text-amber-700">
+                          No active packages found. Create a package first.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowPackageModal(true)}
+                          className="btn-primary text-xs px-3 py-1.5 whitespace-nowrap"
+                        >
+                          + Create Package
+                        </button>
                       </div>
                     ) : (
                       <select
@@ -1482,6 +1518,15 @@ export default function AddMemberPage() {
           </div>
         </div>
       </form>
+
+      {showPackageModal && (
+        <PackageModal
+          isOpen={showPackageModal}
+          onClose={() => setShowPackageModal(false)}
+          onSubmit={handleCreatePackage}
+          isSubmitting={isCreatingPackage}
+        />
+      )}
     </div>
   );
 }

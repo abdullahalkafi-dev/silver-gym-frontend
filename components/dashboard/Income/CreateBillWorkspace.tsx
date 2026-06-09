@@ -242,7 +242,7 @@ export default function CreateBillWorkspace({
   const nonAdmissionCurrentDue = normalizeMoney(
     nonAdmissionDueItems.reduce((s, i) => s + i.remainingAmount, 0)
   );
-  const memberDisplayId = member.memberId || member._id.slice(-8).toUpperCase();
+  const memberDisplayId = member.memberId || "N/A";
   const currentPackage = useMemo(
     () => packages.find((pkg) => pkg.id === member.currentPackageId),
     [packages, member.currentPackageId],

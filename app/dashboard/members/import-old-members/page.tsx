@@ -116,13 +116,6 @@ export default function ImportOldMembersPage() {
     }
   }, [activeBranchId, batchStatus, dispatch]);
 
-  // Block unauthorized access
-  useEffect(() => {
-    if (!isOwner && !hasPermission("member:create")) {
-      router.replace("/dashboard/members");
-    }
-  }, [isOwner, hasPermission, router]);
-
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -245,8 +238,6 @@ export default function ImportOldMembersPage() {
         : batchStatus.status === "partial_failed"
           ? "Import Complete With Issues"
           : "Import Complete";
-
-  if (!isOwner && !hasPermission("member:create")) return null;
 
   return (
     <div className="min-h-screen">

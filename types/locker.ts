@@ -9,6 +9,7 @@ export interface Locker {
   customPrice: number;
   assignedMemberId: string | null;
   assignedMemberName: string | null;
+  assignedMemberCode: string | null;
   assignedAt: string | null;
   nextBillingDate: string | null;
   isDeleted: boolean;

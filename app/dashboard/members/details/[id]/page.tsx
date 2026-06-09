@@ -66,9 +66,9 @@ export default function MemberDetailsPage() {
   const params = useParams();
   const memberId = params.id as string;
   const { user, activeBranchId, hasPermission, isOwner } = useUser();
-  const canViewPayments = isOwner || hasPermission("canViewPayments");
-  const canCollectBills = isOwner || hasPermission("canAddPayment");
-  const canSendSms = isOwner || hasPermission("sms:send");
+  const canViewPayments = true;
+  const canCollectBills = true;
+  const canSendSms = true;
   const businessId = user?.businessProfile?.id || "";
 
   const [showEditModal, setShowEditModal] = useState(false);
@@ -176,7 +176,7 @@ export default function MemberDetailsPage() {
 
   // ── Derived values ────────────────────────────────────────────────
   const isActive = member.isActive !== false;
-  const displayId = member.memberId || member._id.slice(-8).toUpperCase();
+  const displayId = member.memberId || "N/A";
   const isImportedMember =
     Boolean(member.source) &&
     !["app", "manual"].includes(String(member.source).toLowerCase());

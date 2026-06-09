@@ -40,6 +40,8 @@ const PAYMENT_FILTER_OPTIONS: Array<{
   { value: "all", label: "All payments" },
   { value: "due", label: "Due" },
   { value: "complete", label: "Complete" },
+  { value: "monthly_due", label: "Monthly Due" },
+  { value: "admission_due", label: "Admission Due" },
 ];
 
 const BILLING_FILTER_OPTIONS: Array<{
@@ -56,13 +58,6 @@ export default function MembersPage() {
   const { isOwner, hasPermission, activeBranchId } = useUser();
   const { isFeeStatusKnown, hasMissingFees, requestFeeSetup } =
     useBranchFeeSetupGuard();
-
-  // Block staff who lack member view permission before any API call.
-  useEffect(() => {
-    if (!isOwner && !hasPermission("member:view")) {
-      router.replace("/dashboard/branch-dashboard");
-    }
-  }, [isOwner, hasPermission, router]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -191,8 +186,6 @@ export default function MembersPage() {
     }
     router.push("/dashboard/members/add-member");
   };
-
-  if (!isOwner && !hasPermission("member:view")) return null;
 
   return (
     <div className="min-h-screen">

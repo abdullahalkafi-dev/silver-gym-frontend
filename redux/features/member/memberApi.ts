@@ -441,6 +441,7 @@ const normalizeMember = (raw: RawMember): BackendMember => {
     customMonthlyFeeAmount: r.customMonthlyFeeAmount as number | undefined,
     paidMonths: r.paidMonths as number | undefined,
     currentDueAmount: r.currentDueAmount as number | undefined,
+    primaryDueType: r.primaryDueType as BackendMember["primaryDueType"],
     source: r.source as string | undefined,
     importBatchId: r.importBatchId as string | undefined,
     createdAt: r.createdAt as string | undefined,

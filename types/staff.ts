@@ -1,32 +1,10 @@
 export interface RolePermissions {
-  canViewMembers: boolean;
-  canAddMember: boolean;
-  canEditMember: boolean;
-  canDeleteMember: boolean;
-  canViewPackages: boolean;
-  canAddPackage: boolean;
-  canEditPackage: boolean;
-  canDeletePackage: boolean;
-  canViewBilling: boolean;
-  canAddBilling: boolean;
-  canEditBilling: boolean;
-  canDeleteBilling: boolean;
-  canAddMonthlyFee: boolean;
-  canEditMonthlyFee: boolean;
-  canAddAdmissionFee: boolean;
-  canEditAdmissionFee: boolean;
-  canViewAnalytics: boolean;
-  canExportAnalytics: boolean;
-  canViewSMS: boolean;
-  canSendSMS: boolean;
-  canEditSMSTemplate: boolean;
-  canViewEmail: boolean;
-  canSendEmail: boolean;
-  canViewExpenseCategory: boolean;
-  canManageExpenseCategory: boolean;
-  canViewExpense: boolean;
-  canAddExpense: boolean;
-  canViewTransactions: boolean;
+  canManageMembers: boolean;
+  canManagePackages: boolean;
+  canManagePayments: boolean;
+  canManageBilling: boolean;
+  canManageExpenses: boolean;
+  canManageLockers: boolean;
 }
 
 export type RolePermissionKey = keyof RolePermissions;
@@ -34,6 +12,7 @@ export type RolePermissionKey = keyof RolePermissions;
 export interface PermissionToggleItem {
   id: RolePermissionKey;
   label: string;
+  description: string;
   enabled: boolean;
 }
 
@@ -90,111 +69,56 @@ export interface StaffUpdateValues {
 
 type RolePermissionMeta = {
   label: string;
-  category: string;
+  description: string;
 };
 
 export const ROLE_PERMISSION_META: Record<RolePermissionKey, RolePermissionMeta> = {
-  canViewMembers: { label: "View Members", category: "Member Access" },
-  canAddMember: { label: "Add Member", category: "Member Access" },
-  canEditMember: { label: "Edit Member", category: "Member Access" },
-  canDeleteMember: { label: "Delete Member", category: "Member Access" },
-  canViewPackages: { label: "View Packages", category: "Packages Access" },
-  canAddPackage: { label: "Add Packages", category: "Packages Access" },
-  canEditPackage: { label: "Edit Packages", category: "Packages Access" },
-  canDeletePackage: { label: "Delete Packages", category: "Packages Access" },
-  canViewBilling: { label: "View Billing", category: "Billing Access" },
-  canAddBilling: { label: "Add Billing", category: "Billing Access" },
-  canEditBilling: { label: "Edit Billing", category: "Billing Access" },
-  canDeleteBilling: { label: "Delete Billing", category: "Billing Access" },
-  canAddMonthlyFee: { label: "Add Monthly Fee", category: "Branch Fee Access" },
-  canEditMonthlyFee: { label: "Edit Monthly Fee", category: "Branch Fee Access" },
-  canAddAdmissionFee: { label: "Add Admission Fee", category: "Branch Fee Access" },
-  canEditAdmissionFee: { label: "Edit Admission Fee", category: "Branch Fee Access" },
-  canViewAnalytics: { label: "View Analytics", category: "Analytics Access" },
-  canExportAnalytics: { label: "Export Analytics", category: "Analytics Access" },
-  canViewSMS: { label: "View SMS", category: "SMS Access" },
-  canSendSMS: { label: "Send SMS", category: "SMS Access" },
-  canEditSMSTemplate: { label: "Edit SMS Templates", category: "SMS Access" },
-  canViewEmail: { label: "View Email", category: "Email Access" },
-  canSendEmail: { label: "Send Email", category: "Email Access" },
-  canViewExpenseCategory: { label: "View Expense Category", category: "Expense Access" },
-  canManageExpenseCategory: { label: "Manage Expense Category", category: "Expense Access" },
-  canViewExpense: { label: "View Expense", category: "Expense Access" },
-  canAddExpense: { label: "Add Expense", category: "Expense Access" },
-  canViewTransactions: { label: "View Transactions", category: "Transaction Access" },
+  canManageMembers: {
+    label: "Manage Members",
+    description: "Edit and delete member profiles",
+  },
+  canManagePackages: {
+    label: "Manage Packages",
+    description: "Create, edit, and delete gym packages (Admin only)",
+  },
+  canManagePayments: {
+    label: "Manage Payments",
+    description: "Edit, delete, and refund payment records",
+  },
+  canManageBilling: {
+    label: "Manage Billing",
+    description: "Edit and delete billing records",
+  },
+  canManageExpenses: {
+    label: "Manage Expenses",
+    description: "Edit and delete expenses and categories",
+  },
+  canManageLockers: {
+    label: "Manage Lockers",
+    description: "Create, edit, delete lockers and set pricing",
+  },
 };
 
 export const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
-  canViewMembers: false,
-  canAddMember: false,
-  canEditMember: false,
-  canDeleteMember: false,
-  canViewPackages: false,
-  canAddPackage: false,
-  canEditPackage: false,
-  canDeletePackage: false,
-  canViewBilling: false,
-  canAddBilling: false,
-  canEditBilling: false,
-  canDeleteBilling: false,
-  canAddMonthlyFee: false,
-  canEditMonthlyFee: false,
-  canAddAdmissionFee: false,
-  canEditAdmissionFee: false,
-  canViewAnalytics: false,
-  canExportAnalytics: false,
-  canViewSMS: false,
-  canSendSMS: false,
-  canEditSMSTemplate: false,
-  canViewEmail: false,
-  canSendEmail: false,
-  canViewExpenseCategory: false,
-  canManageExpenseCategory: false,
-  canViewExpense: false,
-  canAddExpense: false,
-  canViewTransactions: false,
+  canManageMembers: false,
+  canManagePackages: false,
+  canManagePayments: false,
+  canManageBilling: false,
+  canManageExpenses: false,
+  canManageLockers: false,
 };
 
 export const normalizeRolePermissions = (
   permissions?: Partial<RolePermissions> | null,
 ): RolePermissions => {
-  const normalized = {
-    canViewMembers: Boolean(permissions?.canViewMembers),
-    canAddMember: Boolean(permissions?.canAddMember),
-    canEditMember: Boolean(permissions?.canEditMember),
-    canDeleteMember: Boolean(permissions?.canDeleteMember),
-    canViewPackages: Boolean(permissions?.canViewPackages),
-    canAddPackage: Boolean(permissions?.canAddPackage),
-    canEditPackage: Boolean(permissions?.canEditPackage),
-    canDeletePackage: Boolean(permissions?.canDeletePackage),
-    canViewBilling: Boolean(permissions?.canViewBilling),
-    canAddBilling: Boolean(permissions?.canAddBilling),
-    canEditBilling: Boolean(permissions?.canEditBilling),
-    canDeleteBilling: Boolean(permissions?.canDeleteBilling),
-    canAddMonthlyFee: Boolean(permissions?.canAddMonthlyFee),
-    canEditMonthlyFee: Boolean(permissions?.canEditMonthlyFee),
-    canAddAdmissionFee: Boolean(permissions?.canAddAdmissionFee),
-    canEditAdmissionFee: Boolean(permissions?.canEditAdmissionFee),
-    canViewAnalytics: Boolean(permissions?.canViewAnalytics),
-    canExportAnalytics: Boolean(permissions?.canExportAnalytics),
-    canViewSMS: Boolean(permissions?.canViewSMS),
-    canSendSMS: Boolean(permissions?.canSendSMS),
-    canEditSMSTemplate: Boolean(permissions?.canEditSMSTemplate),
-    canViewEmail: Boolean(permissions?.canViewEmail),
-    canSendEmail: Boolean(permissions?.canSendEmail),
-    canViewExpenseCategory: Boolean(permissions?.canViewExpenseCategory),
-    canManageExpenseCategory: Boolean(permissions?.canManageExpenseCategory),
-    canViewExpense: Boolean(permissions?.canViewExpense),
-    canAddExpense: Boolean(permissions?.canAddExpense),
-    canViewTransactions: Boolean(permissions?.canViewTransactions),
+  return {
+    canManageMembers: Boolean(permissions?.canManageMembers),
+    canManagePackages: Boolean(permissions?.canManagePackages),
+    canManagePayments: Boolean(permissions?.canManagePayments),
+    canManageBilling: Boolean(permissions?.canManageBilling),
+    canManageExpenses: Boolean(permissions?.canManageExpenses),
+    canManageLockers: Boolean(permissions?.canManageLockers),
   };
-
-  // Enforce dependency rule: If canAddExpense is true, canViewExpenseCategory must be forced to true
-  if (normalized.canAddExpense) {
-    normalized.canViewExpenseCategory = true;
-  }
-
-  return normalized;
 };
 
 export const countEnabledPermissions = (
@@ -228,26 +152,48 @@ export const buildPermissionCategories = (
   permissions?: Partial<RolePermissions> | null,
 ): PermissionCategory[] => {
   const normalized = normalizeRolePermissions(permissions);
-  const grouped = new Map<string, PermissionToggleItem[]>();
 
-  (Object.keys(ROLE_PERMISSION_META) as RolePermissionKey[]).forEach((key) => {
-    const meta = ROLE_PERMISSION_META[key];
-    const items = grouped.get(meta.category) || [];
+  const categoryMap = [
+    {
+      title: "Member Access",
+      permissions: ["canManageMembers"] as RolePermissionKey[],
+    },
+    {
+      title: "Package Access",
+      permissions: ["canManagePackages"] as RolePermissionKey[],
+    },
+    {
+      title: "Payment Access",
+      permissions: ["canManagePayments"] as RolePermissionKey[],
+    },
+    {
+      title: "Billing Access",
+      permissions: ["canManageBilling"] as RolePermissionKey[],
+    },
+    {
+      title: "Expense Access",
+      permissions: ["canManageExpenses"] as RolePermissionKey[],
+    },
+    {
+      title: "Locker Access",
+      permissions: ["canManageLockers"] as RolePermissionKey[],
+    },
+  ];
 
-    items.push({
+  return categoryMap.map((cat) => {
+    const items: PermissionToggleItem[] = cat.permissions.map((key) => ({
       id: key,
-      label: meta.label,
+      label: ROLE_PERMISSION_META[key].label,
+      description: ROLE_PERMISSION_META[key].description,
       enabled: normalized[key],
-    });
+    }));
 
-    grouped.set(meta.category, items);
+    return {
+      title: cat.title,
+      permissions: items,
+      masterEnabled: items.every((item) => item.enabled),
+    };
   });
-
-  return Array.from(grouped.entries()).map(([title, items]) => ({
-    title,
-    permissions: items,
-    masterEnabled: items.every((item) => item.enabled),
-  }));
 };
 
 export const categoriesToRolePermissions = (

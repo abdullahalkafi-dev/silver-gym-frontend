@@ -5,6 +5,7 @@ const COOKIE_NAMES = {
   USER_DATA: "userData",
   USER_ROLE: "userRole",
   ACTIVE_BRANCH_ID: "activeBranchId",
+  ACTIVE_BRANCH_NAME: "activeBranchName",
 } as const;
 
 // Helper functions for cookie operations
@@ -104,6 +105,19 @@ export const cookieUtils = {
 
   deleteActiveBranchId: () => {
     deleteCookie(COOKIE_NAMES.ACTIVE_BRANCH_ID);
+  },
+
+  setActiveBranchName: (name: string, rememberMe = false) => {
+    const expires = rememberMe ? 30 : 1;
+    setCookie(COOKIE_NAMES.ACTIVE_BRANCH_NAME, name, expires);
+  },
+
+  getActiveBranchName: (): string | null => {
+    return getCookie(COOKIE_NAMES.ACTIVE_BRANCH_NAME);
+  },
+
+  deleteActiveBranchName: () => {
+    deleteCookie(COOKIE_NAMES.ACTIVE_BRANCH_NAME);
   },
 
   // Get cookies

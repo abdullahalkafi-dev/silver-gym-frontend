@@ -13,9 +13,7 @@ import { Button } from "@/components/ui/button";
 
 export const Example1_SimpleButton = () => {
   return (
-    <CanAccess resource="member" action="create">
-      <Button>Add New Member</Button>
-    </CanAccess>
+    <Button>Add New Member</Button>
   );
 };
 
@@ -24,15 +22,7 @@ export const Example1_SimpleButton = () => {
   ============================================ */
 export const Example2_WithFallback = () => {
   return (
-    <CanAccess
-      resource="billing"
-      action="delete"
-      fallback={
-        <Button disabled variant="outline">
-          Delete (No Permission)
-        </Button>
-      }
-    >
+    <CanAccess permission="billing:manage">
       <Button variant="destructive">Delete Billing Record</Button>
     </CanAccess>
   );
@@ -44,22 +34,20 @@ export const Example2_WithFallback = () => {
 import { usePermission } from "@/hooks/usePermission";
 
 export const Example3_UsingHook = () => {
-  const { hasPermission, can } = usePermission();
+  const { hasPermission } = usePermission();
 
   return (
     <div className="space-y-4">
-      {hasPermission("member:view") && (
-        <div>
-          <h2>Members List</h2>
-          {/* Members list content */}
-        </div>
-      )}
+      <div>
+        <h2>Members List</h2>
+        {/* Members list content */}
+      </div>
 
-      {can("member", "create") && <Button>Create Member</Button>}
+      <Button>Create Member</Button>
 
-      {can("member", "edit") && <Button variant="outline">Edit Member</Button>}
+      {hasPermission("member:manage") && <Button variant="outline">Edit Member</Button>}
 
-      {can("member", "delete") && (
+      {hasPermission("member:manage") && (
         <Button variant="destructive">Delete Member</Button>
       )}
     </div>
@@ -70,15 +58,10 @@ export const Example3_UsingHook = () => {
   EXAMPLE 4: Complex Permission Logic
   ============================================ */
 export const Example4_ComplexLogic = () => {
-  const { hasAllPermissions, hasAnyPermission } = usePermission();
+  const { hasPermission } = usePermission();
 
-  const canManageBilling = hasAllPermissions(["billing:view", "billing:edit"]);
-
-  const canViewFinancials = hasAnyPermission([
-    "billing:view",
-    "analytics:view",
-    "access:view-users",
-  ]);
+  const canManageBilling = hasPermission("billing:manage");
+  const canViewFinancials = true;
 
   return (
     <div>
@@ -95,12 +78,6 @@ export const Example4_ComplexLogic = () => {
           {/* Read-only financial data */}
         </div>
       )}
-
-      {!canViewFinancials && (
-        <div className="bg-red-50 p-4 rounded">
-          <p>You don&apos;t have access to financial data.</p>
-        </div>
-      )}
     </div>
   );
 };
@@ -109,23 +86,15 @@ export const Example4_ComplexLogic = () => {
   EXAMPLE 5: Protected Route Page
   ============================================ */
 
-import { ProtectedRoute } from "@/components/shared/ProtectedRoute";
-
 export const Example5_ProtectedPage = () => {
   return (
-    <ProtectedRoute
-      permissions={["access:view-users", "access:create-role"]}
-      require="any"
-      redirectTo="/dashboard"
-    >
-      <div>
-        <h1>User Access Management</h1>
-        <p>
-          This content is only visible to users with permission to manage users
-          or create roles.
-        </p>
-      </div>
-    </ProtectedRoute>
+    <div>
+      <h1>User Access Management</h1>
+      <p>
+        This content is only visible to users with permission to manage users
+        or create roles.
+      </p>
+    </div>
   );
 };
 
@@ -167,7 +136,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 export const Example7_PermissionBasedForm = () => {
   const form = useForm();
-  const { can } = usePermission();
+  const { hasPermission } = usePermission();
 
   return (
     <Form {...form}>
@@ -177,7 +146,7 @@ export const Example7_PermissionBasedForm = () => {
           <Input id="name" placeholder="Enter member name" />
         </div>
 
-        {can("member", "edit") && (
+        {hasPermission("member:manage") && (
           <>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -190,7 +159,7 @@ export const Example7_PermissionBasedForm = () => {
           </>
         )}
 
-        {can("member", "delete") && (
+        {hasPermission("member:manage") && (
           <div className="flex items-center space-x-2 p-3 bg-red-50 rounded">
             <Checkbox id="confirm" />
             <Label htmlFor="confirm" className="text-red-600">
@@ -209,7 +178,7 @@ export const Example7_PermissionBasedForm = () => {
 import { useUser } from "@/hooks/useUser";
 
 export const Example8_RoleBasedUI = () => {
-  const { role, hasPermission } = useUser();
+  const { role } = useUser();
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -230,11 +199,9 @@ export const Example8_RoleBasedUI = () => {
       )}
 
       {/* Permission-based */}
-      {hasPermission("billing:view") && <DashboardCard title="Billing" />}
+      <DashboardCard title="Billing" />
 
-      {hasPermission("access:view-users") && (
-        <DashboardCard title="User Access" />
-      )}
+      <DashboardCard title="User Access" />
     </div>
   );
 };
@@ -253,7 +220,7 @@ const DashboardCard = ({ title }: DashboardCardProps) => (
   EXAMPLE 9: Table with Permission-Based Actions
   ============================================ */
 export const Example9_TableActions = () => {
-  const { can } = usePermission();
+  const { hasPermission } = usePermission();
 
   return (
     <table className="w-full">
@@ -270,17 +237,15 @@ export const Example9_TableActions = () => {
           <td>John Doe</td>
           <td>john@example.com</td>
           <td className="space-x-2">
-            {can("member", "view") && (
-              <Button size="sm" variant="outline">
-                View
-              </Button>
-            )}
-            {can("member", "edit") && (
+            <Button size="sm" variant="outline">
+              View
+            </Button>
+            {hasPermission("member:manage") && (
               <Button size="sm" variant="outline">
                 Edit
               </Button>
             )}
-            {can("member", "delete") && (
+            {hasPermission("member:manage") && (
               <Button size="sm" variant="destructive">
                 Delete
               </Button>
@@ -295,42 +260,27 @@ export const Example9_TableActions = () => {
 /* ============================================
   EXAMPLE 10: Combining Multiple Guards
   ============================================ */
-import { PermissionGuard } from "@/components/shared/PermissionGuard";
-
 export const Example10_MultipleGuards = () => {
   return (
     <div className="space-y-4">
-      {/* Entire section hidden if no permission */}
-      <PermissionGuard permission="member:view">
-        <div className="bg-blue-50 p-4 rounded">
-          <h2>Members Management</h2>
+      <div className="bg-blue-50 p-4 rounded">
+        <h2>Members Management</h2>
 
-          {/* Individual buttons with their own guards */}
-          <CanAccess resource="member" action="create">
-            <Button>Add Member</Button>
-          </CanAccess>
+        <Button>Add Member</Button>
 
-          <CanAccess resource="member" action="edit">
-            <Button>Edit Members</Button>
-          </CanAccess>
+        <CanAccess permission="member:manage">
+          <Button>Edit Members</Button>
+        </CanAccess>
 
-          <CanAccess resource="member" action="delete">
-            <Button variant="destructive">Delete Members</Button>
-          </CanAccess>
-        </div>
-      </PermissionGuard>
+        <CanAccess permission="member:manage">
+          <Button variant="destructive">Delete Members</Button>
+        </CanAccess>
+      </div>
 
-      {/* Alternative: Multiple permissions required */}
-      <PermissionGuard
-        permissions={["billing:view", "billing:edit"]}
-        require="all"
-        fallback={<p>View-only billing access</p>}
-      >
-        <div className="bg-green-50 p-4 rounded">
-          <h2>Billing Management (Full Access)</h2>
-          {/* Full billing interface */}
-        </div>
-      </PermissionGuard>
+      <div className="bg-green-50 p-4 rounded">
+        <h2>Billing Management (Full Access)</h2>
+        {/* Full billing interface */}
+      </div>
     </div>
   );
 };

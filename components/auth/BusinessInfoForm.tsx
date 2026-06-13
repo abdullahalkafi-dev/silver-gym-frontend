@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Upload } from "lucide-react";
+import { ChevronDown, LogOut, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Image from "next/image";
-import { useAppSelector } from "@/redux/hooks";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { logoutUser } from "@/redux/features/auth/authSlice";
 import { toast } from "sonner";
 
 const BUSINESS_TYPES = ["gym", "fitness", "studio", "other"] as const;
@@ -37,7 +38,13 @@ export default function BusinessInfoForm() {
   const [logoError, setLogoError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const { user, isAuthenticated } = useAppSelector((state) => state.auth);
+
+  const handleLogout = async () => {
+    await dispatch(logoutUser());
+    router.push("/sign-in");
+  };
 
   // Helper function to convert File to storable format and back
   const saveLogoToSession = (file: File) => {
@@ -189,7 +196,17 @@ export default function BusinessInfoForm() {
         {/* Main card */}
         <Card className="relative z-20 bg-white rounded-2xl shadow-[-76px_59px_212px_#ff73001a,-305px_235px_250px_#ff730017,-687px_529px_250px_#ff73000d,-1221px_940px_250px_#ff730003,-1908px_1469px_250px_transparent] border-none m-3 md:m-4">
           <CardContent className="p-6 md:p-7">
-            <div className="flex flex-col gap-4 md:gap-5">
+            {/* Logout button */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="absolute top-4 left-4 flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors rounded-md px-2 py-1.5"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+
+            <div className="flex flex-col gap-4 md:gap-5 pt-6">
               {/* Step Indicator */}
               <StepIndicator currentStep={1} />
 

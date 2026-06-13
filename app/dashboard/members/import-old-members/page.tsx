@@ -14,7 +14,6 @@ import {
   Loading03Icon,
 } from "@hugeicons/core-free-icons";
 import { useUser } from "@/hooks/useUser";
-import { CanAccess } from "@/components/shared/CanAccess";
 import { useAppDispatch } from "@/redux/hooks";
 import {
   memberApi,
@@ -68,7 +67,7 @@ const getFailureRows = (batchStatus?: {
 export default function ImportOldMembersPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { isOwner, hasPermission, activeBranchId } = useUser();
+  const { isOwner, activeBranchId } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -607,7 +606,6 @@ export default function ImportOldMembersPage() {
             {importState === "complete" ? "Back to Members" : "Cancel"}
           </button>
           {importState === "idle" && file && (
-            <CanAccess resource="member" action="create">
               <button
                 onClick={handleStartImport}
                 className="px-5 py-2.5 bg-purple text-white text-sm rounded-md hover:bg-[#6A3FE0] transition-colors flex items-center gap-2"
@@ -615,7 +613,6 @@ export default function ImportOldMembersPage() {
                 <HugeiconsIcon icon={FileUploadIcon} size={18} />
                 Start Import
               </button>
-            </CanAccess>
           )}
           {importState === "error" && (
             <button

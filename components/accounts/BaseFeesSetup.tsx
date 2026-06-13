@@ -24,19 +24,13 @@ import {
 } from "@/redux/features/branch/branchApi";
 
 const getAccessHelperText = (access: BranchFeeAccessState) => {
-  if (access.canManage) {
-    return access.isConfigured
-      ? `Your role can edit this ${access.label.toLowerCase()}.`
-      : `Your role can add this ${access.label.toLowerCase()}.`;
-  }
-
   return access.isConfigured
-    ? `Read only. ${access.requiredPermissionHint}`
-    : `Missing. ${access.requiredPermissionHint}`;
+    ? `You can edit this ${access.label.toLowerCase()}.`
+    : `You can add this ${access.label.toLowerCase()}.`;
 };
 
 export const BaseFeesSetup = () => {
-  const { user, activeBranchId, isOwner, hasPermission } = useUser();
+  const { user, activeBranchId, isOwner } = useUser();
   const [draftValues, setDraftValues] = useState<
     Partial<Record<BranchFeeFieldKey, string>>
   >({});
@@ -58,11 +52,9 @@ export const BaseFeesSetup = () => {
   const liveAdmissionFee = admissionFeeQuery.data?.admissionFeeAmount ?? null;
   const monthlyAccess = getBranchFeeAccessState("monthly", liveMonthlyFee, {
     isOwner,
-    hasPermission,
   });
   const admissionAccess = getBranchFeeAccessState("admission", liveAdmissionFee, {
     isOwner,
-    hasPermission,
   });
   const displayedMonthlyFee =
     draftValues.monthly ?? toBranchFeeDisplayValue(liveMonthlyFee);
@@ -95,10 +87,6 @@ export const BaseFeesSetup = () => {
       const updateRequests: Array<Promise<unknown>> = [];
 
       if (draftValues.monthly !== undefined) {
-        if (!monthlyAccess.canManage) {
-          throw new Error(monthlyAccess.requiredPermissionHint);
-        }
-
         const monthlyFeeAmount = parseBranchFeeInput(
           displayedMonthlyFee,
           monthlyAccess.label,
@@ -116,10 +104,6 @@ export const BaseFeesSetup = () => {
       }
 
       if (draftValues.admission !== undefined) {
-        if (!admissionAccess.canManage) {
-          throw new Error(admissionAccess.requiredPermissionHint);
-        }
-
         const admissionFeeAmount = parseBranchFeeInput(
           displayedAdmissionFee,
           admissionAccess.label,

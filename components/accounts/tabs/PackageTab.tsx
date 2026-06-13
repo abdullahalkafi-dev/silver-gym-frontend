@@ -68,8 +68,8 @@ export const PackageTab = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const canCreatePackage = true;
-  const canEditPackage = isOwner || hasPermission("canManagePackages");
-  const canDeletePackage = isOwner || hasPermission("canManagePackages");
+  const canEditPackage = isOwner || hasPermission("package:manage");
+  const canDeletePackage = isOwner || hasPermission("package:manage");
   const showArchivedPackages = packageView === "archived";
 
   const packageQueryArg = activeBranchId

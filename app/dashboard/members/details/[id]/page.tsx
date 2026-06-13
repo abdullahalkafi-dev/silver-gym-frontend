@@ -65,7 +65,7 @@ export default function MemberDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const memberId = params.id as string;
-  const { user, activeBranchId, hasPermission, isOwner } = useUser();
+  const { user, activeBranchId, isOwner } = useUser();
   const canViewPayments = true;
   const canCollectBills = true;
   const canSendSms = true;

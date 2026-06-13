@@ -10,7 +10,7 @@ export const usePermission = () => {
 
   /**
    * Check if user has a single permission
-   * @param permission - Permission string (e.g., "member:view", "billing:create")
+   * @param permission - Permission string (e.g., "member:manage", "billing:manage")
    * @returns true if user has the permission
    */
   const hasPermission = (permission: string): boolean => {
@@ -36,17 +36,6 @@ export const usePermission = () => {
   };
 
   /**
-   * Check if user can perform an action on a resource
-   * @param resource - Resource name (e.g., "member", "billing")
-   * @param action - Action name (e.g., "view", "create", "edit", "delete")
-   * @returns true if user has the permission
-   */
-  const can = (resource: string, action: string): boolean => {
-    const permission = `${resource}:${action}`;
-    return permissions.includes(permission);
-  };
-
-  /**
    * Get all permissions for current user
    * @returns Array of all user permissions
    */
@@ -58,7 +47,6 @@ export const usePermission = () => {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
-    can,
     getAllPermissions,
     permissions,
   };

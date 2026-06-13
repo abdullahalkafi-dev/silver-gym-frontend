@@ -1,8 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5004/api/v1";
-
-export const getBackendOrigin = () => {
-  return API_BASE_URL.replace(/\/api\/v1\/?$/, "");
-};
+const MINIO_PUBLIC_URL = process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000/silvergym";
 
 export const resolveUploadAssetUrl = (rawPath?: string | null) => {
   if (!rawPath) {
@@ -18,13 +14,5 @@ export const resolveUploadAssetUrl = (rawPath?: string | null) => {
     return normalized;
   }
 
-  if (normalized.startsWith("/uploads/")) {
-    return `${getBackendOrigin()}${normalized}`;
-  }
-
-  if (normalized.startsWith("uploads/")) {
-    return `${getBackendOrigin()}/${normalized}`;
-  }
-
-  return `${getBackendOrigin()}/uploads/${normalized.replace(/^\/+/, "")}`;
+  return `${MINIO_PUBLIC_URL}/${normalized.replace(/^\/+/, "")}`;
 };

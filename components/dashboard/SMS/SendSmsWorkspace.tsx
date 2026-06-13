@@ -192,7 +192,7 @@ type SmsPreviewState = {
 export default function SendSmsWorkspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, activeBranchId, hasPermission, isAdmin, isOwner } = useUser();
+  const { user, activeBranchId, isAdmin, isOwner } = useUser();
   const businessId = user?.businessProfile?.id || "";
 
   const [stepIndex, setStepIndex] = useState(0);

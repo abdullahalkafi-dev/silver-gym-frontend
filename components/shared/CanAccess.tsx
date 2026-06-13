@@ -5,38 +5,35 @@ import React from "react";
 import { usePermission } from "@/hooks/usePermission";
 
 interface CanAccessProps {
-  resource: string; // e.g., "member", "billing"
-  action: string; // e.g., "view", "create", "edit", "delete"
+  permission: string;
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }
 
 /**
  * CanAccess Component
- * Alternative way to check permissions using resource:action format
+ * Check if current user has a specific permission
  *
  * @example
- * <CanAccess resource="member" action="create">
- *   <AddMemberButton />
+ * <CanAccess permission="member:manage">
+ *   <EditMemberButton />
  * </CanAccess>
  *
  * <CanAccess
- *   resource="billing"
- *   action="delete"
- *   fallback={<button disabled>Delete (No Permission)</button>}
+ *   permission="billing:manage"
+ *   fallback={<button disabled>No Permission</button>}
  * >
  *   <DeleteBillingButton />
  * </CanAccess>
  */
 export const CanAccess: React.FC<CanAccessProps> = ({
-  resource,
-  action,
+  permission,
   children,
   fallback = null,
 }) => {
-  const { can } = usePermission();
+  const { hasPermission } = usePermission();
 
-  if (!can(resource, action)) {
+  if (!hasPermission(permission)) {
     return <>{fallback}</>;
   }
 

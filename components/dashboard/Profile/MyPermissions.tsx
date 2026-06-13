@@ -1,18 +1,14 @@
 "use client";
 
 import { useUser } from "@/hooks/useUser";
-import {
-  ROLE_PERMISSION_META,
-  type RolePermissionKey,
-} from "@/types/staff";
 
-const ALL_PERMISSIONS: RolePermissionKey[] = [
-  "canManageMembers",
-  "canManagePackages",
-  "canManagePayments",
-  "canManageBilling",
-  "canManageExpenses",
-  "canManageLockers",
+const ALL_PERMISSIONS = [
+  { key: "member:manage", label: "Manage Members", description: "Edit and delete member profiles" },
+  { key: "package:manage", label: "Manage Packages", description: "Create, edit, and delete gym packages" },
+  { key: "payment:manage", label: "Manage Payments", description: "Edit, delete, and refund payment records" },
+  { key: "billing:manage", label: "Manage Billing", description: "Edit and delete billing records" },
+  { key: "expense:manage", label: "Manage Expenses", description: "Edit and delete expenses and categories" },
+  { key: "locker:manage", label: "Manage Lockers", description: "Create, edit, delete lockers and set pricing" },
 ];
 
 export default function MyPermissions() {
@@ -22,7 +18,7 @@ export default function MyPermissions() {
     return permissions.includes(perm);
   };
 
-  const enabledCount = ALL_PERMISSIONS.filter((p) => hasPermission(p)).length;
+  const enabledCount = ALL_PERMISSIONS.filter((p) => hasPermission(p.key)).length;
 
   return (
     <div className="py-6">
@@ -50,13 +46,12 @@ export default function MyPermissions() {
 
       {/* Permissions List */}
       <div className="space-y-3">
-        {ALL_PERMISSIONS.map((permKey) => {
-          const meta = ROLE_PERMISSION_META[permKey];
-          const hasAccess = hasPermission(permKey);
+        {ALL_PERMISSIONS.map((perm) => {
+          const hasAccess = hasPermission(perm.key);
 
           return (
             <div
-              key={permKey}
+              key={perm.key}
               className={`flex items-center justify-between p-4 rounded-xl border ${
                 hasAccess
                   ? "bg-green-50 border-green-200"
@@ -65,10 +60,10 @@ export default function MyPermissions() {
             >
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-900">
-                  {meta.label}
+                  {perm.label}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {meta.description}
+                  {perm.description}
                 </p>
               </div>
               <div

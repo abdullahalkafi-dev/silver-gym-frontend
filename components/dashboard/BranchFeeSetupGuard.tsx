@@ -50,15 +50,9 @@ const BranchFeeSetupContext = createContext<BranchFeeSetupContextValue | null>(n
 const OWNER_CONTEXT_FREE_PATHS = new Set(["/dashboard", "/dashboard/analytics"]);
 
 const getAccessHelperText = (access: BranchFeeAccessState) => {
-  if (access.canManage) {
-    return access.isConfigured
-      ? `You can edit this ${access.label.toLowerCase()}.`
-      : `You can add this ${access.label.toLowerCase()} here.`;
-  }
-
   return access.isConfigured
-    ? `Read only. ${access.requiredPermissionHint}`
-    : `Missing. ${access.requiredPermissionHint}`;
+    ? `You can edit this ${access.label.toLowerCase()}.`
+    : `You can add this ${access.label.toLowerCase()} here.`;
 };
 
 const BranchFeeFieldCard = ({
@@ -193,7 +187,7 @@ const BranchFeeSetupModal = ({
 
 export function BranchFeeSetupProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { user, activeBranchId, isOwner, hasPermission } = useUser();
+  const { user, activeBranchId, isOwner } = useUser();
   const [dismissedBranchId, setDismissedBranchId] = useState<string | null>(null);
   const [forcedReason, setForcedReason] = useState<string | null>(null);
   const [draftValues, setDraftValues] = useState<
@@ -231,11 +225,9 @@ export function BranchFeeSetupProvider({ children }: { children: ReactNode }) {
   const admissionFeeAmount = admissionFeeQuery.data?.admissionFeeAmount ?? null;
   const monthlyAccess = getBranchFeeAccessState("monthly", monthlyFeeAmount, {
     isOwner,
-    hasPermission,
   });
   const admissionAccess = getBranchFeeAccessState("admission", admissionFeeAmount, {
     isOwner,
-    hasPermission,
   });
   const monthlyValue = draftValues.monthly ?? toBranchFeeDisplayValue(monthlyFeeAmount);
   const admissionValue =
@@ -287,10 +279,6 @@ export function BranchFeeSetupProvider({ children }: { children: ReactNode }) {
       const updateRequests: Array<Promise<unknown>> = [];
 
       if (draftValues.monthly !== undefined) {
-        if (!monthlyAccess.canManage) {
-          throw new Error(monthlyAccess.requiredPermissionHint);
-        }
-
         const monthlyFeeValue = parseBranchFeeInput(monthlyValue, monthlyAccess.label);
 
         if (monthlyFeeValue !== monthlyFeeAmount) {
@@ -305,10 +293,6 @@ export function BranchFeeSetupProvider({ children }: { children: ReactNode }) {
       }
 
       if (draftValues.admission !== undefined) {
-        if (!admissionAccess.canManage) {
-          throw new Error(admissionAccess.requiredPermissionHint);
-        }
-
         const admissionFeeValue = parseBranchFeeInput(
           admissionValue,
           admissionAccess.label,

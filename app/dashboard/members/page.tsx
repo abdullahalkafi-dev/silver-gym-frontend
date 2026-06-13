@@ -17,7 +17,6 @@ import {
   FilterHorizontalIcon,
 } from "@hugeicons/core-free-icons";
 import { useUser } from "@/hooks/useUser";
-import { CanAccess } from "@/components/shared/CanAccess";
 import { useBranchFeeSetupGuard } from "@/components/dashboard/BranchFeeSetupGuard";
 import {
   useGetBranchMembersQuery,
@@ -55,7 +54,7 @@ const BILLING_FILTER_OPTIONS: Array<{
 
 export default function MembersPage() {
   const router = useRouter();
-  const { isOwner, hasPermission, activeBranchId } = useUser();
+  const { isOwner, activeBranchId } = useUser();
   const { isFeeStatusKnown, hasMissingFees, requestFeeSetup } =
     useBranchFeeSetupGuard();
 
@@ -201,8 +200,7 @@ export default function MembersPage() {
               details.
             </p>
           </div>
-          <CanAccess resource="member" action="create">
-            <button
+          <button
               type="button"
               onClick={handleCreateMember}
               className="px-4 py-2.5 bg-purple text-white text-sm rounded-md hover:bg-[#6A3FE0] transition-colors flex items-center justify-center gap-2 cursor-pointer md:text-base"
@@ -210,7 +208,6 @@ export default function MembersPage() {
               <HugeiconsIcon icon={UserAdd02Icon} size={20} />
               Add New Member
             </button>
-          </CanAccess>
         </div>
 
         {/* Stats Cards */}

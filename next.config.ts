@@ -1,4 +1,3 @@
-// next.config.js or next.config.ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -19,6 +18,15 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "nwqs97k3-5004.asse.devtunnels.ms",
+      },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "9000",
       },
     ],
   },

@@ -170,6 +170,23 @@ export const authApi = baseApi.injectEndpoints({
       }),
     }),
 
+    googleLogin: builder.mutation<LoginResponse, { credential: string }>({
+      query: (payload) => ({
+        url: "/auth/google",
+        method: "POST",
+        body: payload,
+      }),
+      transformResponse: (
+        response: ApiSuccessResponse<{
+          accessToken: string;
+          refreshToken: string;
+          user: Record<string, unknown>;
+          businessProfile?: BusinessProfileSummary | null;
+        }>
+      ) => normalizeOwnerLoginResponse(response.data),
+      invalidatesTags: ["Auth"],
+    }),
+
     createBusinessProfile: builder.mutation<
       ApiSuccessResponse<BusinessProfilePayload>,
       CreateBusinessProfilePayload
@@ -215,5 +232,6 @@ export const {
   useVerifyResetOtpMutation,
   useResetPasswordMutation,
   useRefreshAccessTokenMutation,
+  useGoogleLoginMutation,
   useCreateBusinessProfileMutation,
 } = authApi;

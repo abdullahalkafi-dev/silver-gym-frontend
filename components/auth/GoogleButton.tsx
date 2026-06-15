@@ -148,7 +148,8 @@ export default function GoogleButton({ text }: GoogleButtonProps) {
       {/* Hidden container for the real Google button */}
       <div
         ref={hiddenButtonRef}
-        className="absolute opacity-0 pointer-events-none w-0 h-0 overflow-hidden"
+        className="absolute opacity-0 pointer-events-none"
+        style={{ width: "1px", height: "1px", overflow: "hidden" }}
         aria-hidden="true"
       />
 

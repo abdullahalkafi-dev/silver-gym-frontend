@@ -170,7 +170,7 @@ export const authApi = baseApi.injectEndpoints({
       }),
     }),
 
-    googleLogin: builder.mutation<LoginResponse, { credential: string }>({
+    googleLogin: builder.mutation<LoginResponse, { code: string }>({
       query: (payload) => ({
         url: "/auth/google",
         method: "POST",

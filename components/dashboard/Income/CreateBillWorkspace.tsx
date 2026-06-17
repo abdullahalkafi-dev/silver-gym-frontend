@@ -833,7 +833,9 @@ export default function CreateBillWorkspace({
     }
   };
 
-  const dueMonthCount = nonAdmissionDueItems.length;
+  const dueMonthCount = nonAdmissionDueItems.filter(
+    (item) => item.type === "monthly_due" || item.type === "monthly_cycle_due",
+  ).length;
 
   return (
     <div className="grid gap-2 lg:grid-cols-[1fr_480px]">

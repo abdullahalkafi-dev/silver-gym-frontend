@@ -317,7 +317,7 @@ export const AssignMemberModal = ({
             </div>
           )}
           <div className="border-t border-gray-200 pt-2 flex justify-between text-sm font-bold">
-            <span>Total Due</span>
+            <span>Total Amount</span>
             <span>৳{totalDue}</span>
           </div>
           <div className="flex justify-between text-sm font-bold text-primary">

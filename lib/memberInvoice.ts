@@ -64,6 +64,7 @@ export function openMemberInvoice(data: MemberInvoiceData): void {
 
   const selectedMonths = data.selectedMonthLabels?.join(", ") || "N/A";
 
+  const dueAmount = Math.max(0, data.totalDue - data.paidAmount);
   const exchangeAmount = Math.max(0, data.paidAmount - data.totalDue);
   const isPaid = data.paidAmount >= data.totalDue;
   const statusColor = isPaid ? "#16a34a" : "#dc2626";
@@ -212,6 +213,7 @@ export function openMemberInvoice(data: MemberInvoiceData): void {
   }
   .payment-table .discount td:last-child { color: #16a34a; }
   .payment-table .exchange td:last-child { color: #2563eb; }
+  .payment-table .due td:last-child { color: #dc2626; }
   .payment-table .status-row td { border-bottom: none; padding-top: 4px; }
 
   .status-badge {
@@ -280,8 +282,9 @@ export function openMemberInvoice(data: MemberInvoiceData): void {
   ${data.admissionFee > 0 ? `<tr><td>Admission Fee</td><td>+${fmtMoney(data.admissionFee)}</td></tr>` : ""}
   <tr><td>Subtotal</td><td>${fmtMoney(data.subtotal)}</td></tr>
   ${data.discount > 0 ? `<tr class="discount"><td>Discount</td><td>-${fmtMoney(data.discount)}</td></tr>` : ""}
-  <tr class="total-row"><td>Total Due</td><td>${fmtMoney(data.totalDue)}</td></tr>
+  <tr class="total-row"><td>Total Amount</td><td>${fmtMoney(data.totalDue)}</td></tr>
   <tr><td>Paid Amount</td><td>${fmtMoney(data.paidAmount)}</td></tr>
+  ${dueAmount > 0 ? `<tr class="due"><td>Due Amount</td><td>${fmtMoney(dueAmount)}</td></tr>` : ""}
   ${exchangeAmount > 0 ? `<tr class="exchange"><td>Exchange (Change)</td><td>${fmtMoney(exchangeAmount)}</td></tr>` : ""}
   <tr><td>Payment Method</td><td>${PAYMENT_METHOD_LABELS[data.paymentMethod] || safe(data.paymentMethod)}</td></tr>
   <tr class="status-row"><td>Status</td><td><span class="status-badge">${statusText}</span></td></tr>

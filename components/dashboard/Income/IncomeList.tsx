@@ -298,9 +298,14 @@ export default function IncomeList() {
         PAYMENT_METHOD_LABELS[v as string] ?? (v as string) ?? "—",
     },
     {
-      header: "Bill Amount",
+      header: "Total Bill",
       key: "billAmount",
-      formatter: (v, row) => Number((v as number | undefined) ?? ((row as unknown as Payment).billAmount ?? (row as unknown as Payment).paidTotal ?? 0)).toFixed(2),
+      formatter: (v, row) => Number((v as number | undefined) ?? ((row as unknown as Payment).billAmount ?? 0)).toFixed(2),
+    },
+    {
+      header: "Amount Paid",
+      key: "paidTotal",
+      formatter: (v, row) => Number((v as number | undefined) ?? ((row as unknown as Payment).paidTotal ?? 0)).toFixed(2),
     },
   ];
 
@@ -369,7 +374,7 @@ export default function IncomeList() {
   );
 
   const totalIncome = useMemo(
-    () => payments.reduce((sum, p) => sum + Number(p.billAmount ?? p.paidTotal ?? 0), 0),
+    () => payments.reduce((sum, p) => sum + Number(p.paidTotal ?? 0), 0),
     [payments],
   );
 
@@ -381,7 +386,7 @@ export default function IncomeList() {
       const key = toDateKey(p.paymentDate);
       if (!groups[key]) groups[key] = { records: [], total: 0 };
       groups[key].records.push(p);
-      groups[key].total += Number(p.billAmount ?? p.paidTotal ?? 0);
+      groups[key].total += Number(p.paidTotal ?? 0);
     });
     return groups;
   }, [payments]);
@@ -412,7 +417,10 @@ export default function IncomeList() {
           Discount
         </th>
         <th className="px-6 py-4 text-right text-base font-semibold text-text-primary border-b">
-          Bill Amount
+          Total Bill
+        </th>
+        <th className="px-6 py-4 text-right text-base font-semibold text-text-primary border-b">
+          Amount Paid
         </th>
         <th className="px-6 py-4 text-center text-base font-semibold text-text-primary border-b">
           View
@@ -453,7 +461,10 @@ export default function IncomeList() {
         {p.discount ? Number(p.discount).toFixed(2) : "—"}
       </td>
       <td className="px-6 py-4 text-right text-sm text-gray-medium">
-        {Number(p.billAmount ?? p.paidTotal ?? 0).toFixed(2)}
+        {Number(p.billAmount ?? 0).toFixed(2)}
+      </td>
+      <td className="px-6 py-4 text-right text-sm text-gray-medium">
+        {Number(p.paidTotal ?? 0).toFixed(2)}
       </td>
       <td className="px-6 py-4 text-center text-sm text-gray-medium rounded-r-md">
         <button
@@ -754,7 +765,7 @@ export default function IncomeList() {
         defaultStartDate={exportDateRange.startDate}
         defaultEndDate={exportDateRange.endDate}
         dateField="paymentDate"
-        amountField="billAmount"
+        amountField="paidTotal"
       />
 
       {viewTarget && (

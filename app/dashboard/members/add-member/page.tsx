@@ -1414,7 +1414,7 @@ export default function AddMemberPage() {
                     </div>
                   )}
                   <div className="flex justify-between text-sm font-semibold border-t border-gray-100 pt-2">
-                    <span className="text-gray-700">Total Due</span>
+                    <span className="text-gray-700">Total Amount</span>
                     <span className="text-gray-900">
                       ৳{totalDue.toLocaleString()}
                     </span>

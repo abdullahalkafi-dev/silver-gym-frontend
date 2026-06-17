@@ -250,12 +250,12 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
       PAYMENT_TYPE_LABELS[payment.paymentType || ""] ||
       "Other";
 
-  const settledAmount = payment.billAmount ?? 0;
+  const settledAmount = payment.paidTotal ?? 0;
   const receivedAmount = payment.paidTotal ?? 0;
   const amount = isImportedOpeningBalance
     ? dueAmount > 0
       ? `Opening due ${formatCurrency(dueAmount)}`
-      : formatCurrency(billAmount)
+      : formatCurrency(paidTotal)
     : settledAmount > 0
       ? formatCurrency(settledAmount)
       : receivedAmount > 0

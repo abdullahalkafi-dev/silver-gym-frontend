@@ -1060,7 +1060,7 @@ export default function CreateBillWorkspace({
         {/* Total due footer */}
         <div className="mt-3 flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 text-sm">
           <span className="text-gray-600">
-            Total Due ({dueMonthCount}{" "}
+            Total Amount ({dueMonthCount}{" "}
             {dueMonthCount === 1 ? "month" : "months"})
           </span>
           <span className="font-semibold text-red-600">

@@ -311,13 +311,14 @@ export default function IncomeList() {
 
   // ── Build API query params ────────────────────────────────────────────────
   const dateParams = useMemo(() => {
+    const toDateString = (d: Date) => d.toISOString().split("T")[0];
     const now = new Date();
     if (dateFilter === "today") {
       const start = new Date(now);
       start.setHours(0, 0, 0, 0);
       const end = new Date(now);
       end.setHours(23, 59, 59, 999);
-      return { startDate: start.toISOString(), endDate: end.toISOString() };
+      return { startDate: toDateString(start), endDate: toDateString(end) };
     }
     if (dateFilter === "thisMonth") {
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -329,12 +330,12 @@ export default function IncomeList() {
         59,
         59,
       );
-      return { startDate: start.toISOString(), endDate: end.toISOString() };
+      return { startDate: toDateString(start), endDate: toDateString(end) };
     }
     if (dateFilter === "custom" && customStartDate && customEndDate) {
       return {
-        startDate: new Date(customStartDate).toISOString(),
-        endDate: new Date(customEndDate + "T23:59:59").toISOString(),
+        startDate: customStartDate,
+        endDate: customEndDate,
       };
     }
     return {};

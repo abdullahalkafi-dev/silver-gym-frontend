@@ -959,7 +959,7 @@ export default function CreateBillWorkspace({
                     <td className="px-4 py-3 text-gray-700">{item.label}</td>
                     <td className="px-4 py-3 text-gray-500">
                       {item.type === "carry_forward"
-                        ? "Carry Forward"
+                        ? "Previous balance"
                         : item.type === "package_due"
                           ? "Package Due"
                           : "Monthly"}

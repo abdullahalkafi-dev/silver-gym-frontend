@@ -119,6 +119,11 @@ type OverviewRaw = {
     description: string;
     data: Array<{ name: string; value: number; color: string }>;
   };
+  incomePie: {
+    centerValue: number;
+    description: string;
+    data: Array<{ name: string; value: number; color: string }>;
+  };
   line: {
     percentage: number;
     data: Array<{ period: string; income: number; expense: number }>;
@@ -176,6 +181,11 @@ export type OverviewResponse = {
     subtitle: string;
   };
   pie: {
+    centerValue: string;
+    description: string;
+    data: Array<{ name: string; value: number; color: string }>;
+  };
+  incomePie: {
     centerValue: string;
     description: string;
     data: Array<{ name: string; value: number; color: string }>;
@@ -396,6 +406,11 @@ export const analyticsApi = baseApi.injectEndpoints({
           centerValue: `${response.data.pie.centerValue}K`,
           description: response.data.pie.description,
           data: response.data.pie.data,
+        },
+        incomePie: {
+          centerValue: `${response.data.incomePie.centerValue}K`,
+          description: response.data.incomePie.description,
+          data: response.data.incomePie.data,
         },
         line: {
           percentage: `${response.data.line.percentage.toFixed(1)}%`,

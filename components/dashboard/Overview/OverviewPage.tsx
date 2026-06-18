@@ -70,13 +70,23 @@ export default function OverviewPage() {
 
         {/* Pie Chart and Line Chart Container */}
         <div className="space-y-4 border-border  rounded-[20px] p-3 bg-white">
-          {/* Pie Chart - This Month */}
-          <PieChartCard
-            title="This Month"
-            data={data?.pie.data || []}
-            centerValue={data?.pie.centerValue || "0K"}
-            description={data?.pie.description || "No expenses recorded for this period"}
-          />
+          {/* Income & Expense Pie Charts - Side by Side */}
+          <div className="grid grid-cols-2 gap-2">
+            <PieChartCard
+              title="Income"
+              compact
+              data={data?.incomePie.data || []}
+              centerValue={data?.incomePie.centerValue || "0K"}
+              description={data?.incomePie.description || "No income recorded for this period"}
+            />
+            <PieChartCard
+              title="Expenses"
+              compact
+              data={data?.pie.data || []}
+              centerValue={data?.pie.centerValue || "0K"}
+              description={data?.pie.description || "No expenses recorded for this period"}
+            />
+          </div>
 
           {/* Line Chart - Analytics */}
           <LineChartCard

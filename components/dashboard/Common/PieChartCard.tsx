@@ -28,6 +28,7 @@ interface PieChartCardProps {
   data: PieChartData[];
   centerValue: string;
   description?: string;
+  compact?: boolean;
 }
 
 const renderActiveShape = (props: any) => {
@@ -97,25 +98,32 @@ const PieChartCard: React.FC<PieChartCardProps> = ({
   data,
   centerValue,
   description,
+  compact = false,
 }) => {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
+  const chartSize = compact ? "max-w-[120px] h-[120px]" : "max-w-[160px] h-[160px]";
+  const innerR = compact ? 30 : 40;
+  const outerR = compact ? 45 : 60;
+  const centerFontSize = compact ? "text-lg" : "text-2xl md:text-3xl";
+  const titleSize = compact ? "text-sm" : "text-lg md:text-xl";
+
   return (
     <div className="w-full bg-white rounded-[20px] p-2 flex flex-col">
-      <h2 className="text-lg md:text-xl font-semibold text-gray-medium mb-6">
+      <h2 className={`${titleSize} font-semibold text-gray-medium ${compact ? "mb-3" : "mb-6"}`}>
         {title}
       </h2>
 
       <div className="flex flex-col items-center">
-        <div className="relative w-full max-w-[160px] h-[160px]">
+        <div className={`relative w-full ${chartSize}`}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={40}
-                outerRadius={60}
+                innerRadius={innerR}
+                outerRadius={outerR}
                 paddingAngle={2}
                 dataKey="value"
                 startAngle={90}
@@ -135,16 +143,30 @@ const PieChartCard: React.FC<PieChartCardProps> = ({
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-2xl md:text-3xl font-bold text-gray-medium">
+            <span className={`${centerFontSize} font-bold text-gray-medium`}>
               {centerValue}
             </span>
           </div>
         </div>
 
-        <CustomLegend data={data} />
+        {compact ? (
+          <div className="flex flex-wrap gap-2 justify-center mt-2">
+            {data.map((entry, index) => (
+              <div key={index} className="flex items-center gap-1">
+                <div
+                  className="w-2.5 h-2.5 rounded-[4px]"
+                  style={{ backgroundColor: entry.color }}
+                />
+                <span className="text-xs text-gray-medium">{entry.name}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <CustomLegend data={data} />
+        )}
 
         {description && (
-          <p className="text-md text-gray-medium bg-gray-primary text-center mt-3 rounded-lg p-2">
+          <p className={`text-gray-medium bg-gray-primary text-center mt-3 rounded-lg p-2 ${compact ? "text-xs" : "text-md"}`}>
             {description}
           </p>
         )}

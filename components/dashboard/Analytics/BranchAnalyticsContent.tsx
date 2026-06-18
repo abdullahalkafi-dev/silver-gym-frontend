@@ -36,7 +36,12 @@ export default function BranchAnalyticsContent() {
     <div className="min-h-screen">
       <div className="w-full">
         <div className="mb-5 flex items-center justify-between">
-          <div></div>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-800 mb-1">Analytics</h1>
+            <p className="text-sm text-gray-500">
+              Analyze member trends, financial performance, and cost breakdowns.
+            </p>
+          </div>
           {!showCompareView && (
             <button
               onClick={() => setShowCompareModal(true)}

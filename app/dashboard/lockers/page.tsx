@@ -110,7 +110,12 @@ export default function LockersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <HugeiconsIcon icon={Locker01Icon} size={28} className="text-primary" />
-          <h1 className="text-2xl font-bold text-text-primary">Locker Management</h1>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-800">Locker Management</h1>
+            <p className="text-sm text-gray-500">
+              Assign, track, and manage locker allocations for your members.
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {!systemPrice && (

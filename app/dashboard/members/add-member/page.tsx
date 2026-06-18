@@ -725,11 +725,14 @@ export default function AddMemberPage() {
       <div className="mb-6">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-700 hover:text-gray-900 mb-4"
+          className="flex items-center gap-2 text-gray-700 hover:text-gray-900 mb-1"
         >
           <HugeiconsIcon icon={ArrowLeft01Icon} size={20} />
           <span className="text-lg font-semibold">Add New Member</span>
         </button>
+        <p className="text-sm text-gray-500 ml-7">
+          Fill in the member&apos;s personal details, package, and payment information.
+        </p>
       </div>
 
       {/* ─── Form ─── */}

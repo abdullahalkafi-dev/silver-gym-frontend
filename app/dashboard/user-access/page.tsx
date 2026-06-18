@@ -213,6 +213,14 @@ const UserAccessPage = () => {
   return (
     <div className="min-h-screen ">
       <div className="w-full mx-auto space-y-6">
+        {/* Header */}
+        <div className="mb-2">
+          <h1 className="text-2xl font-semibold text-gray-800 mb-1">User Access</h1>
+          <p className="text-sm text-gray-500">
+            Manage staff accounts, roles, and permissions for your branch.
+          </p>
+        </div>
+
         {loadErrorMessage ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {loadErrorMessage}

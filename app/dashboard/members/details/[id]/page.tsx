@@ -199,13 +199,18 @@ export default function MemberDetailsPage() {
   return (
     <div className="min-h-screen space-y-5">
       {/* Page header */}
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-2 text-gray-700 transition-colors hover:text-gray-900"
-      >
-        <HugeiconsIcon icon={ArrowLeft01Icon} size={20} />
-        <span className="text-lg font-medium">Member Profile</span>
-      </button>
+      <div>
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-gray-700 transition-colors hover:text-gray-900"
+        >
+          <HugeiconsIcon icon={ArrowLeft01Icon} size={20} />
+          <span className="text-lg font-medium">Member Profile</span>
+        </button>
+        <p className="text-sm text-gray-500 ml-7">
+          View and manage this member&apos;s profile, payments, and activity.
+        </p>
+      </div>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_400px]">
         {/* ── LEFT COLUMN ───────────────────────────────────────── */}

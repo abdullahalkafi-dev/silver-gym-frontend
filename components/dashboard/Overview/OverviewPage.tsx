@@ -39,6 +39,14 @@ export default function OverviewPage() {
 
   return (
     <main className="w-full space-y-6">
+      {/* Header */}
+      <div className="mb-2">
+        <h1 className="text-2xl font-semibold text-gray-800 mb-1">Overview</h1>
+        <p className="text-sm text-gray-500">
+          Track your branch performance, income, and member activity at a glance.
+        </p>
+      </div>
+
       {/* Stats Card */}
 
       {/* Grid Layout for Charts */}

@@ -50,9 +50,14 @@ export default function ProfilePage() {
 
         {/* Main Content Area */}
         <div className="flex-1 w-full rounded-2xl bg-white">
-          <h1 className="text-2xl font-semibold text-text-primary mb-5 px-6 py-3 border-b border-border-2">
-            {tabs.find((t) => t.id === activeTab)?.label}
-          </h1>
+          <div className="px-6 py-3 border-b border-border-2">
+            <h1 className="text-2xl font-semibold text-text-primary">
+              {tabs.find((t) => t.id === activeTab)?.label}
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Manage your personal information, business details, and permissions.
+            </p>
+          </div>
           
           <div className="px-6">
           {activeTab === "my-profile" && <MyProfile />}

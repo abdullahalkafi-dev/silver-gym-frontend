@@ -128,13 +128,18 @@ export default function CreateBillPage() {
 
   return (
     <div className="space-y-6">
-      <button
-        onClick={() => router.push(`/dashboard/members/details/${memberId}`)}
-        className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Member Profile
-      </button>
+      <div>
+        <button
+          onClick={() => router.push(`/dashboard/members/details/${memberId}`)}
+          className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Member Profile
+        </button>
+        <p className="text-sm text-gray-500 ml-6">
+          Collect payment for this member&apos;s outstanding bills.
+        </p>
+      </div>
 
       <CreateBillWorkspace
         key={`${collectBillContext.member._id}-${collectBillContext.billing.currentDueAmount}-${collectBillContext.billing.nextPaymentDate || "none"}-${collectBillContext.member.updatedAt || "na"}`}

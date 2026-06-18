@@ -54,9 +54,9 @@ export const getBranchFeeAccessState = (
   return {
     label: meta.label,
     isConfigured,
-    canAdd: true,
-    canEdit: true,
-    canManage: true,
+    canAdd: options.isOwner,
+    canEdit: options.isOwner,
+    canManage: options.isOwner,
   };
 };
 

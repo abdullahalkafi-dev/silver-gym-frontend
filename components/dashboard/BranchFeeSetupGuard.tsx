@@ -138,35 +138,43 @@ const BranchFeeSetupModal = ({
         </DialogHeader>
 
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-medium">Complete these settings before creating packages or members:</p>
-          <ul className="mt-3 space-y-2">
-            {missingItems.map((item) => (
-              <li key={item} className="flex items-center gap-2">
-                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
+          {canManageFees ? (
+            <>
+              <p className="font-medium">Complete these settings before creating packages or members:</p>
+              <ul className="mt-3 space-y-2">
+                {missingItems.map((item) => (
+                  <li key={item} className="flex items-center gap-2">
+                    <span className="inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="font-medium">Please contact the admin to configure the missing branch fee settings: {missingItems.join(", ")}.</p>
+          )}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <BranchFeeFieldCard
-            title="Admission Fee"
-            description="This is the one-time fee new members pay when they join."
-            value={admissionValue}
-            access={admissionAccess}
-            isSaving={isSaving}
-            onChange={(value) => onFieldChange("admission", value)}
-          />
-          <BranchFeeFieldCard
-            title="Monthly Fee"
-            description="This is the recurring monthly fee unless a package overrides it."
-            value={monthlyValue}
-            access={monthlyAccess}
-            isSaving={isSaving}
-            onChange={(value) => onFieldChange("monthly", value)}
-          />
-        </div>
+        {canManageFees ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <BranchFeeFieldCard
+              title="Admission Fee"
+              description="This is the one-time fee new members pay when they join."
+              value={admissionValue}
+              access={admissionAccess}
+              isSaving={isSaving}
+              onChange={(value) => onFieldChange("admission", value)}
+            />
+            <BranchFeeFieldCard
+              title="Monthly Fee"
+              description="This is the recurring monthly fee unless a package overrides it."
+              value={monthlyValue}
+              access={monthlyAccess}
+              isSaving={isSaving}
+              onChange={(value) => onFieldChange("monthly", value)}
+            />
+          </div>
+        ) : null}
 
 
 

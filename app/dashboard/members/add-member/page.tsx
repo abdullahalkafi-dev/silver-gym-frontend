@@ -679,7 +679,7 @@ export default function AddMemberPage() {
             admission fee are configured.
             {canManageFees
               ? " Use the fee setup modal to add the missing values, then come back here."
-              : " Ask an owner or staff member with fee add access to complete the setup."}
+              : " Please contact the admin to configure branch fees."}
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             {canManageFees && (

@@ -141,7 +141,17 @@ function MonthGrid({
     // No selection yet — start new
     if (selectedMonths.length === 0) {
       if (clickIdx > maxStartIdx) return;
-      onSelectionChange([clicked]);
+      // Auto-select all due months from min up to and including the clicked month
+      // This prevents skipping months (e.g., paying Aug without paying Jul)
+      const dueMonthsInRange = dueMonths.filter((m) => {
+        const idx = toIndex(m);
+        return idx >= minIdx && idx <= clickIdx;
+      });
+      const newSelection = [...dueMonthsInRange, clicked];
+      // Remove duplicates and sort
+      const uniqueSelection = [...new Map(newSelection.map((m) => [toIndex(m), m])).values()];
+      uniqueSelection.sort((a, b) => toIndex(a) - toIndex(b));
+      onSelectionChange(uniqueSelection);
       return;
     }
 
@@ -186,7 +196,20 @@ function MonthGrid({
     // Ensure range doesn't go before min
     const clampedStart = Math.max(newStart, minIdx);
     if (clampedStart > maxStartIdx) return;
-    let range = buildRange(fromIndex(clampedStart), fromIndex(newEnd));
+
+    // Auto-extend start backwards to include all unselected due months
+    // This prevents skipping months (e.g., paying Aug without paying Jul)
+    let actualStart = clampedStart;
+    if (dueMonths.length > 0) {
+      for (const due of dueMonths) {
+        const dueIdx = toIndex(due);
+        if (dueIdx >= minIdx && dueIdx < actualStart) {
+          actualStart = dueIdx;
+        }
+      }
+    }
+
+    let range = buildRange(fromIndex(actualStart), fromIndex(newEnd));
 
     // Apply max limit
     if (maxMonths > 0 && range.length > maxMonths) {

@@ -452,53 +452,6 @@ export default function CreateBillWorkspace({
 
   const packageStart = requiredStartDate;
 
-  // Due items (non-admission only — admission dues go through the modal)
-  const [selectedDueAmounts, setSelectedDueAmounts] = useState<
-    Record<string, string>
-  >(() =>
-    Object.fromEntries(
-      nonAdmissionDueItems.map((item) => [
-        item.ledgerItemId,
-        String(item.remainingAmount),
-      ]),
-    ),
-  );
-
-  const toggleDueItem = (item: CollectBillDueItem) => {
-    setSelectedDueAmounts((prev) => {
-      const next = { ...prev };
-      if (Object.prototype.hasOwnProperty.call(next, item.ledgerItemId)) {
-        delete next[item.ledgerItemId];
-      } else {
-        next[item.ledgerItemId] = String(item.remainingAmount);
-      }
-      return next;
-    });
-  };
-
-  const validSelectedDueItems = useMemo(
-    () =>
-      nonAdmissionDueItems.flatMap((item) => {
-        if (
-          !Object.prototype.hasOwnProperty.call(
-            selectedDueAmounts,
-            item.ledgerItemId,
-          )
-        )
-          return [];
-        const amount = normalizeMoney(
-          parseAmount(selectedDueAmounts[item.ledgerItemId] || ""),
-        );
-        if (amount <= 0 || amount > item.remainingAmount) return [];
-        return [{ ...item, requestedAmount: amount }];
-      }),
-    [nonAdmissionDueItems, selectedDueAmounts],
-  );
-
-  const selectedDueAmount = normalizeMoney(
-    validSelectedDueItems.reduce((t, i) => t + i.requestedAmount, 0),
-  );
-
   // Payment fields
   const [discount, setDiscount] = useState("");
   const [paidTotal, setPaidTotal] = useState("");
@@ -516,12 +469,8 @@ export default function CreateBillWorkspace({
 
   const paidNow = normalizeMoney(parseAmount(paidTotal));
   const rawDiscount = normalizeMoney(parseAmount(discount));
-  const dueWriteOffPreviewAmount = normalizeMoney(
-    Math.min(rawDiscount, selectedDueAmount),
-  );
-  const cycleDiscountPreviewAmount = normalizeMoney(
-    Math.max(0, rawDiscount - dueWriteOffPreviewAmount),
-  );
+  const dueWriteOffPreviewAmount = 0;
+  const cycleDiscountPreviewAmount = normalizeMoney(rawDiscount);
   const cycleDiscountTargetLabel =
     collectionMode === "monthly"
       ? "new monthly charge"
@@ -531,13 +480,9 @@ export default function CreateBillWorkspace({
   const discountPreviewMessage =
     rawDiscount <= 0
       ? ""
-      : dueWriteOffPreviewAmount > 0 && cycleDiscountPreviewAmount > 0
-        ? `This discount clears TK ${formatCurrency(dueWriteOffPreviewAmount)} from selected old dues and reduces the ${cycleDiscountTargetLabel} by TK ${formatCurrency(cycleDiscountPreviewAmount)}.`
-        : dueWriteOffPreviewAmount > 0
-          ? `This discount clears TK ${formatCurrency(dueWriteOffPreviewAmount)} from selected old dues.`
-          : cycleDiscountPreviewAmount > 0
-            ? `This discount only reduces the ${cycleDiscountTargetLabel} by TK ${formatCurrency(cycleDiscountPreviewAmount)}. Older dues stay unchanged.`
-            : "This discount has not been applied to any selected amount yet.";
+      : cycleDiscountPreviewAmount > 0
+        ? `This discount reduces the ${cycleDiscountTargetLabel} by TK ${formatCurrency(cycleDiscountPreviewAmount)}.`
+        : "This discount has not been applied to any selected amount yet.";
 
   // Cycle charge
   const cycleCharge = useMemo(() => {
@@ -576,52 +521,8 @@ export default function CreateBillWorkspace({
     selectedPackage,
   ]);
 
-  const pendingCyclePreview = useMemo(() => {
-    if (collectionMode === "monthly" && monthlyMonths.length > 0 && cycleCharge > 0) {
-      const projectedMonthLabel = formatBillingWindowLabel(
-        monthlyStartDate,
-        projectedNextPaymentDate,
-      );
-      // Don't show if this month already has a monthly_due item in the ledger
-      const alreadyInLedger = nonAdmissionDueItems.some(
-        (item) =>
-          (item.type === "monthly_due" || item.type === "monthly_cycle_due") &&
-          item.label === projectedMonthLabel,
-      );
-      if (alreadyInLedger) {
-        return null;
-      }
-      return {
-        monthLabel: projectedMonthLabel,
-        packageLabel: "Monthly Renewal",
-        amount: cycleCharge,
-      };
-    }
-
-    if (collectionMode === "package" && selectedPackage && cycleCharge > 0) {
-      return {
-        monthLabel: isShortTermDuration(selectedPackage.durationType)
-          ? formatExactWindowLabel(packageStart, projectedNextPaymentDate)
-          : formatBillingWindowLabel(packageStart, projectedNextPaymentDate),
-        packageLabel: selectedPackage.title,
-        amount: cycleCharge,
-      };
-    }
-
-    return null;
-  }, [
-    collectionMode,
-    cycleCharge,
-    monthlyMonths.length,
-    monthlyStartDate,
-    packageStart,
-    projectedNextPaymentDate,
-    selectedPackage,
-    nonAdmissionDueItems,
-  ]);
-
   // Summary
-  const subTotal = normalizeMoney(selectedDueAmount + cycleCharge);
+  const subTotal = normalizeMoney(cycleCharge);
   const appliedDiscount = normalizeMoney(Math.min(rawDiscount, subTotal));
   const billableAmount = Math.max(0, subTotal - appliedDiscount);
   const dueAmount = normalizeMoney(Math.max(0, billableAmount - paidNow));
@@ -700,8 +601,8 @@ export default function CreateBillWorkspace({
       );
       return;
     }
-    if (collectionMode === "due_only" && validSelectedDueItems.length === 0) {
-      toast.error("Select at least one due item");
+    if (collectionMode === "due_only" && nonAdmissionDueItems.length === 0) {
+      toast.error("No due items to collect");
       return;
     }
     if (rawDiscount > subTotal) {
@@ -712,13 +613,7 @@ export default function CreateBillWorkspace({
     const payload = {
       memberId,
       collectionMode,
-      selectedDueItems:
-        validSelectedDueItems.length > 0
-          ? validSelectedDueItems.map((i) => ({
-              ledgerItemId: i.ledgerItemId,
-              amount: i.requestedAmount,
-            }))
-          : undefined,
+      selectedDueItems: undefined,
       paidTotal: paidNow,
       paymentMethod,
       paymentDate: buildPaymentDateISO(paymentDate),
@@ -766,20 +661,14 @@ export default function CreateBillWorkspace({
           cycleDesc = selectedPackage.title;
         }
 
-        let oldDueDesc = "";
-        if (validSelectedDueItems.length > 0) {
-          const count = validSelectedDueItems.length;
-          oldDueDesc = `${count} ${count === 1 ? "item" : "items"}`;
-        }
-
         openBillInvoice({
           fullName: member.fullName,
           memberId: member.memberId || member._id,
           contact: member.contact,
           invoiceNo: result.payment.invoiceNo,
           collectionMode,
-          oldDueAmount: selectedDueAmount,
-          oldDueDescription: oldDueDesc || undefined,
+          oldDueAmount: 0,
+          oldDueDescription: undefined,
           cycleCharge,
           cycleDescription: cycleDesc || undefined,
           subtotal: subTotal,
@@ -968,20 +857,10 @@ export default function CreateBillWorkspace({
             </thead>
             <tbody>
               {/* Non-admission due rows */}
-              {nonAdmissionDueItems.map((item) => {
-                const isSelected = Object.prototype.hasOwnProperty.call(
-                  selectedDueAmounts,
-                  item.ledgerItemId,
-                );
-                return (
+              {nonAdmissionDueItems.map((item) => (
                   <tr
                     key={item.ledgerItemId}
-                    className={cn(
-                      "border-b border-gray-100 transition-colors",
-                      isSelected
-                        ? "bg-orange-50/60"
-                        : "bg-white hover:bg-gray-50",
-                    )}
+                    className="border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-4 py-3 text-gray-700">{item.label}</td>
                     <td className="px-4 py-3 text-gray-500">
@@ -997,47 +876,15 @@ export default function CreateBillWorkspace({
                       {formatCurrency(item.remainingAmount)}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => toggleDueItem(item)}
-                        className={cn(
-                          "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
-                          isSelected
-                            ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
-                            : "bg-red-100 text-red-600 hover:bg-red-200",
-                        )}
-                      >
-                        {isSelected ? "Selected" : "Pay"}
-                      </button>
+                      <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-600">
+                        Due
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right text-gray-400 text-xs">
                       —
                     </td>
                   </tr>
-                );
-              })}
-
-              {pendingCyclePreview && (
-                <tr className="border-b border-gray-100 bg-emerald-50/70">
-                  <td className="px-4 py-3 font-medium text-emerald-800">
-                    {pendingCyclePreview.monthLabel}
-                  </td>
-                  <td className="px-4 py-3 text-emerald-700">
-                    {pendingCyclePreview.packageLabel}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-emerald-900">
-                    {formatCurrency(pendingCyclePreview.amount)}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                      Pending
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right text-xs text-gray-400">
-                    —
-                  </td>
-                </tr>
-              )}
+                ))}
 
               {/* Payment history rows */}
               {canViewPayments &&

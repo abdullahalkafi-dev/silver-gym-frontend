@@ -578,11 +578,21 @@ export default function CreateBillWorkspace({
 
   const pendingCyclePreview = useMemo(() => {
     if (collectionMode === "monthly" && monthlyMonths.length > 0 && cycleCharge > 0) {
+      const projectedMonthLabel = formatBillingWindowLabel(
+        monthlyStartDate,
+        projectedNextPaymentDate,
+      );
+      // Don't show if this month already has a monthly_due item in the ledger
+      const alreadyInLedger = nonAdmissionDueItems.some(
+        (item) =>
+          (item.type === "monthly_due" || item.type === "monthly_cycle_due") &&
+          item.label === projectedMonthLabel,
+      );
+      if (alreadyInLedger) {
+        return null;
+      }
       return {
-        monthLabel: formatBillingWindowLabel(
-          monthlyStartDate,
-          projectedNextPaymentDate,
-        ),
+        monthLabel: projectedMonthLabel,
         packageLabel: "Monthly Renewal",
         amount: cycleCharge,
       };
@@ -607,6 +617,7 @@ export default function CreateBillWorkspace({
     packageStart,
     projectedNextPaymentDate,
     selectedPackage,
+    nonAdmissionDueItems,
   ]);
 
   // Summary

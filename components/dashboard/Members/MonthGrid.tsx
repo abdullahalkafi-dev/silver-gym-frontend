@@ -59,6 +59,8 @@ interface MonthGridProps {
   maxMonths?: number;
   /** If true, selection count is locked (e.g. package duration) — user can only shift the range */
   fixedCount?: boolean;
+  /** Months that have unpaid dues — shown in red */
+  dueMonths?: MonthYear[];
   /** Disabled past months are shown with a lighter style */
   className?: string;
 }
@@ -71,6 +73,7 @@ function MonthGrid({
   lockedStartMonth,
   maxMonths = 0,
   fixedCount = false,
+  dueMonths = [],
   className,
 }: MonthGridProps) {
   const now = new Date();
@@ -221,6 +224,7 @@ function MonthGrid({
           const minIdx = toIndex(effectiveMin);
           const isPast = myIdx < minIdx;
           const isSelected = isInRange(my, selectedMonths);
+          const isDue = !isSelected && isInRange(my, dueMonths);
 
           return (
             <button
@@ -234,27 +238,36 @@ function MonthGrid({
                   "opacity-40 cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400",
                 !isPast &&
                   !isSelected &&
+                  !isDue &&
                   "border-gray-200 bg-white text-gray-600 hover:border-purple/40 hover:bg-purple/5 cursor-pointer",
+                isDue &&
+                  "border-red-300 bg-red-50 text-red-600 hover:border-red-400 hover:bg-red-100 cursor-pointer",
                 isSelected &&
                   "border-purple bg-purple text-white cursor-pointer shadow-sm"
               )}
             >
+              {/* Due indicator dot */}
+              {isDue && !isPast && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
+              )}
               {/* Checkbox indicator */}
               <span
                 className={cn(
                   "w-4 h-4 rounded border flex items-center justify-center k-0",
                   isSelected
                     ? "bg-white border-white"
-                    : isPast
-                      ? "border-gray-300 bg-gray-100"
-                      : "border-gray-300 bg-white"
+                    : isDue
+                      ? "border-red-400 bg-red-100"
+                      : isPast
+                        ? "border-gray-300 bg-gray-100"
+                        : "border-gray-300 bg-white"
                 )}
               >
-                {(isSelected || isPast) && (
+                {(isSelected || isPast || isDue) && (
                   <svg
                     className={cn(
                       "w-2.5 h-2.5",
-                      isSelected ? "text-purple" : "text-gray-400"
+                      isSelected ? "text-purple" : isDue ? "text-red-500" : "text-gray-400"
                     )}
                     fill="none"
                     viewBox="0 0 24 24"

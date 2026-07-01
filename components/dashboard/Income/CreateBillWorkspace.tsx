@@ -235,6 +235,19 @@ export default function CreateBillWorkspace({
     [dueBreakdown]
   );
 
+  // Compute which months have due items (for MonthGrid red highlighting)
+  const dueMonths = useMemo(
+    () =>
+      nonAdmissionDueItems
+        .filter(
+          (item) =>
+            (item.type === "monthly_due" || item.type === "monthly_cycle_due") &&
+            item.periodStart
+        )
+        .map((item) => toMonthYear(new Date(item.periodStart!))),
+    [nonAdmissionDueItems]
+  );
+
   const [showAdmissionModal, setShowAdmissionModal] = useState(false);
 
   const branchMonthlyFee = normalizeMoney(context.billing.monthlyFeeAmount ?? 0);
@@ -937,6 +950,9 @@ export default function CreateBillWorkspace({
                 <th className="px-4 py-3 text-center font-medium text-gray-600">
                   Status
                 </th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">
+                  Paid On
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -959,7 +975,9 @@ export default function CreateBillWorkspace({
                     <td className="px-4 py-3 text-gray-700">{item.label}</td>
                     <td className="px-4 py-3 text-gray-500">
                       {item.type === "carry_forward"
-                        ? "Previous balance"
+                        ? item.dueDate
+                          ? `Previous balance (${format(new Date(item.dueDate), "MMM yyyy")})`
+                          : "Previous balance"
                         : item.type === "package_due"
                           ? "Package Due"
                           : "Monthly"}
@@ -981,6 +999,9 @@ export default function CreateBillWorkspace({
                         {isSelected ? "Selected" : "Pay"}
                       </button>
                     </td>
+                    <td className="px-4 py-3 text-right text-gray-400 text-xs">
+                      —
+                    </td>
                   </tr>
                 );
               })}
@@ -1000,6 +1021,9 @@ export default function CreateBillWorkspace({
                     <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                       Pending
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-xs text-gray-400">
+                    —
                   </td>
                 </tr>
               )}
@@ -1023,11 +1047,16 @@ export default function CreateBillWorkspace({
                             ? "bg-red-100 text-red-600"
                             : record.status === "Partial"
                               ? "bg-orange-100 text-orange-700"
-                              : "bg-gray-100 text-gray-500",
+                              : record.status === "Paid"
+                                ? "bg-emerald-100 text-emerald-600"
+                                : "bg-gray-100 text-gray-500",
                         )}
                       >
                         {record.status}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs text-gray-500">
+                      {record.dateTime || "—"}
                     </td>
                   </tr>
                 ))}
@@ -1037,7 +1066,7 @@ export default function CreateBillWorkspace({
                 paymentHistory.length === 0 && (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="px-4 py-8 text-center text-sm text-gray-400"
                     >
                       No payment records found.
@@ -1048,7 +1077,7 @@ export default function CreateBillWorkspace({
               {isPaymentHistoryLoading && (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-4 py-6 text-center text-sm text-gray-400"
                   >
                     Loading history...
@@ -1266,7 +1295,7 @@ export default function CreateBillWorkspace({
                 selectedMonths={monthlyMonths}
                 onSelectionChange={setMonthlyMonths}
                 minMonth={monthlyMinMonth}
-                lockedStartMonth={monthlyMinMonth}
+                dueMonths={dueMonths}
               />
             </div>
           )}

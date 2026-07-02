@@ -372,8 +372,8 @@ export default function CreateBillWorkspace({
       const parsed = parseAmount(customFeeInput);
       return parsed > 0 ? parsed : branchMonthlyFee;
     }
-    return systemMonthlyFee;
-  }, [useCustomMonthlyFee, customFeeInput, branchMonthlyFee, systemMonthlyFee]);
+    return branchMonthlyFee;
+  }, [useCustomMonthlyFee, customFeeInput, branchMonthlyFee]);
 
   const requiredStartDate = useMemo(
     () =>
@@ -625,12 +625,7 @@ export default function CreateBillWorkspace({
             ? toCalendarDateISO(packageStart)
             : undefined,
       paidMonths:
-        collectionMode === "monthly"
-          ? monthlyMonths.filter(
-              (m) =>
-                !dueMonths.some((d) => d.month === m.month && d.year === m.year)
-            ).length
-          : undefined,
+        collectionMode === "monthly" ? monthlyMonths.length : undefined,
       packageId:
         collectionMode === "package" ? selectedPackage?.id : undefined,
       note: note.trim() || undefined,

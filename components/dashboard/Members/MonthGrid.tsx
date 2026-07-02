@@ -141,11 +141,12 @@ function MonthGrid({
     // No selection yet — start new
     if (selectedMonths.length === 0) {
       if (clickIdx > maxStartIdx) return;
-      // Auto-select all due months from min up to and including the clicked month
+      // Auto-select ALL due months up to and including the clicked month
       // This prevents skipping months (e.g., paying Aug without paying Jul)
+      // Includes due months before effectiveMin (they're overdue and must be paid)
       const dueMonthsInRange = dueMonths.filter((m) => {
         const idx = toIndex(m);
-        return idx >= minIdx && idx <= clickIdx;
+        return idx <= clickIdx;
       });
       const newSelection = [...dueMonthsInRange, clicked];
       // Remove duplicates and sort
@@ -197,13 +198,14 @@ function MonthGrid({
     const clampedStart = Math.max(newStart, minIdx);
     if (clampedStart > maxStartIdx) return;
 
-    // Auto-extend start backwards to include all unselected due months
+    // Auto-extend start backwards to include ALL unselected due months
     // This prevents skipping months (e.g., paying Aug without paying Jul)
+    // Includes due months before effectiveMin (they're overdue and must be paid)
     let actualStart = clampedStart;
     if (dueMonths.length > 0) {
       for (const due of dueMonths) {
         const dueIdx = toIndex(due);
-        if (dueIdx >= minIdx && dueIdx < actualStart) {
+        if (dueIdx < actualStart) {
           actualStart = dueIdx;
         }
       }
@@ -253,7 +255,7 @@ function MonthGrid({
             <button
               key={monthIndex}
               type="button"
-              disabled={isPast}
+              disabled={isPast && !isDue}
               onClick={() => handleMonthClick(my)}
               className={cn(
                 "relative flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium transition-all border",

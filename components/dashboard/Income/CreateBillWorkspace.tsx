@@ -625,7 +625,12 @@ export default function CreateBillWorkspace({
             ? toCalendarDateISO(packageStart)
             : undefined,
       paidMonths:
-        collectionMode === "monthly" ? monthlyMonths.length : undefined,
+        collectionMode === "monthly"
+          ? monthlyMonths.filter(
+              (m) =>
+                !dueMonths.some((d) => d.month === m.month && d.year === m.year)
+            ).length
+          : undefined,
       packageId:
         collectionMode === "package" ? selectedPackage?.id : undefined,
       note: note.trim() || undefined,

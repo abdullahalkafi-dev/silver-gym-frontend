@@ -260,6 +260,7 @@ function MonthGrid({
               className={cn(
                 "relative flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium transition-all border",
                 isPast &&
+                  !isDue &&
                   "opacity-40 cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400",
                 !isPast &&
                   !isSelected &&

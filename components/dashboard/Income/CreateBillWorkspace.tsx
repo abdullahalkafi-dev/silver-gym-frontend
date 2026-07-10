@@ -10,6 +10,7 @@ import { openBillInvoice } from "@/lib/billInvoice";
 import {
   MonthGrid,
   buildRange,
+  toIndex,
   type MonthYear,
 } from "@/components/dashboard/Members/MonthGrid";
 import { cn } from "@/lib/utils";
@@ -235,19 +236,6 @@ export default function CreateBillWorkspace({
     [dueBreakdown]
   );
 
-  // Compute which months have due items (for MonthGrid red highlighting)
-  const dueMonths = useMemo(
-    () =>
-      nonAdmissionDueItems
-        .filter(
-          (item) =>
-            (item.type === "monthly_due" || item.type === "monthly_cycle_due") &&
-            item.periodStart
-        )
-        .map((item) => toMonthYear(new Date(item.periodStart!))),
-    [nonAdmissionDueItems]
-  );
-
   const [showAdmissionModal, setShowAdmissionModal] = useState(false);
 
   const branchMonthlyFee = normalizeMoney(context.billing.monthlyFeeAmount ?? 0);
@@ -414,6 +402,24 @@ export default function CreateBillWorkspace({
   const monthlyMinMonth = useMemo(
     () => toMonthYear(monthlyRequiredStartDate),
     [monthlyRequiredStartDate],
+  );
+
+  // Compute which months have due items (for MonthGrid red highlighting).
+  // Only show due months that are >= monthlyMinMonth (the effective cycle start).
+  // Due months before this are handled by the backend auto-clear when the next
+  // cycle payment is collected — showing them in the grid would confuse users
+  // because they can't be selected without paying multiple months at once.
+  const dueMonths = useMemo(
+    () =>
+      nonAdmissionDueItems
+        .filter(
+          (item) =>
+            (item.type === "monthly_due" || item.type === "monthly_cycle_due") &&
+            item.periodStart
+        )
+        .map((item) => toMonthYear(new Date(item.periodStart!)))
+        .filter((my) => toIndex(my) >= toIndex(monthlyMinMonth)),
+    [nonAdmissionDueItems, monthlyMinMonth]
   );
 
   const [monthlyMonths, setMonthlyMonths] = useState<MonthYear[]>(() => {
@@ -1149,11 +1155,12 @@ export default function CreateBillWorkspace({
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Select Months
               </label>
-              <MonthGrid
+               <MonthGrid
                 selectedMonths={monthlyMonths}
                 onSelectionChange={setMonthlyMonths}
                 minMonth={monthlyMinMonth}
                 dueMonths={dueMonths}
+                disabled={!context?.billing?.nextPaymentDate && !member?.nextPaymentDate}
               />
             </div>
           )}

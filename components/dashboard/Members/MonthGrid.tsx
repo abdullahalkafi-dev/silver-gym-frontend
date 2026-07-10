@@ -63,6 +63,8 @@ interface MonthGridProps {
   dueMonths?: MonthYear[];
   /** Disabled past months are shown with a lighter style */
   className?: string;
+  /** If true, the grid is disabled and shows a loading spinner */
+  disabled?: boolean;
 }
 
 function MonthGrid({
@@ -75,6 +77,7 @@ function MonthGrid({
   fixedCount = false,
   dueMonths = [],
   className,
+  disabled = false,
 }: MonthGridProps) {
   const now = new Date();
   const currentMonth: MonthYear = {
@@ -228,6 +231,16 @@ function MonthGrid({
 
   return (
     <div className={cn("space-y-3", className)}>
+      {disabled ? (
+        <div className="flex items-center justify-center py-8 text-gray-400 text-sm">
+          <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          Loading...
+        </div>
+      ) : (
+      <>
       {/* Year selector */}
       <select
         value={displayYear}
@@ -313,6 +326,8 @@ function MonthGrid({
           );
         })}
       </div>
+      </>
+      )}
     </div>
   );
 }

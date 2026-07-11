@@ -66,8 +66,21 @@ export const LockerPaymentModal = ({
   if (!isOpen || !locker) return null;
 
   const handleSave = async (print: boolean = false) => {
-    if (!paidAmount || Number(paidAmount) <= 0) {
+    const numDiscount = Number(discount) || 0;
+    const numPaidAmount = Number(paidAmount) || 0;
+
+    if (numDiscount > subTotal) {
+      toast.error("Discount cannot exceed subtotal");
+      return;
+    }
+
+    if (!numPaidAmount || numPaidAmount <= 0) {
       toast.error("Please enter a valid paid amount");
+      return;
+    }
+
+    if (numPaidAmount < totalDue) {
+      toast.error("Paid amount cannot be less than total due. Locker does not support partial payment.");
       return;
     }
 
@@ -79,7 +92,8 @@ export const LockerPaymentModal = ({
           months,
           paymentAmount: useSystemPrice ? undefined : (Number(customAmount) || 0),
           paymentMethod,
-          discount: Number(discount) || 0,
+          discount: numDiscount,
+          paidAmount: numPaidAmount,
         },
       }).unwrap();
 

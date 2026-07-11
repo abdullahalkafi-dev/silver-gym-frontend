@@ -75,12 +75,18 @@ export const AssignMemberModal = ({
   const paidAmount = totalDue;
 
   const handleAssign = async () => {
+    const numDiscount = Number(discount) || 0;
+
     if (!selectedMember) {
       toast.error("Please select a member");
       return;
     }
     if (!paymentAmount || paymentAmount <= 0) {
       toast.error("Please enter a valid payment amount");
+      return;
+    }
+    if (numDiscount > paymentAmount * months) {
+      toast.error("Discount cannot exceed subtotal");
       return;
     }
 
@@ -93,7 +99,8 @@ export const AssignMemberModal = ({
           months,
           paymentAmount,
           paymentMethod,
-          discount: Number(discount) || 0,
+          discount: numDiscount,
+          paidAmount,
         },
       }).unwrap();
       toast.success(

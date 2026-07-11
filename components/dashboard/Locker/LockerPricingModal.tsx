@@ -24,7 +24,7 @@ export const LockerPricingModal = ({
   locker,
   systemPrice,
 }: LockerPricingModalProps) => {
-  const [price, setPrice] = useState<number>(systemPrice || 200);
+  const [price, setPrice] = useState<number>(systemPrice || 0);
   const isCustomMode = !!locker;
 
   const [setBranchPrice, { isLoading: isSettingBranch }] =
@@ -36,7 +36,7 @@ export const LockerPricingModal = ({
 
   useEffect(() => {
     if (locker) {
-      setPrice(locker.isCustomPrice ? locker.customPrice : systemPrice || 200);
+      setPrice(locker.isCustomPrice ? locker.customPrice : systemPrice || 0);
     } else {
       setPrice(systemPrice || 200);
     }

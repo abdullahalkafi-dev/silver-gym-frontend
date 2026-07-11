@@ -70,6 +70,7 @@ export interface AssignMemberPayload {
   paymentAmount: number;
   paymentMethod: string;
   discount: number;
+  paidAmount: number;
   note?: string;
 }
 
@@ -78,5 +79,6 @@ export interface CollectPaymentPayload {
   paymentAmount?: number;
   paymentMethod: string;
   discount: number;
+  paidAmount: number;
   note?: string;
 }

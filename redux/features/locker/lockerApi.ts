@@ -242,6 +242,8 @@ export const lockerApi = baseApi.injectEndpoints({
         { type: "Locker", id: `LIST-${branchId}` },
         { type: "Locker", id: `STATS-${branchId}` },
         { type: "Locker", id: lockerId },
+        { type: "Payment" },
+        { type: "Transaction" },
       ],
     }),
 

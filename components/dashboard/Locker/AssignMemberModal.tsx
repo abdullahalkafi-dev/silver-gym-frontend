@@ -32,6 +32,8 @@ export const AssignMemberModal = ({
   const [customAmount, setCustomAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [discount, setDiscount] = useState<string>("");
+  const [paidAmount, setPaidAmount] = useState<string>("");
+  const [autoFillPaid, setAutoFillPaid] = useState(true);
 
   const [assignMember, { isLoading }] = useAssignMemberMutation();
 
@@ -65,6 +67,8 @@ export const AssignMemberModal = ({
       setCustomAmount("");
       setPaymentMethod("cash");
       setDiscount("");
+      setPaidAmount("");
+      setAutoFillPaid(true);
     }
   }, [isOpen]);
 
@@ -72,10 +76,17 @@ export const AssignMemberModal = ({
 
   const paymentAmount = useSystemPrice ? effectivePrice : (Number(customAmount) || 0);
   const totalDue = Math.max(0, paymentAmount * months - (Number(discount) || 0));
-  const paidAmount = totalDue;
+  const exchange = Math.max(0, (Number(paidAmount) || 0) - totalDue);
+
+  useEffect(() => {
+    if (autoFillPaid) {
+      setPaidAmount(String(totalDue));
+    }
+  }, [totalDue, autoFillPaid]);
 
   const handleAssign = async () => {
     const numDiscount = Number(discount) || 0;
+    const numPaidAmount = Number(paidAmount) || 0;
 
     if (!selectedMember) {
       toast.error("Please select a member");
@@ -89,6 +100,14 @@ export const AssignMemberModal = ({
       toast.error("Discount cannot exceed subtotal");
       return;
     }
+    if (!numPaidAmount || numPaidAmount <= 0) {
+      toast.error("Please enter a valid paid amount");
+      return;
+    }
+    if (numPaidAmount < totalDue) {
+      toast.error("Paid amount cannot be less than total due. Locker does not support partial payment.");
+      return;
+    }
 
     try {
       await assignMember({
@@ -100,7 +119,7 @@ export const AssignMemberModal = ({
           paymentAmount,
           paymentMethod,
           discount: numDiscount,
-          paidAmount,
+          paidAmount: numPaidAmount,
         },
       }).unwrap();
       toast.success(
@@ -297,10 +316,35 @@ export const AssignMemberModal = ({
             type="number"
             min={0}
             value={discount}
-            onChange={(e) => setDiscount(e.target.value)}
+            onChange={(e) => {
+              setDiscount(e.target.value);
+              setAutoFillPaid(true);
+            }}
             className="input-primary w-full"
             placeholder="0"
           />
+        </div>
+
+        {/* Paid Amount */}
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-text-primary mb-2">
+            Paid Amount (৳)
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={paidAmount}
+            onChange={(e) => {
+              setPaidAmount(e.target.value);
+              setAutoFillPaid(false);
+            }}
+            className="input-primary w-full"
+          />
+          {exchange > 0 && (
+            <p className="text-xs text-green-600 mt-1">
+              Exchange: ৳{exchange}
+            </p>
+          )}
         </div>
 
         {/* Summary */}

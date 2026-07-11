@@ -134,6 +134,14 @@ export const LockerPaymentModal = ({
           Locker #{locker.lockerNumber} — {locker.assignedMemberName}
         </p>
 
+        {locker.nextBillingDate && new Date(locker.nextBillingDate) > new Date() && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <span className="font-semibold">Note:</span> Current billing period hasn&apos;t ended yet. Next billing: {new Date(locker.nextBillingDate).toLocaleDateString("en-BD")}
+            </p>
+          </div>
+        )}
+
         {/* Months */}
         <div className="mb-4">
           <label className="block text-sm font-semibold text-text-primary mb-2">

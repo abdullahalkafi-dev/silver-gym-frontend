@@ -256,6 +256,11 @@ export const LockerDetailDrawer = ({
                       <p className="text-sm font-semibold text-text-primary">
                         ৳{payment.paidTotal}
                       </p>
+                      {payment.exchange > 0 && (
+                        <p className="text-xs text-green-600">
+                          Exchange: ৳{payment.exchange}
+                        </p>
+                      )}
                       <span
                         className={`text-xs ${
                           payment.status === "paid"

@@ -53,9 +53,9 @@ export const LockerPaymentModal = ({
   }, [isOpen]);
 
   const paymentAmount = useSystemPrice ? effectivePrice : (Number(customAmount) || 0);
-  const subTotal = paymentAmount * months;
-  const totalDue = Math.max(0, subTotal - (Number(discount) || 0));
-  const exchange = Math.max(0, (Number(paidAmount) || 0) - totalDue);
+  const subTotal = Math.round(paymentAmount * months * 100) / 100;
+  const totalDue = Math.round(Math.max(0, subTotal - (Number(discount) || 0)) * 100) / 100;
+  const exchange = Math.round(Math.max(0, (Number(paidAmount) || 0) - totalDue) * 100) / 100;
 
   useEffect(() => {
     if (autoFillPaid) {

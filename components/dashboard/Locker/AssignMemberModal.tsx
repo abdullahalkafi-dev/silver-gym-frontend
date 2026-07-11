@@ -75,8 +75,8 @@ export const AssignMemberModal = ({
   if (!isOpen || !locker) return null;
 
   const paymentAmount = useSystemPrice ? effectivePrice : (Number(customAmount) || 0);
-  const totalDue = Math.max(0, paymentAmount * months - (Number(discount) || 0));
-  const exchange = Math.max(0, (Number(paidAmount) || 0) - totalDue);
+  const totalDue = Math.round(Math.max(0, paymentAmount * months - (Number(discount) || 0)) * 100) / 100;
+  const exchange = Math.round(Math.max(0, (Number(paidAmount) || 0) - totalDue) * 100) / 100;
 
   useEffect(() => {
     if (autoFillPaid) {

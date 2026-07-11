@@ -202,8 +202,10 @@ export const lockerApi = baseApi.injectEndpoints({
         { type: "Locker", id: `LIST-${branchId}` },
         { type: "Locker", id: `STATS-${branchId}` },
         { type: "Locker", id: lockerId },
+        { type: "Locker", id: `PAYMENTS-${lockerId}` },
         { type: "Payment" },
         { type: "Transaction" },
+        { type: "Analytics" },
       ],
     }),
 
@@ -226,8 +228,10 @@ export const lockerApi = baseApi.injectEndpoints({
         { type: "Locker", id: `LIST-${branchId}` },
         { type: "Locker", id: `STATS-${branchId}` },
         { type: "Locker", id: lockerId },
+        { type: "Locker", id: `PAYMENTS-${lockerId}` },
         { type: "Payment" },
         { type: "Transaction" },
+        { type: "Analytics" },
       ],
     }),
 
@@ -242,8 +246,10 @@ export const lockerApi = baseApi.injectEndpoints({
         { type: "Locker", id: `LIST-${branchId}` },
         { type: "Locker", id: `STATS-${branchId}` },
         { type: "Locker", id: lockerId },
+        { type: "Locker", id: `PAYMENTS-${lockerId}` },
         { type: "Payment" },
         { type: "Transaction" },
+        { type: "Analytics" },
       ],
     }),
 

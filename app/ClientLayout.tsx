@@ -1,6 +1,6 @@
 // app\ClientLayout.tsx
 "use client";
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import AuthChecker from "@/components/auth/AuthChecker";
@@ -12,6 +12,17 @@ import { ReduxProvider } from "@/redux/providers/ReduxProvider";
 export default function ClientLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  useEffect(() => {
+    const preventWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement;
+      if (target?.tagName === "INPUT" && (target as HTMLInputElement).type === "number") {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("wheel", preventWheel, { passive: false });
+    return () => document.removeEventListener("wheel", preventWheel);
+  }, []);
+
   return (
     <Suspense fallback={<div className="hidden" />}>
       <ReduxProvider>

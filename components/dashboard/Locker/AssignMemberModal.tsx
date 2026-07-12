@@ -72,8 +72,6 @@ export const AssignMemberModal = ({
     }
   }, [isOpen]);
 
-  if (!isOpen || !locker) return null;
-
   const paymentAmount = useSystemPrice ? effectivePrice : (Number(customAmount) || 0);
   const totalDue = Math.round(Math.max(0, paymentAmount * months - (Number(discount) || 0)) * 100) / 100;
   const exchange = Math.round(Math.max(0, (Number(paidAmount) || 0) - totalDue) * 100) / 100;
@@ -83,6 +81,8 @@ export const AssignMemberModal = ({
       setPaidAmount(String(totalDue));
     }
   }, [totalDue, autoFillPaid]);
+
+  if (!isOpen || !locker) return null;
 
   const handleAssign = async () => {
     const numDiscount = Number(discount) || 0;

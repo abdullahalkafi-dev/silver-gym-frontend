@@ -128,8 +128,11 @@ function MonthGrid({
       ? toIndex(effectiveMaxStart)
       : Number.POSITIVE_INFINITY;
 
-    // Can't select past months
-    if (clickIdx < minIdx) return;
+    // Can't select past months — unless they have unpaid dues
+    if (clickIdx < minIdx) {
+      const isDue = dueMonths.some((m) => toIndex(m) === clickIdx);
+      if (!isDue) return;
+    }
 
     if (lockedStartMonth) {
       const lockedStartIdx = toIndex(lockedStartMonth);

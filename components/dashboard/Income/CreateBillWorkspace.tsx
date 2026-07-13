@@ -405,10 +405,9 @@ export default function CreateBillWorkspace({
   );
 
   // Compute which months have due items (for MonthGrid red highlighting).
-  // Only show due months that are >= monthlyMinMonth (the effective cycle start).
-  // Due months before this are handled by the backend auto-clear when the next
-  // cycle payment is collected — showing them in the grid would confuse users
-  // because they can't be selected without paying multiple months at once.
+  // Show ALL due months including those before monthlyMinMonth — the backend
+  // only clears monthly_dues that fall within the current cycle range, so
+  // overdue months before the cycle start must be explicitly selected by the user.
   const dueMonths = useMemo(
     () =>
       nonAdmissionDueItems
@@ -417,9 +416,8 @@ export default function CreateBillWorkspace({
             (item.type === "monthly_due" || item.type === "monthly_cycle_due") &&
             item.periodStart
         )
-        .map((item) => toMonthYear(new Date(item.periodStart!)))
-        .filter((my) => toIndex(my) >= toIndex(monthlyMinMonth)),
-    [nonAdmissionDueItems, monthlyMinMonth]
+        .map((item) => toMonthYear(new Date(item.periodStart!))),
+    [nonAdmissionDueItems]
   );
 
   const [monthlyMonths, setMonthlyMonths] = useState<MonthYear[]>(() => {

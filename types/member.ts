@@ -43,7 +43,8 @@ export type BackendPaymentType =
   | "admission"
   | "registration"
   | "locker"
-  | "other";
+  | "other"
+  | "due_settlement";
 
 export type CollectBillMode = "due_only" | "monthly" | "package";
 
@@ -214,6 +215,31 @@ export interface CreateMemberPaymentPayload {
   admissionFee?: number;
   paymentDate?: string;
   status?: BackendPaymentStatus;
+}
+
+export interface DuePaymentSummary {
+  payment: BackendPaymentRecord;
+  settlements: BackendPaymentRecord[];
+  totalSettled: number;
+  remainingDue: number;
+}
+
+export interface SettleDuePayload {
+  parentPaymentId: string;
+  paidTotal: number;
+  paymentMethod: PaymentMethod;
+  paymentDate?: string;
+  note?: string;
+}
+
+export interface SettleDueResult {
+  settlementPayment: BackendPaymentRecord;
+  updatedParentPayment: BackendPaymentRecord;
+  member: BackendMember;
+  billing: {
+    currentDueAmount: number;
+    nextPaymentDate?: string;
+  };
 }
 
 export interface CreateMemberPayload {
@@ -402,6 +428,7 @@ export interface PaymentRecord {
   status: string;
   exchange?: number;
   isImportedOpeningBalance?: boolean;
+  isDueSettlement?: boolean;
 }
 
 export interface MemberActivity {

@@ -17,8 +17,9 @@ import { cn } from "@/lib/utils";
 import {
   useCollectBillMutation,
   useUpdateMemberMutation,
+  useGetMemberDuePaymentsQuery,
 } from "@/redux/features/member/memberApi";
-import PayAdmissionDueModal from "@/components/modals/PayAdmissionDueModal";
+import PayDueModal from "@/components/modals/PayDueModal";
 import DeactivateMemberModal from "@/components/modals/DeactivateMemberModal";
 import Modal from "@/components/ui/modal";
 import type {
@@ -188,18 +189,15 @@ const isSameMonthYear = (left: Date, right: Date) =>
 // Union type for billing mode selection
 type BillingSelection =
   | { mode: "monthly" }
-  | { mode: "package"; packageId: string }
-  | { mode: "due_only" };
+  | { mode: "package"; packageId: string };
 
 const resolveBillingSelection = (value: string): BillingSelection => {
   if (value === "monthly") return { mode: "monthly" };
-  if (value === "due_only") return { mode: "due_only" };
   return { mode: "package", packageId: value };
 };
 
 const getDropdownValue = (sel: BillingSelection): string => {
   if (sel.mode === "monthly") return "monthly";
-  if (sel.mode === "due_only") return "due_only";
   return sel.packageId;
 };
 
@@ -236,7 +234,13 @@ export default function CreateBillWorkspace({
     [dueBreakdown]
   );
 
-  const [showAdmissionModal, setShowAdmissionModal] = useState(false);
+  // Fetch non-admission payment dues
+  const { data: duePayments = [] } = useGetMemberDuePaymentsQuery(
+    { branchId, memberId },
+    { skip: !branchId || !memberId },
+  );
+
+  const [showPayDueModal, setShowPayDueModal] = useState(false);
 
   const branchMonthlyFee = normalizeMoney(context.billing.monthlyFeeAmount ?? 0);
   const systemMonthlyFee = normalizeMoney(context.billing.branchMonthlyFeeAmount ?? 0);
@@ -276,7 +280,7 @@ export default function CreateBillWorkspace({
     if (branchMonthlyFee > 0) return { mode: "monthly" };
     if (firstSelectablePackage)
       return { mode: "package", packageId: firstSelectablePackage.id };
-    return { mode: "due_only" };
+    return { mode: "monthly" };
   };
 
   const [billingSelection, setBillingSelection] = useState<BillingSelection>(defaultSelection);
@@ -314,7 +318,7 @@ export default function CreateBillWorkspace({
       return { mode: "monthly" } as const;
     }
 
-    return { mode: "due_only" } as const;
+    return { mode: "monthly" } as const;
   }, [
     billingSelection,
     blockShortTermPackageSelection,
@@ -325,11 +329,7 @@ export default function CreateBillWorkspace({
   ]);
 
   const collectionMode: CollectBillMode =
-    effectiveBillingSelection.mode === "monthly"
-      ? "monthly"
-      : effectiveBillingSelection.mode === "package"
-        ? "package"
-        : "due_only";
+    effectiveBillingSelection.mode === "monthly" ? "monthly" : "package";
 
   const selectedPackageId =
     effectiveBillingSelection.mode === "package"
@@ -605,10 +605,6 @@ export default function CreateBillWorkspace({
       );
       return;
     }
-    if (collectionMode === "due_only" && nonAdmissionDueItems.length === 0) {
-      toast.error("No due items to collect");
-      return;
-    }
     if (rawDiscount > subTotal) {
       toast.error("Discount cannot exceed the bill total");
       return;
@@ -802,25 +798,29 @@ export default function CreateBillWorkspace({
           </div>
         </div>
 
-        {/* Pay Admission Due button — shown only when admission dues exist */}
-        {admissionDueItems.length > 0 && (
+        {/* Pay Due button — shown when any dues exist (admission or payment) */}
+        {(admissionDueItems.length > 0 || duePayments.length > 0) && (
           <div className="mb-3">
             <button
               type="button"
-              onClick={() => setShowAdmissionModal(true)}
-              className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+              onClick={() => setShowPayDueModal(true)}
+              className="flex w-full items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
             >
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-xs font-bold text-white">
-                {admissionDueItems.length}
+                {admissionDueItems.length + duePayments.length}
               </span>
-              Pay Admission Due
+              Pay Due
               <span className="ml-auto text-amber-700">
                 TK{" "}
                 {formatCurrency(
                   admissionDueItems.reduce(
                     (s, i) => s + i.remainingAmount,
-                    0
-                  )
+                    0,
+                  ) +
+                  duePayments.reduce(
+                    (s, d) => s + d.remainingDue,
+                    0,
+                  ),
                 )}
               </span>
             </button>
@@ -897,6 +897,11 @@ export default function CreateBillWorkspace({
                     <td className="px-4 py-3 text-gray-500">{record.month}</td>
                     <td className="px-4 py-3 text-gray-500">
                       {record.package}
+                      {record.isDueSettlement && (
+                        <span className="ml-1.5 inline-block rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                          Due Settlement
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-700">
                       {record.amount}
@@ -1040,15 +1045,6 @@ export default function CreateBillWorkspace({
                   {pkg.title}
                 </option>
               ))}
-              {nonAdmissionDueItems.length > 0 && (
-                <option value="due_only">Due only</option>
-              )}
-              {!isPackagesLoading &&
-                visiblePackages.length === 0 &&
-                branchMonthlyFee <= 0 &&
-                nonAdmissionDueItems.length > 0 && (
-                  <option value="due_only">Due only</option>
-                )}
             </select>
             {restrictPackageOptionsToLongTerm && (
               <p className="mt-2 text-xs text-gray-500">
@@ -1345,14 +1341,15 @@ export default function CreateBillWorkspace({
         </div>
       </div>
 
-      {/* Admission Due Modal */}
-      {showAdmissionModal && (
-        <PayAdmissionDueModal
-          isOpen={showAdmissionModal}
-          onClose={() => setShowAdmissionModal(false)}
+      {/* Pay Due Modal */}
+      {showPayDueModal && (
+        <PayDueModal
+          isOpen={showPayDueModal}
+          onClose={() => setShowPayDueModal(false)}
           branchId={branchId}
           memberId={memberId}
           admissionDueItems={admissionDueItems}
+          duePayments={duePayments}
         />
       )}
 

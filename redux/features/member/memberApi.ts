@@ -15,6 +15,9 @@ import type {
   DashboardMemberSummary,
   ImportBatch,
   PaymentRecord,
+  DuePaymentSummary,
+  SettleDuePayload,
+  SettleDueResult,
 } from "@/types/member";
 
 // ─── Raw API response shapes ────────────────────────────────────────
@@ -54,6 +57,22 @@ type RawCollectBillContextResponse = ApiSuccessResponse<{
 type RawCollectBillResponse = ApiSuccessResponse<{
   member: RawMember;
   payment: RawPayment;
+  billing: Record<string, unknown>;
+}>;
+
+type RawDuePaymentSummary = {
+  payment: RawPayment;
+  settlements: RawPayment[];
+  totalSettled: number;
+  remainingDue: number;
+};
+
+type RawDuePaymentsResponse = ApiSuccessResponse<RawDuePaymentSummary[]>;
+
+type RawSettleDueResponse = ApiSuccessResponse<{
+  settlementPayment: RawPayment;
+  updatedParentPayment: RawPayment;
+  member: RawMember;
   billing: Record<string, unknown>;
 }>;
 
@@ -113,6 +132,16 @@ type CollectBillContextArgs = {
 type CollectBillArgs = {
   branchId: string;
   payload: CollectBillPayload;
+};
+
+type MemberDuesArgs = {
+  branchId: string;
+  memberId: string;
+};
+
+type SettleDueArgs = {
+  branchId: string;
+  payload: SettleDuePayload;
 };
 
 const formatCurrency = (amount?: number) => `৳${(amount ?? 0).toLocaleString()}`;
@@ -211,6 +240,7 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
   const metadata = payment.metadata;
   const isImportedOpeningBalance =
     metadata?.entryKind === "opening_import_balance";
+  const isDueSettlement = metadata?.entryKind === "due_settlement";
   const dueAmount = payment.dueAmount ?? 0;
   const paidTotal = payment.paidTotal ?? 0;
   const billAmount = payment.billAmount ?? paidTotal;
@@ -230,6 +260,9 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
   let month = "—";
   if (isImportedOpeningBalance) {
     month = "Imported opening balance";
+  } else if (isDueSettlement) {
+    const parentInvoiceNo = metadata?.parentInvoiceNo as string | undefined;
+    month = parentInvoiceNo ? `Due Settlement (${parentInvoiceNo})` : "Due Settlement";
   } else if (isShortTermPackage && exactStartLabel && exactEndLabel && exactStartLabel !== exactEndLabel) {
     month = `${exactStartLabel} - ${exactEndLabel}`;
   } else if (isShortTermPackage && exactStartLabel) {
@@ -244,11 +277,14 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
     month = `Next ${formatPeriodPoint(payment.nextPaymentDate) || "cycle"}`;
   }
 
+  const parentPaymentType = metadata?.parentPaymentType as string | undefined;
   const packageLabel = isImportedOpeningBalance
     ? "Opening Balance"
-    : payment.packageName ||
-      PAYMENT_TYPE_LABELS[payment.paymentType || ""] ||
-      "Other";
+    : isDueSettlement
+      ? PAYMENT_TYPE_LABELS[parentPaymentType || ""] || "Due Settlement"
+      : payment.packageName ||
+        PAYMENT_TYPE_LABELS[payment.paymentType || ""] ||
+        "Other";
 
   const settledAmount = payment.paidTotal ?? 0;
   const receivedAmount = payment.paidTotal ?? 0;
@@ -287,8 +323,18 @@ const normalizePaymentRecord = (raw: RawPayment): PaymentRecord => {
     status,
     exchange: payment.exchange,
     isImportedOpeningBalance,
+    isDueSettlement,
   };
 };
+
+const normalizeDuePaymentSummary = (raw: RawDuePaymentSummary): DuePaymentSummary => ({
+  payment: normalizePayment(raw.payment),
+  settlements: Array.isArray(raw.settlements)
+    ? raw.settlements.map(normalizePayment)
+    : [],
+  totalSettled: Number(raw.totalSettled ?? 0),
+  remainingDue: Number(raw.remainingDue ?? 0),
+});
 
 const normalizeCollectBillDueItem = (raw: Record<string, unknown>) => ({
   ledgerItemId: String(raw.ledgerItemId || raw.key || ""),
@@ -561,6 +607,7 @@ export const memberApi = baseApi.injectEndpoints({
         { type: "Member", id: payload.memberId },
         { type: "Payment", id: `LIST-${branchId}` },
         { type: "Payment", id: `MEMBER-${payload.memberId}` },
+        { type: "Payment", id: `DUES-${payload.memberId}` },
         { type: "Analytics" },
       ],
     }),
@@ -714,6 +761,53 @@ export const memberApi = baseApi.injectEndpoints({
         { type: "Member", id: `SUMMARY-${branchId}` },
       ],
     }),
+
+    // ── Get member due payments (non-admission) ─────────────────────
+    getMemberDuePayments: builder.query<DuePaymentSummary[], MemberDuesArgs>({
+      query: ({ branchId, memberId }) => ({
+        url: `/payments/${branchId}/member-dues/${memberId}`,
+        method: "GET",
+      }),
+      transformResponse: (response: RawDuePaymentsResponse) =>
+        Array.isArray(response.data)
+          ? response.data.map(normalizeDuePaymentSummary)
+          : [],
+      providesTags: (_result, _error, { memberId }) => [
+        { type: "Payment", id: `DUES-${memberId}` },
+      ],
+    }),
+
+    // ── Settle due against a specific payment ───────────────────────
+    settleDuePayment: builder.mutation<SettleDueResult, SettleDueArgs>({
+      query: ({ branchId, payload }) => ({
+        url: `/payments/${branchId}/settle-due`,
+        method: "POST",
+        body: { data: payload },
+      }),
+      transformResponse: (response: RawSettleDueResponse) => ({
+        settlementPayment: normalizePayment(response.data.settlementPayment),
+        updatedParentPayment: normalizePayment(response.data.updatedParentPayment),
+        member: normalizeMember(response.data.member),
+        billing: {
+          currentDueAmount: Number(
+            (response.data.billing as Record<string, unknown>)?.currentDueAmount ?? 0,
+          ),
+          nextPaymentDate:
+            typeof (response.data.billing as Record<string, unknown>)?.nextPaymentDate === "string"
+              ? ((response.data.billing as Record<string, unknown>).nextPaymentDate as string)
+              : undefined,
+        },
+      }),
+      invalidatesTags: (result, _error, { branchId }) => [
+        { type: "Member", id: `LIST-${branchId}` },
+        { type: "Member", id: `SUMMARY-${branchId}` },
+        { type: "Payment", id: `LIST-${branchId}` },
+        ...(result?.member?._id
+          ? [{ type: "Payment" as const, id: `DUES-${result.member._id}` }]
+          : []),
+        { type: "Analytics" },
+      ],
+    }),
   }),
 });
 
@@ -731,4 +825,6 @@ export const {
   useGetImportBatchStatusQuery,
   useGetImportBatchesQuery,
   useGetDashboardSummaryQuery,
+  useGetMemberDuePaymentsQuery,
+  useSettleDuePaymentMutation,
 } = memberApi;

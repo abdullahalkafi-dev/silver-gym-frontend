@@ -801,6 +801,9 @@ export const memberApi = baseApi.injectEndpoints({
       invalidatesTags: (result, _error, { branchId }) => [
         { type: "Member", id: `LIST-${branchId}` },
         { type: "Member", id: `SUMMARY-${branchId}` },
+        ...(result?.member?._id
+          ? [{ type: "Member" as const, id: result.member._id }]
+          : []),
         { type: "Payment", id: `LIST-${branchId}` },
         ...(result?.member?._id
           ? [{ type: "Payment" as const, id: `DUES-${result.member._id}` }]

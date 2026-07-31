@@ -1178,7 +1178,7 @@ export default function SendSmsWorkspace() {
             {stepIndex === 1 ? (
               <div className="space-y-5">
                 {audience === "selected" ? (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                  <div className="flex gap-4 overflow-x-auto pb-3 pt-1 snap-x scrollbar-thin scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400">
                     {templateVariantOptions.map((option) => {
                       const isSelected = selectedTemplateVariant === option.value;
                       const previewText =
@@ -1197,7 +1197,7 @@ export default function SendSmsWorkspace() {
                               resolveTemplateVariantFromSettings(settingsDraft, option.value),
                             );
                           }}
-                          className={`flex flex-col justify-between rounded-2xl border p-4 text-left transition-all ${
+                          className={`w-[280px] min-w-[280px] flex-shrink-0 snap-start flex flex-col justify-between rounded-2xl border p-4 text-left transition-all ${
                             isSelected
                               ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
                               : "border-gray-200 bg-white hover:border-gray-300"
@@ -1207,7 +1207,7 @@ export default function SendSmsWorkspace() {
                             <div className="flex items-center justify-between gap-2">
                               <p className="font-semibold text-gray-900">{option.label}</p>
                               <span
-                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
                                   option.lang === "Bangla"
                                     ? "bg-purple-100 text-purple-700"
                                     : option.lang === "English"
@@ -1218,9 +1218,9 @@ export default function SendSmsWorkspace() {
                                 {option.lang}
                               </span>
                             </div>
-                            <p className="mt-1 text-xs text-gray-500">{option.helper}</p>
+                            <p className="mt-1.5 text-xs text-gray-500">{option.helper}</p>
                           </div>
-                          <p className="mt-3 line-clamp-3 rounded-lg bg-gray-50 p-2 text-xs text-gray-600 italic">
+                          <p className="mt-3 min-h-[60px] rounded-xl bg-gray-50 p-2.5 text-xs text-gray-600 italic leading-relaxed">
                             {previewText || "(Empty template)"}
                           </p>
                         </button>

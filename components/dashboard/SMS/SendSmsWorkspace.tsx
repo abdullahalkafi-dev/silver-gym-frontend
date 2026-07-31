@@ -86,15 +86,106 @@ const dueDurationOptions: Array<{
   { value: "allDue", label: "All Due", helper: "Every member who still has monthly dues" },
 ];
 
-const templateOptions: Array<{
-  value: SmsTemplateCategory;
+export type SmsTemplateVariant =
+  | "custom"
+  | "occasion_en"
+  | "occasion_bn"
+  | "promotion_en"
+  | "promotion_bn"
+  | "due_en"
+  | "due_bn";
+
+const templateVariantOptions: Array<{
+  value: SmsTemplateVariant;
+  category: SmsTemplateCategory;
   label: string;
+  lang: "English" | "Bangla" | "Custom";
   helper: string;
 }> = [
-  { value: "custom", label: "Custom Message", helper: "Write an English one-off message without using a saved template." },
-  { value: "occasion", label: "Occasion Greeting", helper: "Use for Eid, celebrations, and branch greetings." },
-  { value: "promotion", label: "Promotion", helper: "Use for offers, discounts, and announcement campaigns." },
+  {
+    value: "custom",
+    category: "custom",
+    label: "Custom Message",
+    lang: "Custom",
+    helper: "Write a one-off English or Bangla message.",
+  },
+  {
+    value: "occasion_en",
+    category: "occasion",
+    label: "Occasion Greeting (English)",
+    lang: "English",
+    helper: "English template for Eid, celebrations, and greetings.",
+  },
+  {
+    value: "occasion_bn",
+    category: "occasion",
+    label: "Occasion Greeting (Bangla)",
+    lang: "Bangla",
+    helper: "Bangla Unicode template for celebrations and greetings.",
+  },
+  {
+    value: "promotion_en",
+    category: "promotion",
+    label: "Promotion (English)",
+    lang: "English",
+    helper: "English template for offers, discounts, and campaigns.",
+  },
+  {
+    value: "promotion_bn",
+    category: "promotion",
+    label: "Promotion (Bangla)",
+    lang: "Bangla",
+    helper: "Bangla Unicode template for offers, discounts, and campaigns.",
+  },
 ];
+
+const resolveTemplateVariantFromSettings = (
+  settings: BranchSmsSettings | null,
+  variant: SmsTemplateVariant,
+): string => {
+  if (!settings) return "";
+  switch (variant) {
+    case "occasion_en":
+      return settings.occasionTemplate || "";
+    case "occasion_bn":
+      return settings.occasionTemplateBangla || "";
+    case "promotion_en":
+      return settings.promotionTemplate || "";
+    case "promotion_bn":
+      return settings.promotionTemplateBangla || "";
+    case "due_en":
+      return settings.template || "";
+    case "due_bn":
+      return settings.templateBangla || "";
+    case "custom":
+    default:
+      return "";
+  }
+};
+
+const getCategoryFromVariant = (variant: SmsTemplateVariant): SmsTemplateCategory => {
+  if (variant.startsWith("occasion")) return "occasion";
+  if (variant.startsWith("promotion")) return "promotion";
+  if (variant.startsWith("due")) return "due";
+  return "custom";
+};
+
+const resolveTemplateFromSettings = (
+  settings: BranchSmsSettings,
+  templateCategory: SmsTemplateCategory,
+) => {
+  switch (templateCategory) {
+    case "occasion":
+      return settings.occasionTemplate || settings.occasionTemplateBangla;
+    case "promotion":
+      return settings.promotionTemplate || settings.promotionTemplateBangla;
+    case "custom":
+      return "";
+    case "due":
+    default:
+      return settings.templateBangla || settings.template;
+  }
+};
 
 const memberStatusOptions: Array<{
   value: SmsMemberStatusFilter;
@@ -147,23 +238,6 @@ const formatTemplateCategoryLabel = (templateCategory: SmsTemplateCategory) => {
   }
 };
 
-const resolveTemplateFromSettings = (
-  settings: BranchSmsSettings,
-  templateCategory: SmsTemplateCategory,
-) => {
-  switch (templateCategory) {
-    case "occasion":
-      return settings.occasionTemplateBangla || settings.occasionTemplate;
-    case "promotion":
-      return settings.promotionTemplateBangla || settings.promotionTemplate;
-    case "custom":
-      return "";
-    case "due":
-    default:
-      return settings.templateBangla || settings.template;
-  }
-};
-
 const resolveTemplatePlaceholderText = (templateCategory: SmsTemplateCategory) => {
   if (templateCategory === "due") {
     return "Placeholders: {memberName}, {dueMonth}, {branchName}. Unicode SMS uses 70 chars per unit.";
@@ -200,6 +274,8 @@ export default function SendSmsWorkspace() {
     useState<SmsMemberStatusFilter>("active");
   const [selectedTemplateCategory, setSelectedTemplateCategory] =
     useState<SmsTemplateCategory>("custom");
+  const [selectedTemplateVariant, setSelectedTemplateVariant] =
+    useState<SmsTemplateVariant>("custom");
   const [searchQuery, setSearchQuery] = useState("");
   const [manualPage, setManualPage] = useState(1);
   const [duePage, setDuePage] = useState(1);
@@ -1102,30 +1178,51 @@ export default function SendSmsWorkspace() {
             {stepIndex === 1 ? (
               <div className="space-y-5">
                 {audience === "selected" ? (
-                  <div className="grid gap-3 md:grid-cols-3">
-                    {templateOptions.map((option) => {
-                      const isSelected = activeTemplateCategory === option.value;
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                    {templateVariantOptions.map((option) => {
+                      const isSelected = selectedTemplateVariant === option.value;
                       const previewText =
                         option.value === "custom"
-                          ? "Write a one-off English message without changing the saved templates."
-                          : settingsDraft
-                            ? resolveTemplateFromSettings(settingsDraft, option.value)
-                            : "";
+                          ? "Write a one-off English or Bangla message without changing saved templates."
+                          : resolveTemplateVariantFromSettings(settingsDraft, option.value);
 
                       return (
                         <button
                           key={option.value}
                           type="button"
-                          onClick={() => handleTemplateCategoryChange(option.value)}
-                          className={`rounded-2xl border px-4 py-4 text-left transition-colors ${
+                          onClick={() => {
+                            setSelectedTemplateVariant(option.value);
+                            setSelectedTemplateCategory(option.category);
+                            setTemplateDraft(
+                              resolveTemplateVariantFromSettings(settingsDraft, option.value),
+                            );
+                          }}
+                          className={`flex flex-col justify-between rounded-2xl border p-4 text-left transition-all ${
                             isSelected
-                              ? "border-primary bg-primary/5"
-                              : "border-gray-200 bg-white"
+                              ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                              : "border-gray-200 bg-white hover:border-gray-300"
                           }`}
                         >
-                          <p className="font-semibold text-gray-900">{option.label}</p>
-                          <p className="mt-1 text-xs text-gray-500">{option.helper}</p>
-                          <p className="mt-3 line-clamp-3 text-sm text-gray-600">{previewText}</p>
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-semibold text-gray-900">{option.label}</p>
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                  option.lang === "Bangla"
+                                    ? "bg-purple-100 text-purple-700"
+                                    : option.lang === "English"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-gray-100 text-gray-600"
+                                }`}
+                              >
+                                {option.lang}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">{option.helper}</p>
+                          </div>
+                          <p className="mt-3 line-clamp-3 rounded-lg bg-gray-50 p-2 text-xs text-gray-600 italic">
+                            {previewText || "(Empty template)"}
+                          </p>
                         </button>
                       );
                     })}
@@ -1145,28 +1242,37 @@ export default function SendSmsWorkspace() {
                   >
                     Manage Saved Templates
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      settingsDraft &&
-                      setTemplateDraft(
-                        resolveTemplateFromSettings(settingsDraft, activeTemplateCategory),
-                      )
-                    }
-                    disabled={!settingsDraft || activeTemplateCategory === "custom"}
-                  >
-                    Load Saved Template
-                  </Button>
                 </div>
 
                 <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_320px]">
                   <div className="space-y-3 rounded-2xl bg-gray-primary p-4">
-                    <div>
-                      <h3 className="text-base font-semibold text-gray-900">Message Draft</h3>
-                      <p className="text-sm text-gray-500">
-                        {resolveTemplatePlaceholderText(activeTemplateCategory)}
-                      </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-gray-900">Message Draft</h3>
+                        <p className="text-sm text-gray-500">
+                          {resolveTemplatePlaceholderText(activeTemplateCategory)}
+                        </p>
+                      </div>
+                      {audience !== "due" && settingsDraft ? (
+                        <select
+                          value={selectedTemplateVariant}
+                          onChange={(e) => {
+                            const variant = e.target.value as SmsTemplateVariant;
+                            setSelectedTemplateVariant(variant);
+                            setSelectedTemplateCategory(getCategoryFromVariant(variant));
+                            setTemplateDraft(
+                              resolveTemplateVariantFromSettings(settingsDraft, variant),
+                            );
+                          }}
+                          className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm outline-none transition-colors hover:border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="custom">-- Load Saved Template --</option>
+                          <option value="occasion_en">Occasion Greeting (English)</option>
+                          <option value="occasion_bn">Occasion Greeting (Bangla)</option>
+                          <option value="promotion_en">Promotion (English)</option>
+                          <option value="promotion_bn">Promotion (Bangla)</option>
+                        </select>
+                      ) : null}
                     </div>
                     <Textarea
                       value={templateDraft}
@@ -1524,7 +1630,7 @@ export default function SendSmsWorkspace() {
       </Sheet>
 
       <Sheet open={templateManagerOpen} onOpenChange={setTemplateManagerOpen}>
-        <SheetContent side="right" className="w-full max-w-3xl overflow-y-auto">
+        <SheetContent side="right" className="w-full max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Manage Saved Templates</SheetTitle>
             <SheetDescription>
@@ -1534,8 +1640,8 @@ export default function SendSmsWorkspace() {
           <div className="space-y-6 p-4 pt-0">
             {!settingsDraft ? null : (
               <>
-                <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x scrollbar-thin">
-                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">Due Reminder (English)</label>
                     <Textarea
                       value={settingsDraft.template}
@@ -1553,7 +1659,7 @@ export default function SendSmsWorkspace() {
                       {settingsDraft.template.length}/160 characters (English SMS)
                     </p>
                   </div>
-                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
+                  <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">Due Reminder (Bangla)</label>
                     <Textarea
                       value={settingsDraft.templateBangla}
@@ -1571,7 +1677,9 @@ export default function SendSmsWorkspace() {
                       {settingsDraft.templateBangla.length}/70 characters (Unicode SMS)
                     </p>
                   </div>
-                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">Occasion Greeting (English)</label>
                     <Textarea
                       value={settingsDraft.occasionTemplate}
@@ -1586,7 +1694,7 @@ export default function SendSmsWorkspace() {
                       disabled={!canEditSavedTemplates}
                     />
                   </div>
-                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
+                  <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">Occasion Greeting (Bangla)</label>
                     <Textarea
                       value={settingsDraft.occasionTemplateBangla}
@@ -1601,7 +1709,9 @@ export default function SendSmsWorkspace() {
                       disabled={!canEditSavedTemplates}
                     />
                   </div>
-                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">Promotion (English)</label>
                     <Textarea
                       value={settingsDraft.promotionTemplate}
@@ -1616,7 +1726,7 @@ export default function SendSmsWorkspace() {
                       disabled={!canEditSavedTemplates}
                     />
                   </div>
-                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
+                  <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">Promotion (Bangla)</label>
                     <Textarea
                       value={settingsDraft.promotionTemplateBangla}

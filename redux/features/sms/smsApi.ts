@@ -49,8 +49,11 @@ type UpdateBranchSmsSettingsPayload = BranchScopedArgs & {
     autoSendEnabled: boolean;
     reminderDayOfMonth: number;
     template: string;
+    templateBangla: string;
     occasionTemplate: string;
+    occasionTemplateBangla: string;
     promotionTemplate: string;
+    promotionTemplateBangla: string;
     defaultDeliveryMode: SmsDeliveryMode;
     maskingSender: string | null;
   }>;
@@ -67,8 +70,11 @@ type RawSmsSettingsSnapshot = {
     autoSendEnabled?: boolean;
     reminderDayOfMonth?: number;
     template?: string;
+    templateBangla?: string;
     occasionTemplate?: string;
+    occasionTemplateBangla?: string;
     promotionTemplate?: string;
+    promotionTemplateBangla?: string;
     defaultDeliveryMode?: SmsDeliveryMode;
     maskingSender?: string | null;
     updatedAt?: string | null;
@@ -156,7 +162,7 @@ type RawSmsHistoryRecord = {
   requestedByUserId?: string | null;
   requestedByStaffId?: string | null;
   targetDate?: string;
-  provider?: "wintel";
+  provider?: "fastsmsbd";
   availableBalance?: number | null;
   remainingBalance?: number | null;
   providerReference?: string;
@@ -181,8 +187,11 @@ const normalizeSmsSettingsSnapshot = (
     autoSendEnabled: Boolean(rawSnapshot?.smsSettings?.autoSendEnabled),
     reminderDayOfMonth: Number(rawSnapshot?.smsSettings?.reminderDayOfMonth || 5),
     template: rawSnapshot?.smsSettings?.template || "",
+    templateBangla: rawSnapshot?.smsSettings?.templateBangla || "",
     occasionTemplate: rawSnapshot?.smsSettings?.occasionTemplate || "",
+    occasionTemplateBangla: rawSnapshot?.smsSettings?.occasionTemplateBangla || "",
     promotionTemplate: rawSnapshot?.smsSettings?.promotionTemplate || "",
+    promotionTemplateBangla: rawSnapshot?.smsSettings?.promotionTemplateBangla || "",
     defaultDeliveryMode:
       rawSnapshot?.smsSettings?.defaultDeliveryMode || "masking",
     maskingSender: rawSnapshot?.smsSettings?.maskingSender ?? null,
@@ -290,7 +299,7 @@ const normalizeSmsHistoryRecord = (
   requestedByUserId: rawRecord?.requestedByUserId ?? null,
   requestedByStaffId: rawRecord?.requestedByStaffId ?? null,
   targetDate: rawRecord?.targetDate,
-  provider: rawRecord?.provider || "wintel",
+  provider: rawRecord?.provider || "fastsmsbd",
   availableBalance:
     rawRecord?.availableBalance == null ? null : Number(rawRecord.availableBalance),
   remainingBalance:

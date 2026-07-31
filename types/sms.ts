@@ -13,8 +13,11 @@ export interface BranchSmsSettings {
   autoSendEnabled: boolean;
   reminderDayOfMonth: number;
   template: string;
+  templateBangla: string;
   occasionTemplate: string;
+  occasionTemplateBangla: string;
   promotionTemplate: string;
+  promotionTemplateBangla: string;
   defaultDeliveryMode: SmsDeliveryMode;
   maskingSender?: string | null;
   updatedAt?: string | null;
@@ -123,7 +126,7 @@ export interface SmsHistoryRecord {
   requestedByUserId?: string | null;
   requestedByStaffId?: string | null;
   targetDate?: string;
-  provider: "wintel";
+  provider: "fastsmsbd";
   availableBalance?: number | null;
   remainingBalance?: number | null;
   providerReference?: string;

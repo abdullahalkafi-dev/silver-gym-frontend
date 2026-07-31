@@ -111,8 +111,6 @@ const formatAmount = (amount?: number | null) => `৳${Number(amount || 0).toLoc
 
 const formatNumber = (value?: number | null) => Number(value || 0).toLocaleString();
 
-const sanitizeEnglishText = (value: string) => value.replace(/[^\x20-\x7E\r\n]/g, "");
-
 const countPreviewCharacters = (value?: string | null) => Array.from(value || "").length;
 
 const formatDeliveryModeLabel = (mode: SmsDeliveryMode) =>
@@ -126,9 +124,9 @@ const formatDueDurationLabel = (dueDuration: SmsDueDuration) => {
 const formatMessageTypeLabel = (messageType?: SmsMessageTypeSummary) => {
   switch (messageType) {
     case "unicode":
-      return "Unsupported characters";
+      return "Unicode SMS";
     case "mixed":
-      return "Check message text";
+      return "Mixed (Text + Unicode)";
     case "text":
     default:
       return "Text SMS";
@@ -155,27 +153,27 @@ const resolveTemplateFromSettings = (
 ) => {
   switch (templateCategory) {
     case "occasion":
-      return settings.occasionTemplate;
+      return settings.occasionTemplateBangla || settings.occasionTemplate;
     case "promotion":
-      return settings.promotionTemplate;
+      return settings.promotionTemplateBangla || settings.promotionTemplate;
     case "custom":
       return "";
     case "due":
     default:
-      return settings.template;
+      return settings.templateBangla || settings.template;
   }
 };
 
 const resolveTemplatePlaceholderText = (templateCategory: SmsTemplateCategory) => {
   if (templateCategory === "due") {
-    return "Placeholders: {memberName}, {dueMonth}, {branchName}. Due reminders stay within 160 English characters.";
+    return "Placeholders: {memberName}, {dueMonth}, {branchName}. Unicode SMS uses 70 chars per unit.";
   }
 
   if (templateCategory === "custom") {
-    return "English text only. Write a one-off message for the selected members.";
+    return "Write a message for the selected members. English (160 chars) or Bangla (70 chars) per SMS unit.";
   }
 
-  return "Placeholders: {memberName}, {branchName}. You can also write plain text without placeholders.";
+  return "Placeholders: {memberName}, {branchName}. English or Bangla text supported.";
 };
 
 type HistoryTarget = {
@@ -531,8 +529,11 @@ export default function SendSmsWorkspace() {
         reminderDayOfMonth: number;
         maskingSender: string | null;
         template?: string;
+        templateBangla?: string;
         occasionTemplate?: string;
+        occasionTemplateBangla?: string;
         promotionTemplate?: string;
+        promotionTemplateBangla?: string;
       } = {
         autoSendEnabled: settingsDraft.autoSendEnabled,
         reminderDayOfMonth: Number(settingsDraft.reminderDayOfMonth),
@@ -543,11 +544,14 @@ export default function SendSmsWorkspace() {
 
       if (canEditDueTemplate) {
         payload.template = settingsDraft.template;
+        payload.templateBangla = settingsDraft.templateBangla;
       }
 
       if (canEditSavedTemplates) {
         payload.occasionTemplate = settingsDraft.occasionTemplate;
+        payload.occasionTemplateBangla = settingsDraft.occasionTemplateBangla;
         payload.promotionTemplate = settingsDraft.promotionTemplate;
+        payload.promotionTemplateBangla = settingsDraft.promotionTemplateBangla;
       }
 
       const savedSettingsSnapshot = await updateSettings({
@@ -562,7 +566,7 @@ export default function SendSmsWorkspace() {
       });
 
       if (audience === "due") {
-        setTemplateDraft(savedSettingsSnapshot.smsSettings.template);
+        setTemplateDraft(savedSettingsSnapshot.smsSettings.templateBangla || savedSettingsSnapshot.smsSettings.template);
       } else if (activeTemplateCategory !== "custom") {
         setTemplateDraft(
           resolveTemplateFromSettings(
@@ -699,7 +703,7 @@ export default function SendSmsWorkspace() {
               {formatNumber(summary?.requiredUnits || 0)}
             </p>
             <p className="mt-2 text-sm text-gray-500">
-              Messages over 160 characters use extra masking units.
+              Messages over the character limit use extra masking units.
             </p>
           </CardContent>
         </Card>
@@ -1166,7 +1170,7 @@ export default function SendSmsWorkspace() {
                     </div>
                     <Textarea
                       value={templateDraft}
-                      onChange={(event) => setTemplateDraft(sanitizeEnglishText(event.target.value))}
+                      onChange={(event) => setTemplateDraft(event.target.value)}
                       className="min-h-52 bg-white"
                       placeholder="Write the SMS content for this batch"
                       readOnly={audience === "due"}
@@ -1291,7 +1295,7 @@ export default function SendSmsWorkspace() {
                       {formatMessageTypeLabel(summary?.messageType)}
                     </p>
                     <p className="mt-1 text-sm text-gray-500">
-                      Over 160 chars: {formatNumber(summary?.messagesOverSingleSmsLimit || 0)}
+                      Over limit: {formatNumber(summary?.messagesOverSingleSmsLimit || 0)}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-gray-200 bg-white p-4">
@@ -1398,7 +1402,7 @@ export default function SendSmsWorkspace() {
                       onChange={(event) =>
                         updateSettingsDraft((currentDraft) =>
                           currentDraft
-                            ? { ...currentDraft, maskingSender: sanitizeEnglishText(event.target.value) }
+                            ? { ...currentDraft, maskingSender: event.target.value }
                             : currentDraft,
                         )
                       }
@@ -1530,53 +1534,107 @@ export default function SendSmsWorkspace() {
           <div className="space-y-6 p-4 pt-0">
             {!settingsDraft ? null : (
               <>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Due Reminder</label>
-                  <Textarea
-                    value={settingsDraft.template}
-                    onChange={(event) =>
-                      updateSettingsDraft((currentDraft) =>
-                        currentDraft
-                          ? { ...currentDraft, template: sanitizeEnglishText(event.target.value) }
-                          : currentDraft,
-                      )
-                    }
-                    className="min-h-32"
-                    disabled={!canEditDueTemplate}
-                  />
-                  <p className="text-xs text-gray-500">
-                    {settingsDraft.template.length}/160 characters. Use English text only.
-                  </p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Due Reminder (English)</label>
+                    <Textarea
+                      value={settingsDraft.template}
+                      onChange={(event) =>
+                        updateSettingsDraft((currentDraft) =>
+                          currentDraft
+                            ? { ...currentDraft, template: event.target.value }
+                            : currentDraft,
+                        )
+                      }
+                      className="min-h-32"
+                      disabled={!canEditDueTemplate}
+                    />
+                    <p className="text-xs text-gray-500">
+                      {settingsDraft.template.length}/160 characters (English SMS)
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Due Reminder (Bangla)</label>
+                    <Textarea
+                      value={settingsDraft.templateBangla}
+                      onChange={(event) =>
+                        updateSettingsDraft((currentDraft) =>
+                          currentDraft
+                            ? { ...currentDraft, templateBangla: event.target.value }
+                            : currentDraft,
+                        )
+                      }
+                      className="min-h-32"
+                      disabled={!canEditDueTemplate}
+                    />
+                    <p className="text-xs text-gray-500">
+                      {settingsDraft.templateBangla.length}/70 characters (Unicode SMS)
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Occasion Greeting</label>
-                  <Textarea
-                    value={settingsDraft.occasionTemplate}
-                    onChange={(event) =>
-                      updateSettingsDraft((currentDraft) =>
-                        currentDraft
-                          ? { ...currentDraft, occasionTemplate: sanitizeEnglishText(event.target.value) }
-                          : currentDraft,
-                      )
-                    }
-                    className="min-h-32"
-                    disabled={!canEditSavedTemplates}
-                  />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Occasion Greeting (English)</label>
+                    <Textarea
+                      value={settingsDraft.occasionTemplate}
+                      onChange={(event) =>
+                        updateSettingsDraft((currentDraft) =>
+                          currentDraft
+                            ? { ...currentDraft, occasionTemplate: event.target.value }
+                            : currentDraft,
+                        )
+                      }
+                      className="min-h-32"
+                      disabled={!canEditSavedTemplates}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Occasion Greeting (Bangla)</label>
+                    <Textarea
+                      value={settingsDraft.occasionTemplateBangla}
+                      onChange={(event) =>
+                        updateSettingsDraft((currentDraft) =>
+                          currentDraft
+                            ? { ...currentDraft, occasionTemplateBangla: event.target.value }
+                            : currentDraft,
+                        )
+                      }
+                      className="min-h-32"
+                      disabled={!canEditSavedTemplates}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Promotion</label>
-                  <Textarea
-                    value={settingsDraft.promotionTemplate}
-                    onChange={(event) =>
-                      updateSettingsDraft((currentDraft) =>
-                        currentDraft
-                          ? { ...currentDraft, promotionTemplate: sanitizeEnglishText(event.target.value) }
-                          : currentDraft,
-                      )
-                    }
-                    className="min-h-32"
-                    disabled={!canEditSavedTemplates}
-                  />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Promotion (English)</label>
+                    <Textarea
+                      value={settingsDraft.promotionTemplate}
+                      onChange={(event) =>
+                        updateSettingsDraft((currentDraft) =>
+                          currentDraft
+                            ? { ...currentDraft, promotionTemplate: event.target.value }
+                            : currentDraft,
+                        )
+                      }
+                      className="min-h-32"
+                      disabled={!canEditSavedTemplates}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Promotion (Bangla)</label>
+                    <Textarea
+                      value={settingsDraft.promotionTemplateBangla}
+                      onChange={(event) =>
+                        updateSettingsDraft((currentDraft) =>
+                          currentDraft
+                            ? { ...currentDraft, promotionTemplateBangla: event.target.value }
+                            : currentDraft,
+                        )
+                      }
+                      className="min-h-32"
+                      disabled={!canEditSavedTemplates}
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
                   <Button variant="outline" onClick={() => setTemplateManagerOpen(false)}>

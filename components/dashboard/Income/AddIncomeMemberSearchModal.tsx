@@ -160,10 +160,13 @@ function MemberRow({
 
 interface AddIncomeMemberSearchModalProps {
   onClose: () => void;
+  isOpen?: boolean;
+  isEmbedded?: boolean;
 }
 
 export default function AddIncomeMemberSearchModal({
   onClose,
+  isEmbedded = false,
 }: AddIncomeMemberSearchModalProps) {
   const router = useRouter();
   const { activeBranchId } = useUser();
@@ -208,6 +211,86 @@ export default function AddIncomeMemberSearchModal({
     [router, onClose],
   );
 
+  const modalBodyContent = (
+    <div className="flex flex-col space-y-4 pt-1">
+      {/* Search input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Search By User ID / Name / Phone Number"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 h-11 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple/30 focus:border-purple transition-colors"
+        />
+      </div>
+
+      {/* Body */}
+      <div className="overflow-y-auto max-h-[50vh]">
+        {debouncedSearch.trim().length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+            <div className="w-14 h-14 rounded-full border-2 border-gray-200 flex items-center justify-center">
+              <Search className="w-6 h-6 text-gray-300" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-700">
+                Start Billing by Searching Records
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Type member name, ID, or phone number above
+              </p>
+            </div>
+          </div>
+        )}
+
+        {debouncedSearch.trim().length > 0 && (
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3">Member</th>
+                  <th className="px-4 py-3">User ID</th>
+                  <th className="px-4 py-3">Phone</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Due</th>
+                  <th className="px-4 py-3">Overdue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {showSkeleton ? (
+                  <>
+                    <SkeletonRow />
+                    <SkeletonRow />
+                    <SkeletonRow />
+                  </>
+                ) : members.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                      No members found matching &quot;{debouncedSearch}&quot;
+                    </td>
+                  </tr>
+                ) : (
+                  members.map((member) => (
+                    <MemberRow
+                      key={member._id}
+                      member={member}
+                      onClick={handleMemberClick}
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  if (isEmbedded) {
+    return modalBodyContent;
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
@@ -218,10 +301,10 @@ export default function AddIncomeMemberSearchModal({
       />
 
       {/* Modal card */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 z-10 flex flex-col max-h-[85vh]">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 z-10 flex flex-col max-h-[85vh] p-6">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0">
-          <h2 className="text-lg font-semibold text-gray-900">Add Income</h2>
+        <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">Add Member Income</h2>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
@@ -230,97 +313,7 @@ export default function AddIncomeMemberSearchModal({
             <X size={18} />
           </button>
         </div>
-
-        {/* Search input */}
-        <div className="px-6 pb-4 shrink-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Search By User ID / Name / Phone Number"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 h-11 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple/30 focus:border-purple transition-colors"
-            />
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 pb-6">
-          {/* Empty state — nothing typed yet */}
-          {debouncedSearch.trim().length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-              <div className="w-16 h-16 rounded-full border-2 border-gray-200 flex items-center justify-center">
-                <Search className="w-7 h-7 text-gray-300" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-700">
-                  Start Billing by Searching Records
-                </p>
-                <p className="text-xs text-gray-400 mt-1 max-w-xs">
-                  Start typing a member&apos;s name, phone number or ID to
-                  quickly find the right person and continue billing
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* No results */}
-          {!showSkeleton &&
-            debouncedSearch.trim().length > 0 &&
-            members.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-14 gap-2 text-center">
-                <p className="text-sm font-semibold text-gray-700">
-                  No members found
-                </p>
-                <p className="text-xs text-gray-400">
-                  Try a different name, phone number or member ID.
-                </p>
-              </div>
-            )}
-
-          {/* Table */}
-          {(showSkeleton || members.length > 0) && (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    Member ID
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    Phone
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    Due Duration
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    Payment
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {showSkeleton
-                  ? Array.from({ length: 5 }).map((_, i) => (
-                      <SkeletonRow key={i} />
-                    ))
-                  : members.map((m) => (
-                      <MemberRow
-                        key={m._id}
-                        member={m}
-                        onClick={handleMemberClick}
-                      />
-                    ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {modalBodyContent}
       </div>
     </div>
   );

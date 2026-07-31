@@ -8,7 +8,7 @@ import { StartingBalanceSetup } from "@/components/accounts/StartingBalanceSetup
 import { AddDetails } from "@/components/accounts/AddDetails";
 
 export default function AccountsPage() {
-  const [activeTab, setActiveTab] = useState<"package" | "expense">("package");
+  const [activeTab, setActiveTab] = useState<"package" | "expense" | "income">("package");
 
   return (
     <div className="min-h-screen">

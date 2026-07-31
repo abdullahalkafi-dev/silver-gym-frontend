@@ -6,8 +6,9 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DateFilterType } from "@/types/income";
 import DateFilterDropdown from "./DateFilterDropdown";
+import CategoryFilter from "./CategoryFilter";
 import SummaryViewToggle from "./SummaryViewToggle";
-import AddIncomeMemberSearchModal from "./AddIncomeMemberSearchModal";
+import AddIncomeModal from "./AddIncomeModal";
 import ExportReportModal from "@/components/modals/ExportReportModal";
 import { ImageIcon } from "@/components/utils/ImageIcon";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -35,6 +36,7 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   registration: "Registration",
   locker: "Locker",
   other: "Other",
+  custom: "Custom Income",
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -91,6 +93,13 @@ function PaymentDetailModal({
 }) {
   const printRef = useRef<HTMLDivElement>(null);
 
+  const isCustom = payment.paymentType === "custom";
+  const categoryTitle =
+    isCustom && payment.metadata?.categoryTitle
+      ? (payment.metadata.categoryTitle as string)
+      : PAYMENT_TYPE_LABELS[payment.paymentType ?? ""] ?? payment.paymentType ?? "—";
+  const noteValue = (payment.metadata?.note as string) || undefined;
+
   const handleDownloadPdf = () => {
     const printWindow = window.open("", "_blank", "width=700,height=900");
     if (!printWindow) return;
@@ -114,9 +123,13 @@ function PaymentDetailModal({
           <span class="badge">${payment.invoiceNo ?? "N/A"}</span>
           <table>
             <tr><td>Date &amp; Time</td><td>${formatPaymentDate(payment.paymentDate)}</td></tr>
-            <tr><td>Member Name</td><td>${payment.memberName ?? "—"}</td></tr>
-            <tr><td>Member ID</td><td>${payment.memberFacingId ?? "—"}</td></tr>
-            <tr><td>Category</td><td>${PAYMENT_TYPE_LABELS[payment.paymentType ?? ""] ?? payment.paymentType ?? "—"}</td></tr>
+            ${
+              isCustom
+                ? `<tr><td>Note / Description</td><td>${noteValue || categoryTitle}</td></tr>`
+                : `<tr><td>Member Name</td><td>${payment.memberName ?? "—"}</td></tr>
+                   <tr><td>Member ID</td><td>${payment.memberFacingId ?? "—"}</td></tr>`
+            }
+            <tr><td>Category</td><td>${categoryTitle}</td></tr>
             <tr><td>Payment Method</td><td>${PAYMENT_METHOD_LABELS[payment.paymentMethod ?? ""] ?? payment.paymentMethod ?? "—"}</td></tr>
             ${payment.discount ? `<tr><td>Discount</td><td>${Number(payment.discount).toFixed(2)} TK</td></tr>` : ""}
             ${payment.dueAmount ? `<tr><td>Due Amount</td><td>${Number(payment.dueAmount).toFixed(2)} TK</td></tr>` : ""}
@@ -168,18 +181,23 @@ function PaymentDetailModal({
             label="Date &amp; Time"
             value={formatPaymentDate(payment.paymentDate)}
           />
-          <DetailRow label="Member Name" value={payment.memberName ?? "—"} />
-          <DetailRow
-            label="Member ID"
-            value={payment.memberFacingId ?? "—"}
-          />
+          {isCustom ? (
+            <DetailRow
+              label="Note / Description"
+              value={noteValue || categoryTitle}
+            />
+          ) : (
+            <>
+              <DetailRow label="Member Name" value={payment.memberName ?? "—"} />
+              <DetailRow
+                label="Member ID"
+                value={payment.memberFacingId ?? "—"}
+              />
+            </>
+          )}
           <DetailRow
             label="Category"
-            value={
-              PAYMENT_TYPE_LABELS[payment.paymentType ?? ""] ??
-              payment.paymentType ??
-              "—"
-            }
+            value={categoryTitle}
           />
           <DetailRow
             label="Payment Method"
@@ -243,14 +261,9 @@ function DetailRow({
   value: string;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4">
-      <span
-        className="text-sm text-gray-500 min-w-[130px]"
-        dangerouslySetInnerHTML={{ __html: label }}
-      />
-      <span className="text-sm font-medium text-gray-800 text-right">
-        {value}
-      </span>
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-gray-500">{label}</span>
+      <span className="font-semibold text-gray-800">{value}</span>
     </div>
   );
 }
@@ -278,7 +291,17 @@ export default function IncomeList() {
       formatter: (v) => formatPaymentDate(v as string | undefined),
     },
     { header: "Invoice No", key: "invoiceNo" },
-    { header: "Name", key: "memberName" },
+    {
+      header: "Name / Category",
+      key: "memberName",
+      formatter: (v, row) => {
+        const p = row as unknown as Payment;
+        if (p.paymentType === "custom") {
+          return (p.metadata?.categoryTitle as string) || "Custom Income";
+        }
+        return (v as string) || "—";
+      },
+    },
     { header: "Member ID", key: "memberFacingId" },
     {
       header: "Discount",
@@ -288,8 +311,13 @@ export default function IncomeList() {
     {
       header: "Category",
       key: "paymentType",
-      formatter: (v) =>
-        PAYMENT_TYPE_LABELS[v as string] ?? (v as string) ?? "—",
+      formatter: (v, row) => {
+        const p = row as unknown as Payment;
+        if (p.paymentType === "custom" && p.metadata?.categoryTitle) {
+          return p.metadata.categoryTitle as string;
+        }
+        return PAYMENT_TYPE_LABELS[v as string] ?? (v as string) ?? "—";
+      },
     },
     {
       header: "Payment",
@@ -362,11 +390,22 @@ export default function IncomeList() {
     return { startDate: undefined, endDate: undefined };
   }, [dateParams]);
 
+  const isStandardType = [
+    "package",
+    "monthly",
+    "admission",
+    "registration",
+    "locker",
+    "other",
+    "custom",
+  ].includes(selectedType);
+
   const { data: paymentsResponse, isLoading } = useGetPaymentsByBranchQuery(
     {
       branchId: activeBranchId!,
       searchTerm: searchQuery || undefined,
-      paymentType: selectedType || undefined,
+      paymentType: isStandardType ? selectedType || undefined : undefined,
+      categoryId: !isStandardType && selectedType ? selectedType : undefined,
       ...dateParams,
       limit: 200,
     },
@@ -438,9 +477,8 @@ export default function IncomeList() {
   const renderRow = (p: Payment, index: number) => (
     <tr
       key={p.id}
-      className={`transition-colors ${
-        index % 2 === 0 ? "bg-white" : "bg-gray-primary"
-      } hover:bg-[#F2EEFF] rounded-md`}
+      className={`transition-colors ${index % 2 === 0 ? "bg-white" : "bg-gray-primary"
+        } hover:bg-[#F2EEFF] rounded-md`}
     >
       <td className="px-6 py-4 text-sm text-gray-medium rounded-l-md">
         {formatPaymentDate(p.paymentDate)}
@@ -448,14 +486,25 @@ export default function IncomeList() {
       <td className="px-6 py-4 text-sm text-gray-medium">
         {p.invoiceNo ?? "—"}
       </td>
-      <td className="px-6 py-4 text-sm text-gray-medium">
-        {p.memberName ?? "—"}
+      <td
+        className="px-6 py-4 text-sm text-gray-medium"
+        title={
+          p.paymentType === "custom" && p.metadata?.note
+            ? (p.metadata.note as string)
+            : undefined
+        }
+      >
+        {p.paymentType === "custom"
+          ? ((p.metadata?.categoryTitle as string) || "Custom Income")
+          : p.memberName ?? "—"}
       </td>
       <td className="px-6 py-4 text-sm text-gray-medium">
         {p.memberFacingId ?? "—"}
       </td>
       <td className="px-6 py-4 text-sm text-gray-medium">
-        {PAYMENT_TYPE_LABELS[p.paymentType ?? ""] ?? p.paymentType ?? "—"}
+        {p.paymentType === "custom" && p.metadata?.categoryTitle
+          ? (p.metadata.categoryTitle as string)
+          : PAYMENT_TYPE_LABELS[p.paymentType ?? ""] ?? p.paymentType ?? "—"}
       </td>
       <td className="px-6 py-4 text-center text-sm text-gray-medium">
         {PAYMENT_METHOD_LABELS[p.paymentMethod ?? ""] ??
@@ -548,35 +597,10 @@ export default function IncomeList() {
                 setCustomEndDate={setCustomEndDate}
               />
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 px-4 py-2 bg-gray-primary rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors min-w-25 justify-between h-10 cursor-pointer">
-                    <HugeiconsIcon icon={FilterHorizontalIcon} size={24} />
-                    <span className="truncate max-w-30">
-                      {selectedType
-                        ? PAYMENT_TYPE_LABELS[selectedType]
-                        : "Filter by Category"}
-                    </span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-50">
-                  <DropdownMenuItem
-                    onClick={() => setSelectedType("")}
-                    className="cursor-pointer"
-                  >
-                    All Categories
-                  </DropdownMenuItem>
-                  {PAYMENT_TYPES.map((type) => (
-                    <DropdownMenuItem
-                      key={type}
-                      onClick={() => setSelectedType(type)}
-                      className="cursor-pointer"
-                    >
-                      {PAYMENT_TYPE_LABELS[type]}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <CategoryFilter
+                selectedCategory={selectedType}
+                setSelectedCategory={setSelectedType}
+              />
             </div>
           </div>
 
@@ -633,9 +657,8 @@ export default function IncomeList() {
                       ([date, data], index) => (
                         <tr
                           key={date}
-                          className={`transition-colors ${
-                            index % 2 === 0 ? "bg-white" : "bg-gray-primary"
-                          } hover:bg-[#F2EEFF] rounded-md`}
+                          className={`transition-colors ${index % 2 === 0 ? "bg-white" : "bg-gray-primary"
+                            } hover:bg-[#F2EEFF] rounded-md`}
                         >
                           <td className="px-6 py-4 text-sm text-gray-medium rounded-l-md">
                             {date}
@@ -781,7 +804,8 @@ export default function IncomeList() {
       )}
 
       {showMemberSearchModal && (
-        <AddIncomeMemberSearchModal
+        <AddIncomeModal
+          isOpen={showMemberSearchModal}
           onClose={() => setShowMemberSearchModal(false)}
         />
       )}

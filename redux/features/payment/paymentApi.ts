@@ -25,14 +25,26 @@ export interface Payment {
   status?: string;
   periodStart?: string;
   periodEnd?: string;
+  source?: string;
+  metadata?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface CreateCustomIncomePayload {
+  categoryId: string;
+  categoryTitle: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  note?: string;
 }
 
 interface GetPaymentsArgs {
   branchId: string;
   searchTerm?: string;
   paymentType?: string;
+  categoryId?: string;
   paymentMethod?: string;
   status?: string;
   startDate?: string;
@@ -81,7 +93,23 @@ const paymentApi = baseApi.injectEndpoints({
         { type: "Payment", id: `LIST-${branchId}` },
       ],
     }),
+
+    createCustomIncome: builder.mutation<
+      Payment,
+      { branchId: string; payload: CreateCustomIncomePayload }
+    >({
+      query: ({ branchId, payload }) => ({
+        url: `/payments/${branchId}/custom-income`,
+        method: "POST",
+        body: payload,
+      }),
+      invalidatesTags: (_result, _err, { branchId }) => [
+        { type: "Payment", id: `LIST-${branchId}` },
+        { type: "Analytics" },
+        { type: "Transaction" },
+      ],
+    }),
   }),
 });
 
-export const { useGetPaymentsByBranchQuery } = paymentApi;
+export const { useGetPaymentsByBranchQuery, useCreateCustomIncomeMutation } = paymentApi;

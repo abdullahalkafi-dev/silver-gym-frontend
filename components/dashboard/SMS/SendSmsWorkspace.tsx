@@ -1524,7 +1524,7 @@ export default function SendSmsWorkspace() {
       </Sheet>
 
       <Sheet open={templateManagerOpen} onOpenChange={setTemplateManagerOpen}>
-        <SheetContent side="right" className="w-full max-w-2xl overflow-y-auto">
+        <SheetContent side="right" className="w-full max-w-3xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Manage Saved Templates</SheetTitle>
             <SheetDescription>
@@ -1534,8 +1534,8 @@ export default function SendSmsWorkspace() {
           <div className="space-y-6 p-4 pt-0">
             {!settingsDraft ? null : (
               <>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
+                <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x scrollbar-thin">
+                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
                     <label className="text-sm font-medium text-gray-700">Due Reminder (English)</label>
                     <Textarea
                       value={settingsDraft.template}
@@ -1553,7 +1553,7 @@ export default function SendSmsWorkspace() {
                       {settingsDraft.template.length}/160 characters (English SMS)
                     </p>
                   </div>
-                  <div className="space-y-2">
+                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
                     <label className="text-sm font-medium text-gray-700">Due Reminder (Bangla)</label>
                     <Textarea
                       value={settingsDraft.templateBangla}
@@ -1571,9 +1571,7 @@ export default function SendSmsWorkspace() {
                       {settingsDraft.templateBangla.length}/70 characters (Unicode SMS)
                     </p>
                   </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
+                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
                     <label className="text-sm font-medium text-gray-700">Occasion Greeting (English)</label>
                     <Textarea
                       value={settingsDraft.occasionTemplate}
@@ -1588,7 +1586,7 @@ export default function SendSmsWorkspace() {
                       disabled={!canEditSavedTemplates}
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
                     <label className="text-sm font-medium text-gray-700">Occasion Greeting (Bangla)</label>
                     <Textarea
                       value={settingsDraft.occasionTemplateBangla}
@@ -1603,9 +1601,7 @@ export default function SendSmsWorkspace() {
                       disabled={!canEditSavedTemplates}
                     />
                   </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
+                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
                     <label className="text-sm font-medium text-gray-700">Promotion (English)</label>
                     <Textarea
                       value={settingsDraft.promotionTemplate}
@@ -1620,7 +1616,7 @@ export default function SendSmsWorkspace() {
                       disabled={!canEditSavedTemplates}
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="w-[300px] flex-shrink-0 snap-start space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
                     <label className="text-sm font-medium text-gray-700">Promotion (Bangla)</label>
                     <Textarea
                       value={settingsDraft.promotionTemplateBangla}

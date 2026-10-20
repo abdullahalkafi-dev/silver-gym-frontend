@@ -545,7 +545,7 @@ export default function MemberDetailsPage() {
             <h2 className="mb-4 text-base font-semibold text-gray-900">
               Member Activities
             </h2>
-            <MemberActivitiesCalendar memberId={memberId} />
+            <MemberActivitiesCalendar memberId={memberId} branchId={activeBranchId} />
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { AutoDeactivationSetup } from "@/components/accounts/AutoDeactivationSetup";
+import { AccessControlSetup } from "@/components/accounts/AccessControlSetup";
 import { BaseFeesSetup } from "@/components/accounts/BaseFeesSetup";
 import { StartingBalanceSetup } from "@/components/accounts/StartingBalanceSetup";
 import { AddDetails } from "@/components/accounts/AddDetails";
@@ -25,6 +26,7 @@ export default function AccountsPage() {
           <div className="lg:col-span-2"><BaseFeesSetup /></div>
           <StartingBalanceSetup />
           <AutoDeactivationSetup />
+          <div className="lg:col-span-2"><AccessControlSetup /></div>
         </div>
 
         <AddDetails

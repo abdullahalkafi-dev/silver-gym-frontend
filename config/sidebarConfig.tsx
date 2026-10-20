@@ -11,6 +11,7 @@ import {
   UserLock01Icon,
   MailSend01Icon,
   Locker01Icon,
+  Calendar01Icon,
 } from "@hugeicons/core-free-icons";
 import { ReactNode } from "react";
 
@@ -85,6 +86,13 @@ export const sidebarConfig: Record<string, SidebarSection[]> = {
           label: "Locker Management",
           icon: <HugeiconsIcon icon={Locker01Icon} size={24} />,
           path: "/dashboard/lockers",
+          roles: ["branch"],
+        },
+        {
+          id: "attendance",
+          label: "Attendance",
+          icon: <HugeiconsIcon icon={Calendar01Icon} size={24} />,
+          path: "/dashboard/attendance",
           roles: ["branch"],
         },
       ],

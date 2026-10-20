@@ -1,235 +1,269 @@
 // components/dashboard/Members/MemberActivitiesCalendar.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { Calendar } from "@/components/ui/calendar";
-import { MemberActivity } from "@/types/member";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useGetMemberAttendanceQuery } from "@/redux/features/access/accessApi";
+import type { AccessDecision, AttendanceDay } from "@/types/access";
 
 interface MemberActivitiesCalendarProps {
+  /** Database id of the member (the id in the details page URL). */
   memberId?: string;
+  branchId?: string | null;
 }
+
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+const toMonthKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+/** "2026-10-17" -> local Date at midnight (no timezone shift). */
+const parseDay = (value: string) => {
+  const [year = 0, month = 1, day = 1] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const toDayKey = (date: Date) =>
+  `${toMonthKey(date)}-${String(date.getDate()).padStart(2, "0")}`;
+
+const formatTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-US", {
+    timeZone: "Asia/Dhaka",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+const formatDay = (value: string) =>
+  parseDay(value).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+const MODE_LABEL: Record<string, string> = {
+  fingerprint: "Fingerprint",
+  card: "Card",
+  other: "Other",
+};
+
+const describeAccess = (access: AccessDecision) => {
+  const blockedWhy: Record<string, string> = {
+    inactive: "Member is inactive",
+    monthly_due: "Monthly fee unpaid",
+    override_block: "Blocked by admin",
+  };
+
+  if (access.status === "log_only") {
+    const would =
+      access.wouldBe === "blocked"
+        ? `would be blocked (${blockedWhy[access.reason] ?? "unpaid"})`
+        : access.wouldBe === "grace"
+          ? `in grace until ${access.graceUntil ? formatDay(access.graceUntil) : "-"}`
+          : "would be allowed";
+    return {
+      label: "Door not enforced yet",
+      detail: `If switched on: ${would}`,
+      tone: "bg-gray-100 text-gray-700 border-gray-200",
+    };
+  }
+
+  if (access.status === "grace") {
+    return {
+      label: "Door open (grace)",
+      detail: `Unpaid monthly fee. Open until ${access.graceUntil ? formatDay(access.graceUntil) : "-"}`,
+      tone: "bg-amber-50 text-amber-800 border-amber-200",
+    };
+  }
+
+  if (access.status === "blocked") {
+    return {
+      label: "Door blocked",
+      detail: blockedWhy[access.reason] ?? "Blocked",
+      tone: "bg-red-50 text-red-700 border-red-200",
+    };
+  }
+
+  return {
+    label: "Door open",
+    detail:
+      access.reason === "override_allow"
+        ? "Allowed by admin"
+        : "No monthly fee due",
+    tone: "bg-green-50 text-green-700 border-green-200",
+  };
+};
 
 const MemberActivitiesCalendar: React.FC<MemberActivitiesCalendarProps> = ({
   memberId,
+  branchId,
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    new Date()
+    new Date(),
   );
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [showDate, setShowDate] = useState(true);
 
-  // Sample activity data - in a real app, this would come from an API
-  const activities: MemberActivity[] = [
-    {
-      date: new Date(2025, 11, 3),
-      hasActivity: true,
-      type: "workout",
-      description: "Cardio session completed",
-    },
-    {
-      date: new Date(2025, 11, 7),
-      hasActivity: true,
-      type: "workout",
-      description: "Strength training",
-    },
-    {
-      date: new Date(2025, 11, 12),
-      hasActivity: true,
-      type: "attendance",
-      description: "Gym check-in",
-    },
-    {
-      date: new Date(2025, 11, 17),
-      hasActivity: true,
-      type: "workout",
-      description: "HIIT workout session",
-    },
-    {
-      date: new Date(2025, 11, 22),
-      hasActivity: true,
-      type: "attendance",
-      description: "Gym check-in",
-    },
-    {
-      date: new Date(2025, 11, 28),
-      hasActivity: true,
-      type: "workout",
-      description: "Group class",
-    },
-  ];
+  const month = toMonthKey(currentMonth);
 
-  const getActivityForDate = (date: Date): MemberActivity | undefined => {
-    return activities.find(
-      (activity) =>
-        activity.date.getDate() === date.getDate() &&
-        activity.date.getMonth() === date.getMonth() &&
-        activity.date.getFullYear() === date.getFullYear()
-    );
-  };
+  const { data, isLoading, isFetching, isError } = useGetMemberAttendanceQuery(
+    branchId && memberId ? { branchId, memberId, month } : skipToken,
+  );
 
-  // Separate activities by type
-  const workoutDates = activities
-    .filter((a) => a.hasActivity && a.type === "workout")
-    .map((a) => a.date);
+  const presentByDate = useMemo(() => {
+    const map = new Map<string, AttendanceDay>();
+    data?.presentDays.forEach((day) => map.set(day.date, day));
+    return map;
+  }, [data]);
 
-  const paymentDates = activities
-    .filter((a) => a.hasActivity && a.type === "payment")
-    .map((a) => a.date);
+  const presentDates = useMemo(
+    () => (data?.presentDays ?? []).map((day) => parseDay(day.date)),
+    [data],
+  );
+  const absentDates = useMemo(
+    () => (data?.absentDates ?? []).map(parseDay),
+    [data],
+  );
 
-  const attendanceDates = activities
-    .filter((a) => a.hasActivity && a.type === "attendance")
-    .map((a) => a.date);
-
-  const selectedActivity = selectedDate
-    ? getActivityForDate(selectedDate)
-    : null;
-
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
+  const selectedKey = selectedDate ? toDayKey(selectedDate) : null;
+  const selectedPresent = selectedKey ? presentByDate.get(selectedKey) : undefined;
+  const selectedAbsent = selectedKey
+    ? (data?.absentDates ?? []).includes(selectedKey)
+    : false;
 
   const handleMonthClick = (monthIndex: number) => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), monthIndex));
   };
 
+  const access = data ? describeAccess(data.access) : null;
+
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-800">
-        Member Activities
-      </h2>
+      {/* Door status */}
+      {access && (
+        <div className={`rounded-lg border p-3 ${access.tone}`}>
+          <p className="text-sm font-semibold">{access.label}</p>
+          <p className="text-xs">{access.detail}</p>
+        </div>
+      )}
 
       {/* Months Grid */}
       <div className="grid grid-cols-6 gap-2">
-        {months.map((month, index) => (
+        {MONTHS.map((label, index) => (
           <button
-            key={month}
+            key={label}
             onClick={() => handleMonthClick(index)}
             className={`px-3 py-2 text-sm rounded-md transition-colors ${
               currentMonth.getMonth() === index
                 ? "bg-purple text-white"
-                : month === "Oct"
-                ? "bg-red-50 text-red-600 hover:bg-red-100"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            {month}
+            {label}
           </button>
         ))}
       </div>
 
-      {/* Show Date Toggle */}
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-700">Show Date</span>
-        <button
-          onClick={() => setShowDate(!showDate)}
-          className={`relative w-12 h-6 rounded-full transition-colors ${
-            showDate ? "bg-purple" : "bg-gray-300"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-              showDate ? "translate-x-6" : "translate-x-0"
-            }`}
-          />
-        </button>
-      </div>
-
-      {/* Calendar with dropdown support */}
-      {showDate && (
-        <div className="space-y-4">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={setSelectedDate}
-            month={currentMonth}
-            onMonthChange={setCurrentMonth}
-            captionLayout="dropdown"
-            startMonth={new Date(1950, 0)}
-            endMonth={new Date(2100, 11)}
-            className="rounded-xl border w-full"
-            modifiers={{
-              workout: workoutDates,
-              payment: paymentDates,
-              attendance: attendanceDates,
-            }}
-            modifiersClassNames={{
-              workout: "bg-orange-100 text-orange-600 font-semibold hover:bg-orange-200 rounded-md mx-2",
-              payment: "bg-green-100 text-green-600 font-semibold hover:bg-green-200 rounded-md mx-2",
-              attendance: "bg-blue-100 text-blue-600 font-semibold hover:bg-blue-200 rounded-md mx-2",
-            }}
-          />
-
-          {/* Selected Date Activity Info */}
-          {selectedActivity && (
-            <div className={`p-4 border rounded-lg ${
-              selectedActivity.type === "workout"
-                ? "bg-orange-50 border-orange-200"
-                : selectedActivity.type === "payment"
-                ? "bg-green-50 border-green-200"
-                : "bg-blue-50 border-blue-200"
-            }`}>
-              <div className="flex items-center gap-2 mb-2">
-                <div
-                  className={`w-3 h-3 rounded-full ${
-                    selectedActivity.type === "workout"
-                      ? "bg-orange-500"
-                      : selectedActivity.type === "payment"
-                      ? "bg-green-500"
-                      : "bg-blue-500"
-                  }`}
-                />
-                <span className={`text-sm font-medium capitalize ${
-                  selectedActivity.type === "workout"
-                    ? "text-orange-800"
-                    : selectedActivity.type === "payment"
-                    ? "text-green-800"
-                    : "text-blue-800"
-                }`}>
-                  {selectedActivity.type}
-                </span>
-              </div>
-              <p className={`text-sm ${
-                selectedActivity.type === "workout"
-                  ? "text-orange-700"
-                  : selectedActivity.type === "payment"
-                  ? "text-green-700"
-                  : "text-blue-700"
-              }`}>
-                {selectedActivity.description}
-              </p>
-            </div>
-          )}
-
-          {/* Legend */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-gray-700">Activity Types:</p>
-            <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-orange-500" />
-                <span className="text-xs text-gray-600">Workout</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500" />
-                <span className="text-xs text-gray-600">Payment</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-500" />
-                <span className="text-xs text-gray-600">Attendance</span>
-              </div>
-            </div>
+      {/* Month summary */}
+      {isLoading ? (
+        <Skeleton className="h-14 w-full rounded-lg" />
+      ) : data ? (
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-lg bg-green-50 p-2">
+            <p className="text-lg font-semibold text-green-700">
+              {data.summary.presentCount}
+            </p>
+            <p className="text-[11px] text-green-700">Days came</p>
+          </div>
+          <div className="rounded-lg bg-red-50 p-2">
+            <p className="text-lg font-semibold text-red-600">
+              {data.summary.absentCount}
+            </p>
+            <p className="text-[11px] text-red-600">Days missed</p>
+          </div>
+          <div className="rounded-lg bg-gray-50 p-2">
+            <p className="text-sm font-semibold text-gray-700">
+              {data.summary.lastVisit
+                ? new Date(data.summary.lastVisit).toLocaleDateString("en-GB", {
+                    timeZone: "Asia/Dhaka",
+                    day: "numeric",
+                    month: "short",
+                  })
+                : "-"}
+            </p>
+            <p className="text-[11px] text-gray-600">Last visit</p>
           </div>
         </div>
+      ) : isError ? (
+        <p className="text-xs text-red-600">Could not load attendance.</p>
+      ) : null}
+
+      <Calendar
+        mode="single"
+        selected={selectedDate}
+        onSelect={setSelectedDate}
+        month={currentMonth}
+        onMonthChange={setCurrentMonth}
+        captionLayout="dropdown"
+        startMonth={new Date(2025, 0)}
+        endMonth={new Date(2100, 11)}
+        className={`rounded-xl border w-full ${isFetching ? "opacity-70" : ""}`}
+        modifiers={{ present: presentDates, absent: absentDates }}
+        modifiersClassNames={{
+          present:
+            "bg-green-100 text-green-700 font-semibold hover:bg-green-200 rounded-md mx-2",
+          absent: "bg-red-50 text-red-500 hover:bg-red-100 rounded-md mx-2",
+        }}
+      />
+
+      {/* Selected day */}
+      {selectedPresent && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+          <p className="text-sm font-medium text-green-800">
+            Came on {formatDay(selectedPresent.date)}
+          </p>
+          <p className="text-xs text-green-700">
+            First scan {formatTime(selectedPresent.firstScan)}
+            {selectedPresent.scans > 1
+              ? ` · last scan ${formatTime(selectedPresent.lastScan)}`
+              : ""}
+            {" · "}
+            {selectedPresent.modes.map((m) => MODE_LABEL[m] ?? m).join(", ")}
+          </p>
+        </div>
+      )}
+      {selectedAbsent && selectedKey && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+          <p className="text-sm font-medium text-red-700">
+            Did not come on {formatDay(selectedKey)}
+          </p>
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-green-500" />
+          <span className="text-xs text-gray-600">Came</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-red-400" />
+          <span className="text-xs text-gray-600">Did not come</span>
+        </div>
+      </div>
+      {data && !data.trackingStart && (
+        <p className="text-xs text-gray-500">
+          No door scans recorded for this branch yet.
+        </p>
+      )}
+      {data?.trackingStart && (
+        <p className="text-xs text-gray-500">
+          Attendance is tracked from {formatDay(data.trackingStart)}. Red days
+          only count days when the gym had scans.
+        </p>
       )}
     </div>
   );

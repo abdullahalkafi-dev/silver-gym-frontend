@@ -2,8 +2,12 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm install
+# Install from the committed pnpm lockfile so the server builds exactly the
+# dependency versions that were tested (plain `npm install` resolves the newest
+# versions each time and currently crashes with an npm "edgesOut" error).
+RUN npm install -g pnpm@10.33.0
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 

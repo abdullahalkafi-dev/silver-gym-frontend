@@ -511,6 +511,8 @@ export const memberApi = baseApi.injectEndpoints({
         page,
         limit,
         sort,
+        sortBy,
+        sortOrder,
       }) => ({
         url: `/members/${branchId}`,
         method: "GET",
@@ -522,6 +524,7 @@ export const memberApi = baseApi.injectEndpoints({
           ...(typeof billingPlan !== "undefined" ? { billingPlan } : {}),
           ...(page ? { page: String(page) } : {}),
           ...(limit ? { limit: String(limit) } : {}),
+          ...(sortBy ? { sortBy, sortOrder: sortOrder || "asc" } : {}),
           sort: sort || "-createdAt",
         },
       }),

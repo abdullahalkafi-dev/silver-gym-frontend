@@ -5,6 +5,10 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import MemberStatsCards from "@/components/dashboard/Members/MemberStatsCards";
 import MemberTable from "@/components/dashboard/Members/MemberTable";
+import MemberPagination, {
+  DEFAULT_MEMBER_PAGE_SIZE,
+  MEMBER_PAGE_SIZE_OPTIONS,
+} from "@/components/dashboard/Members/MemberPagination";
 import {
   MemberListPaymentFilter,
   MemberListStatusFilter,
@@ -22,6 +26,22 @@ import {
   useGetBranchMembersQuery,
   useGetDashboardSummaryQuery,
 } from "@/redux/features/member/memberApi";
+
+const PAGE_SIZE_STORAGE_KEY = "members.pageSize";
+
+// The page size the user picked last time. Only used for the query, so it
+// does not affect server-rendered markup.
+const readStoredPageSize = (): number => {
+  if (typeof window === "undefined") return DEFAULT_MEMBER_PAGE_SIZE;
+  try {
+    const stored = Number(window.localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
+    return (MEMBER_PAGE_SIZE_OPTIONS as readonly number[]).includes(stored)
+      ? stored
+      : DEFAULT_MEMBER_PAGE_SIZE;
+  } catch {
+    return DEFAULT_MEMBER_PAGE_SIZE;
+  }
+};
 
 const STATUS_FILTER_OPTIONS: Array<{
   value: MemberListStatusFilter;
@@ -68,6 +88,9 @@ export default function MembersPage() {
     useState<MemberListBillingFilter>("all");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(readStoredPageSize);
+  // null = default list order (newest first); otherwise sort by Member ID.
+  const [memberIdSort, setMemberIdSort] = useState<"asc" | "desc" | null>(null);
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
 
   // Debounce search
@@ -105,8 +128,11 @@ export default function MembersPage() {
     ...(statusFilter === "inactive" ? { isActive: "false" as const } : {}),
     ...(paymentFilter !== "all" ? { paymentStatus: paymentFilter } : {}),
     ...(billingFilter !== "all" ? { billingPlan: billingFilter } : {}),
+    ...(memberIdSort
+      ? { sortBy: "memberId" as const, sortOrder: memberIdSort }
+      : {}),
     page: currentPage,
-    limit: 20,
+    limit: pageSize,
   };
 
   const {
@@ -164,6 +190,24 @@ export default function MembersPage() {
 
   const handleBillingFilterSelect = (nextFilter: MemberListBillingFilter) => {
     setBillingFilter(nextFilter);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (nextSize: number) => {
+    setPageSize(nextSize);
+    setCurrentPage(1);
+    try {
+      window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(nextSize));
+    } catch {
+      // Not being able to remember the choice is harmless.
+    }
+  };
+
+  // default -> low to high -> high to low -> default
+  const handleToggleMemberIdSort = () => {
+    setMemberIdSort((current) =>
+      current === null ? "asc" : current === "asc" ? "desc" : null,
+    );
     setCurrentPage(1);
   };
 
@@ -370,31 +414,20 @@ export default function MembersPage() {
             members={members}
             onSendSMS={(member) => handleSendSMS(member._id)}
             isLoading={membersLoading || membersFetching}
+            memberIdSort={memberIdSort}
+            onToggleMemberIdSort={handleToggleMemberIdSort}
           />
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-gray-100">
-              <button
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                disabled={currentPage >= totalPages}
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
-                }
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
-              >
-                Next
-              </button>
-            </div>
+          {(meta?.total ?? 0) > 0 && (
+            <MemberPagination
+              page={currentPage}
+              totalPages={totalPages}
+              total={meta?.total ?? 0}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={handlePageSizeChange}
+            />
           )}
         </div>
 

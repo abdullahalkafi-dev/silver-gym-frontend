@@ -11,7 +11,25 @@ interface MemberTableProps {
   members: BackendMember[];
   onSendSMS?: (member: BackendMember) => void;
   isLoading?: boolean;
+  /** null = default list order (newest first). */
+  memberIdSort?: "asc" | "desc" | null;
+  onToggleMemberIdSort?: () => void;
 }
+
+const MemberIdSortIcon = ({ sort }: { sort?: "asc" | "desc" | null }) => (
+  <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true">
+    <path
+      d="M10 3l5 6H5z"
+      fill="currentColor"
+      className={sort === "asc" ? "text-purple" : "text-gray-300"}
+    />
+    <path
+      d="M10 17l-5-6h10z"
+      fill="currentColor"
+      className={sort === "desc" ? "text-purple" : "text-gray-300"}
+    />
+  </svg>
+);
 
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return "—";
@@ -33,7 +51,13 @@ const formatSignedBalance = (amount: number, direction: "due" | "advance") => {
   return `${prefix}${formatCurrency(amount)}`;
 };
 
-const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading }) => {
+const MemberTable: React.FC<MemberTableProps> = ({
+  members,
+  onSendSMS,
+  isLoading,
+  memberIdSort,
+  onToggleMemberIdSort,
+}) => {
   const router = useRouter();
 
   const handleRowClick = (memberId: string) => {
@@ -70,8 +94,31 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
               <th className="px-6 py-4 text-left text-base font-semibold text-text-primary border-b">
                 Name
               </th>
-              <th className="px-6 py-4 text-left text-base font-semibold text-text-primary border-b">
-                Member ID
+              <th
+                aria-sort={
+                  memberIdSort === "asc"
+                    ? "ascending"
+                    : memberIdSort === "desc"
+                      ? "descending"
+                      : "none"
+                }
+                className="px-6 py-4 text-left text-base font-semibold text-text-primary border-b"
+              >
+                <button
+                  type="button"
+                  onClick={onToggleMemberIdSort}
+                  title={
+                    memberIdSort === "asc"
+                      ? "Sorted low to high. Click for high to low"
+                      : memberIdSort === "desc"
+                        ? "Sorted high to low. Click to clear the sort"
+                        : "Click to sort low to high"
+                  }
+                  className="inline-flex items-center gap-1.5 hover:text-purple"
+                >
+                  Member ID
+                  <MemberIdSortIcon sort={memberIdSort} />
+                </button>
               </th>
               <th className="px-6 py-4 text-left text-base font-semibold text-text-primary border-b">
                 Phone

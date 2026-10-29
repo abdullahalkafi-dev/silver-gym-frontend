@@ -277,6 +277,9 @@ export interface MemberQueryArgs {
   page?: number;
   limit?: number;
   sort?: string;
+  /** Only "memberId" is handled specially by the backend (numeric order). */
+  sortBy?: "memberId";
+  sortOrder?: "asc" | "desc";
 }
 
 export interface MemberListMeta {

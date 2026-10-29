@@ -71,9 +71,6 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
                 Name
               </th>
               <th className="px-6 py-4 text-left text-base font-semibold text-text-primary border-b">
-                System ID
-              </th>
-              <th className="px-6 py-4 text-left text-base font-semibold text-text-primary border-b">
                 Member ID
               </th>
               <th className="px-6 py-4 text-left text-base font-semibold text-text-primary border-b">
@@ -100,7 +97,7 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
             {members.length === 0 ? (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={8}
                   className="px-6 py-8 text-center text-gray-500"
                 >
                   <HugeiconsIcon icon={UserGroup02Icon} size={24} />
@@ -159,11 +156,6 @@ const MemberTable: React.FC<MemberTableProps> = ({ members, onSendSMS, isLoading
                           </span>
                         </div>
                       </div>
-                    </td>
-
-                    {/* System ID */}
-                    <td className="px-6 py-4 text-sm text-gray-medium">
-                      {member.systemMemberId ?? "—"}
                     </td>
 
                     {/* Member ID */}

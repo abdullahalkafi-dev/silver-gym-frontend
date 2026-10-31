@@ -38,7 +38,7 @@ const PackagesAnalytics = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isYearOpen, setIsYearOpen] = useState(false);
 
-  const { data: response, isLoading } = useGetAnalyticsPackagesSummaryQuery(
+  const { data: response, isLoading, isError, refetch, isFetching } = useGetAnalyticsPackagesSummaryQuery(
     {
       branchId: activeBranchId || "",
       year: selectedYear,
@@ -234,6 +234,28 @@ const PackagesAnalytics = () => {
     );
   }
 
+  // A failed request must not look like "0 members".
+  if (isError && !response) {
+    return (
+      <div className="bg-white rounded-2xl p-6">
+        <h2 className="text-xl font-semibold text-text-primary mb-2">
+          Packages Analytics
+        </h2>
+        <p className="text-sm text-gray-medium mb-4">
+          Package analytics could not be loaded. Please try again.
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="px-4 py-2 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-800 disabled:opacity-60"
+        >
+          {isFetching ? "Retrying..." : "Retry"}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-2xl p-6">
       {/* Header */}
@@ -325,7 +347,10 @@ const PackagesAnalytics = () => {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: "#6B7280", fontSize: 12 }}
-                  tickFormatter={(value) => `${value / 1000}K`}
+                  allowDecimals={false}
+                  tickFormatter={(value: number) =>
+                    value >= 1000 ? `${value / 1000}K` : String(value)
+                  }
                 />
                 <Tooltip
                   contentStyle={{

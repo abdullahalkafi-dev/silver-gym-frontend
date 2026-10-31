@@ -13,6 +13,7 @@ import {
   AlertCircleIcon,
   Loading03Icon,
 } from "@hugeicons/core-free-icons";
+import ImportRejectionPanel from "@/components/dashboard/Members/ImportRejectionPanel";
 import { useUser } from "@/hooks/useUser";
 import { useAppDispatch } from "@/redux/hooks";
 import {
@@ -336,6 +337,20 @@ export default function ImportOldMembersPage() {
                 onChange={handleFileSelect}
                 className="hidden"
               />
+              {errorMessage && (
+                <div
+                  role="alert"
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-4 text-left flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg"
+                >
+                  <HugeiconsIcon
+                    icon={AlertCircleIcon}
+                    size={18}
+                    className="text-red-600 mt-0.5 shrink-0"
+                  />
+                  <p className="text-sm text-red-700">{errorMessage}</p>
+                </div>
+              )}
             </div>
           ) : (
             <div>
@@ -489,6 +504,16 @@ export default function ImportOldMembersPage() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Upload-time rejection: no batch exists, so there is no batchStatus */}
+              {importState === "error" && !batchStatus && (
+                <ImportRejectionPanel
+                  message={
+                    errorMessage || "The import did not complete. Please try again."
+                  }
+                  fileName={file.name}
+                />
               )}
 
               {importState === "error" && batchStatus && (

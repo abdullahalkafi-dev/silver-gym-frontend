@@ -4,6 +4,7 @@ import type {
   Branch,
   BranchAdmissionFee,
   BranchAutoDeactivationSettings,
+  BranchImportSettings,
   BranchMonthlyFee,
   BranchStartingBalance,
   CreateBranchPayload,
@@ -26,6 +27,24 @@ type UpdateBranchAdmissionFeePayload = BranchFeeQueryArgs & {
 type UpdateBranchAutoDeactivationSettingsPayload = BranchFeeQueryArgs & {
   autoDeactivateAfterUnpaidMonths: number;
 };
+
+type UpdateBranchImportSettingsPayload = BranchFeeQueryArgs & {
+  allowDuplicatePhoneOnImport: boolean;
+};
+
+type RawBranchImportSettings = {
+  branchId?: string;
+  branchName?: string;
+  allowDuplicatePhoneOnImport?: boolean | null;
+};
+
+const normalizeImportSettings = (
+  raw: RawBranchImportSettings,
+): BranchImportSettings => ({
+  branchId: String(raw.branchId || ""),
+  branchName: raw.branchName || "Untitled Branch",
+  allowDuplicatePhoneOnImport: raw.allowDuplicatePhoneOnImport === true,
+});
 
 type SetBranchStartingBalancePayload = BranchFeeQueryArgs & {
   startingBalance: number;
@@ -300,6 +319,41 @@ export const branchApi = baseApi.injectEndpoints({
       ],
     }),
 
+    getBranchImportSettings: builder.query<
+      BranchImportSettings,
+      BranchFeeQueryArgs
+    >({
+      query: ({ businessId, branchId }) => ({
+        url: `/branches/${businessId}/branches/${branchId}/import-settings`,
+        method: "GET",
+      }),
+      transformResponse: (
+        response: ApiSuccessResponse<RawBranchImportSettings>,
+      ) => normalizeImportSettings(response.data),
+      providesTags: (_result, _error, { branchId }) => [
+        { type: "BranchFee", id: `IMPORT-SETTINGS-${branchId}` },
+      ],
+    }),
+
+    updateBranchImportSettings: builder.mutation<
+      BranchImportSettings,
+      UpdateBranchImportSettingsPayload
+    >({
+      query: ({ businessId, branchId, allowDuplicatePhoneOnImport }) => ({
+        url: `/branches/${businessId}/branches/${branchId}/import-settings`,
+        method: "PATCH",
+        body: {
+          data: { allowDuplicatePhoneOnImport },
+        },
+      }),
+      transformResponse: (
+        response: ApiSuccessResponse<RawBranchImportSettings>,
+      ) => normalizeImportSettings(response.data),
+      invalidatesTags: (_result, _error, { branchId }) => [
+        { type: "BranchFee", id: `IMPORT-SETTINGS-${branchId}` },
+      ],
+    }),
+
     updateBranchAutoDeactivationSettings: builder.mutation<
       BranchAutoDeactivationSettings,
       UpdateBranchAutoDeactivationSettingsPayload
@@ -381,6 +435,8 @@ export const {
   useUpdateBranchAdmissionFeeMutation,
   useGetBranchAutoDeactivationSettingsQuery,
   useUpdateBranchAutoDeactivationSettingsMutation,
+  useGetBranchImportSettingsQuery,
+  useUpdateBranchImportSettingsMutation,
   useGetBranchStartingBalanceQuery,
   useSetBranchStartingBalanceMutation,
 } = branchApi;
@@ -388,6 +444,7 @@ export type {
   BranchFeeQueryArgs,
   UpdateBranchAdmissionFeePayload,
   UpdateBranchAutoDeactivationSettingsPayload,
+  UpdateBranchImportSettingsPayload,
   UpdateBranchMonthlyFeePayload,
   SetBranchStartingBalancePayload,
 };

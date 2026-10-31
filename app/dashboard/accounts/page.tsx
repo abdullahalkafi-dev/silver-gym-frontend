@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { AutoDeactivationSetup } from "@/components/accounts/AutoDeactivationSetup";
 import { AccessControlSetup } from "@/components/accounts/AccessControlSetup";
+import { ImportSettingsSetup } from "@/components/accounts/ImportSettingsSetup";
 import { BaseFeesSetup } from "@/components/accounts/BaseFeesSetup";
 import { StartingBalanceSetup } from "@/components/accounts/StartingBalanceSetup";
 import { AddDetails } from "@/components/accounts/AddDetails";
@@ -27,6 +28,7 @@ export default function AccountsPage() {
           <StartingBalanceSetup />
           <AutoDeactivationSetup />
           <div className="lg:col-span-2"><AccessControlSetup /></div>
+          <div className="lg:col-span-2"><ImportSettingsSetup /></div>
         </div>
 
         <AddDetails

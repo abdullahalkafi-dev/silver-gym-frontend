@@ -314,7 +314,12 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
     const trimmedAddress = form.address.trim();
 
     const payload = {
-      contact: form.contact.trim() || undefined,
+      // Only send the phone when it actually changed, so editing other fields of a
+      // member whose (legacy/imported) number is shared never trips the duplicate check.
+      contact:
+        form.contact.trim() === (member.contact || "").trim()
+          ? undefined
+          : form.contact.trim() || undefined,
       memberId: trimmedMemberId || undefined,
       fullName: trimmedFullName,
       email: trimmedEmail || undefined,

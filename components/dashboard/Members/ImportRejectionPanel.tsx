@@ -197,6 +197,12 @@ const ImportRejectionPanel: React.FC<ImportRejectionPanelProps> = ({
           </li>
           <li>Save the file and upload it again with “Try Again”.</li>
         </ol>
+        {parsed.label === "phone number" && (
+          <p className="text-xs text-gray-500 mt-2">
+            Need to import shared numbers as they are? The branch owner can allow
+            duplicate phone numbers on import under Accounts → Member Import.
+          </p>
+        )}
       </div>
     </div>
   );

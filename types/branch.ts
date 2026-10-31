@@ -43,6 +43,12 @@ export interface BranchAutoDeactivationSettings {
   autoDeactivateAfterUnpaidMonths: number;
 }
 
+export interface BranchImportSettings {
+  branchId: string;
+  branchName: string;
+  allowDuplicatePhoneOnImport: boolean;
+}
+
 export interface BranchStartingBalance {
   branchId: string;
   branchName: string;

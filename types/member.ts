@@ -328,6 +328,7 @@ export interface ImportBatch {
   failedRows?: number;
   warningRows?: number;
   failuresPreview?: { rowIndex: number; reason: string; memberName?: string }[];
+  warningsPreview?: { rowIndex: number; reason: string; memberName?: string }[];
   failedRowsData?: {
     rowIndex: number;
     reason: string;

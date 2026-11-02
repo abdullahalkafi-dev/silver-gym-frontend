@@ -485,7 +485,28 @@ export default function ImportOldMembersPage() {
                           Failed: {batchStatus.failedRows}
                         </p>
                       )}
+                    {batchStatus.warningRows != null &&
+                      batchStatus.warningRows > 0 && (
+                        <p className="text-amber-700">
+                          Imported with notes: {batchStatus.warningRows}
+                        </p>
+                      )}
                   </div>
+                  {batchStatus.warningsPreview && batchStatus.warningsPreview.length > 0 && (
+                    <div className="mt-3 ml-8">
+                      <p className="text-xs font-medium text-gray-700 mb-1">
+                        Imported with notes (please review):
+                      </p>
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {batchStatus.warningsPreview.map((w, idx) => (
+                          <p key={idx} className="text-xs text-amber-700">
+                            Row {w.rowIndex}: {w.reason}
+                            {w.memberName ? ` (${w.memberName})` : ""}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {batchStatus.failuresPreview && batchStatus.failuresPreview.length > 0 && (
                     <div className="mt-3 ml-8">
                       <p className="text-xs font-medium text-gray-700 mb-1">

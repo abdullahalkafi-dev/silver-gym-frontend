@@ -134,10 +134,10 @@ export const sidebarConfig: Record<string, SidebarSection[]> = {
           roles: ["branch"],
         },
         {
-          id: "send-sms",
-          label: "Send SMS",
+          id: "sms",
+          label: "SMS",
           icon: <HugeiconsIcon icon={MailSend01Icon} size={24} />,
-          path: "/dashboard/send-sms",
+          path: "/dashboard/sms",
           roles: ["branch"],
         },
       ],

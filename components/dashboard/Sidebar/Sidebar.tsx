@@ -14,6 +14,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { logoutUser, setActiveBranchId } from "@/redux/features/auth/authSlice";
 import { toast } from "sonner";
 import { useUser } from "@/hooks/useUser";
+import { useSmsAccess } from "@/hooks/useSmsAccess";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useUser();
+  const smsAccess = useSmsAccess();
   const activeBranchId = useAppSelector((state) => state.auth.activeBranchId);
   const activeBranchName = useAppSelector((state) => state.auth.activeBranchName);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -111,7 +113,9 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
           <div className="space-y-1">
             {sidebarSections.map((section, sectionIndex) => (
               <div key={sectionIndex}>
-                {section.items.map((item) => {
+                {section.items
+                  .filter((item) => item.id !== "sms" || smsAccess.canAccess)
+                  .map((item) => {
                   // Exact match for root pages; prefix match for all others
                   const isActive =
                     item.path === "/dashboard"

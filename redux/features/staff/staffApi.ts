@@ -27,6 +27,7 @@ type RawStaffPermissionTree = {
   canManageBilling?: boolean;
   canManageExpenses?: boolean;
   canManageLockers?: boolean;
+  canSendSms?: boolean;
 };
 
 type RawStaffRolePermissions = {
@@ -72,6 +73,7 @@ const normalizePermissionsFromTree = (
     canManageBilling: tree?.canManageBilling,
     canManageExpenses: tree?.canManageExpenses,
     canManageLockers: tree?.canManageLockers,
+    canSendSms: tree?.canSendSms,
   });
 };
 

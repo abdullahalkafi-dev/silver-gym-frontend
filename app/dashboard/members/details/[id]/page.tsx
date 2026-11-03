@@ -14,6 +14,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 import { useUser } from "@/hooks/useUser";
+import { useSmsAccess } from "@/hooks/useSmsAccess";
 import {
   useGetMemberByIdQuery,
   useGetMemberPaymentHistoryQuery,
@@ -68,7 +69,7 @@ export default function MemberDetailsPage() {
   const { user, activeBranchId, isOwner } = useUser();
   const canViewPayments = true;
   const canCollectBills = true;
-  const canSendSms = true;
+  const { canAccess: canSendSms } = useSmsAccess();
   const businessId = user?.businessProfile?.id || "";
 
   const [showEditModal, setShowEditModal] = useState(false);
@@ -275,7 +276,7 @@ export default function MemberDetailsPage() {
                 </span>
                 {canSendSms && (
                   <button
-                    onClick={() => router.push(`/dashboard/send-sms?memberId=${memberId}`)}
+                    onClick={() => router.push(`/dashboard/sms/send?memberId=${memberId}`)}
                     className="rounded-lg border border-orange-100 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 transition-colors hover:bg-orange-100"
                   >
                     Send SMS
@@ -522,7 +523,7 @@ export default function MemberDetailsPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => router.push(`/dashboard/send-sms?memberId=${memberId}`)}
+                  onClick={() => router.push(`/dashboard/sms/send?memberId=${memberId}`)}
                   className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50"
                 >
                   Open SMS Workspace

@@ -5,6 +5,7 @@ export interface RolePermissions {
   canManageBilling: boolean;
   canManageExpenses: boolean;
   canManageLockers: boolean;
+  canSendSms: boolean;
 }
 
 export type RolePermissionKey = keyof RolePermissions;
@@ -97,6 +98,10 @@ export const ROLE_PERMISSION_META: Record<RolePermissionKey, RolePermissionMeta>
     label: "Manage Lockers",
     description: "Create, edit, delete lockers and set pricing",
   },
+  canSendSms: {
+    label: "Send SMS",
+    description: "Use the SMS section to send due reminders, holiday notices and custom messages",
+  },
 };
 
 export const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
@@ -106,6 +111,7 @@ export const EMPTY_ROLE_PERMISSIONS: RolePermissions = {
   canManageBilling: false,
   canManageExpenses: false,
   canManageLockers: false,
+  canSendSms: false,
 };
 
 export const normalizeRolePermissions = (
@@ -118,6 +124,7 @@ export const normalizeRolePermissions = (
     canManageBilling: Boolean(permissions?.canManageBilling),
     canManageExpenses: Boolean(permissions?.canManageExpenses),
     canManageLockers: Boolean(permissions?.canManageLockers),
+    canSendSms: Boolean(permissions?.canSendSms),
   };
 };
 
@@ -177,6 +184,10 @@ export const buildPermissionCategories = (
     {
       title: "Locker Access",
       permissions: ["canManageLockers"] as RolePermissionKey[],
+    },
+    {
+      title: "SMS Access",
+      permissions: ["canSendSms"] as RolePermissionKey[],
     },
   ];
 

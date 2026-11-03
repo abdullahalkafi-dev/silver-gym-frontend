@@ -47,6 +47,13 @@ export const PERMISSION_DEFINITIONS = {
     category: "Locker Access",
     description: "Create, edit, delete lockers and set pricing",
   },
+
+  // SMS - sending messages needs permission (owner/admin always allowed)
+  "sms:send": {
+    label: "Send SMS",
+    category: "SMS Access",
+    description: "Use the SMS section to send messages to members",
+  },
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSION_DEFINITIONS;

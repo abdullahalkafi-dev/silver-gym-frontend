@@ -291,7 +291,7 @@ const MemberTable: React.FC<MemberTableProps> = ({
                         </button>
                         <button
                           onClick={(e) => handleSMSClick(e, member)}
-                          className="inline-flex items-center justify-center p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          className={`inline-flex items-center justify-center p-2 hover:bg-gray-100 rounded-lg transition-colors ${onSendSMS ? "" : "hidden"}`}
                           title="Send SMS"
                         >
                           <HugeiconsIcon

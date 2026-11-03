@@ -10,6 +10,7 @@ const STAFF_PERMISSION_MAP: Record<string, string[]> = {
   canManageBilling: ["billing:manage"],
   canManageExpenses: ["expense:manage"],
   canManageLockers: ["locker:manage"],
+  canSendSms: ["sms:send"],
 };
 
 const OWNER_DEFAULT_PERMISSIONS = Object.keys(PERMISSION_DEFINITIONS);

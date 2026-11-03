@@ -21,6 +21,7 @@ import {
   FilterHorizontalIcon,
 } from "@hugeicons/core-free-icons";
 import { useUser } from "@/hooks/useUser";
+import { useSmsAccess } from "@/hooks/useSmsAccess";
 import { useBranchFeeSetupGuard } from "@/components/dashboard/BranchFeeSetupGuard";
 import {
   useGetBranchMembersQuery,
@@ -75,6 +76,7 @@ const BILLING_FILTER_OPTIONS: Array<{
 export default function MembersPage() {
   const router = useRouter();
   const { isOwner, activeBranchId } = useUser();
+  const { canAccess: canSendSms } = useSmsAccess();
   const { isFeeStatusKnown, hasMissingFees, requestFeeSetup } =
     useBranchFeeSetupGuard();
 
@@ -175,7 +177,7 @@ export default function MembersPage() {
   const hasActiveFilters = activeFilterCount > 0;
 
   const handleSendSMS = (memberId: string) => {
-    router.push(`/dashboard/send-sms?memberId=${memberId}`);
+    router.push(`/dashboard/sms/send?memberId=${memberId}`);
   };
 
   const handleStatusFilterSelect = (nextFilter: MemberListStatusFilter) => {
@@ -412,7 +414,7 @@ export default function MembersPage() {
           {/* Member Table */}
           <MemberTable
             members={members}
-            onSendSMS={(member) => handleSendSMS(member._id)}
+            onSendSMS={canSendSms ? (member) => handleSendSMS(member._id) : undefined}
             isLoading={membersLoading || membersFetching}
             memberIdSort={memberIdSort}
             onToggleMemberIdSort={handleToggleMemberIdSort}

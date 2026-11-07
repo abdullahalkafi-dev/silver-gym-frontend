@@ -9,12 +9,15 @@ import type {
   DuePaymentSummary,
   PaymentMethod,
 } from "@/types/member";
+import BillConfirmModal from "./BillConfirmModal";
 
 interface DuePaymentDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   branchId: string;
   memberId: string;
+  memberName?: string;
+  memberDisplayId?: string;
   duePaymentSummary: DuePaymentSummary;
 }
 
@@ -58,9 +61,12 @@ export default function DuePaymentDetailsModal({
   onClose,
   branchId,
   memberId,
+  memberName,
+  memberDisplayId,
   duePaymentSummary,
 }: DuePaymentDetailsModalProps) {
   const [settleDue, { isLoading }] = useSettleDuePaymentMutation();
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const [payAmount, setPayAmount] = useState(() =>
     String(duePaymentSummary.remainingDue),
@@ -81,7 +87,23 @@ export default function DuePaymentDetailsModal({
   const billAmount = payment.billAmount ?? 0;
   const paidTotal = payment.paidTotal ?? 0;
 
-  const handleSave = async () => {
+  const periodLabel = (() => {
+    if (!payment.periodStart) return undefined;
+    const start = new Date(payment.periodStart);
+    if (Number.isNaN(start.getTime())) return undefined;
+    const startLabel = format(start, "MMM yyyy");
+    if (!payment.periodEnd) return startLabel;
+    const endExclusive = new Date(payment.periodEnd);
+    if (Number.isNaN(endExclusive.getTime())) return startLabel;
+    const endLabel = format(new Date(endExclusive.getTime() - 24 * 60 * 60 * 1000), "MMM yyyy");
+    return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
+  })();
+  const methodLabel =
+    PAYMENT_METHOD_OPTIONS.find((o) => o.value === paymentMethod)?.label || paymentMethod;
+  const dueLeftAfter = normalizeMoney(Math.max(0, remainingDue - payAmountNum));
+
+  // Validate, then open the confirmation modal
+  const handleSave = () => {
     if (payAmountNum <= 0) {
       toast.error("Enter a valid amount greater than 0");
       return;
@@ -90,7 +112,12 @@ export default function DuePaymentDetailsModal({
       toast.error("Amount cannot exceed the remaining due");
       return;
     }
+    setIsConfirmOpen(true);
+  };
 
+  // Called only from the confirmation modal
+  const performSave = async () => {
+    if (isLoading) return;
     try {
       const result = await settleDue({
         branchId,
@@ -102,6 +129,7 @@ export default function DuePaymentDetailsModal({
           note: note.trim() || undefined,
         },
       }).unwrap();
+      setIsConfirmOpen(false);
 
       toast.success(
         result.settlementPayment.invoiceNo
@@ -110,6 +138,7 @@ export default function DuePaymentDetailsModal({
       );
       onClose();
     } catch (err) {
+      setIsConfirmOpen(false);
       const apiError = err as { data?: { message?: string } };
       toast.error(apiError.data?.message || "Failed to settle due");
     }
@@ -327,6 +356,47 @@ export default function DuePaymentDetailsModal({
           </button>
         </div>
       </div>
+
+      <BillConfirmModal
+        isOpen={isConfirmOpen}
+        title="Confirm Due Payment"
+        memberName={memberName || payment.memberName}
+        memberDisplayId={memberDisplayId}
+        summary={`Due settlement · ${typeLabel}${periodLabel ? ` · ${periodLabel}` : ""}`}
+        warnings={[
+          "This records money received now. Only confirm if the member has actually paid this amount.",
+        ]}
+        sections={[
+          [
+            { label: "For invoice", value: `${payment.invoiceNo || "—"} (${typeLabel})` },
+            ...(periodLabel ? [{ label: "Period", value: periodLabel }] : []),
+            { label: "Bill date", value: payDate },
+          ],
+          [
+            { label: "Bill amount", value: `${formatCurrency(billAmount)} TK` },
+            { label: "Paid before", value: `${formatCurrency(paidTotal)} TK` },
+            { label: "Remaining due", value: `${formatCurrency(remainingDue)} TK` },
+            { label: "Paying now", value: `${formatCurrency(payAmountNum)} TK`, tone: "strong" },
+            {
+              label: "Due left after",
+              value: `${formatCurrency(dueLeftAfter)} TK`,
+              tone: dueLeftAfter > 0 ? "danger" : "default",
+            },
+          ],
+          [
+            { label: "Payment method", value: methodLabel },
+            {
+              label: "Payment date",
+              value: paymentDate ? format(new Date(`${paymentDate}T00:00:00`), "dd MMM yyyy") : "—",
+            },
+            ...(note.trim() ? [{ label: "Note", value: note.trim(), tone: "muted" as const }] : []),
+          ],
+        ]}
+        confirmLabel={`Confirm ${formatCurrency(payAmountNum)} TK`}
+        isLoading={isLoading}
+        onConfirm={performSave}
+        onClose={() => setIsConfirmOpen(false)}
+      />
     </div>
   );
 }

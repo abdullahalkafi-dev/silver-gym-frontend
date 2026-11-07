@@ -11,12 +11,15 @@ import type {
   PaymentMethod,
 } from "@/types/member";
 import DuePaymentDetailsModal from "./DuePaymentDetailsModal";
+import BillConfirmModal from "./BillConfirmModal";
 
 interface PayDueModalProps {
   isOpen: boolean;
   onClose: () => void;
   branchId: string;
   memberId: string;
+  memberName?: string;
+  memberDisplayId?: string;
   admissionDueItems: CollectBillDueItem[];
   duePayments: DuePaymentSummary[];
 }
@@ -61,9 +64,12 @@ export default function PayDueModal({
   onClose,
   branchId,
   memberId,
+  memberName,
+  memberDisplayId,
   admissionDueItems,
   duePayments,
 }: PayDueModalProps) {
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [collectBill, { isLoading }] = useCollectBillMutation();
 
   const hasAdmissionDue = admissionDueItems.length > 0;
@@ -106,12 +112,18 @@ export default function PayDueModal({
     duePayments.reduce((s, d) => s + d.remainingDue, 0),
   );
 
-  const handleAdmissionSave = async () => {
+  // Validate, then open the confirmation modal
+  const handleAdmissionSave = () => {
     if (admissionValidItems.length === 0) {
       toast.error("Enter a valid amount for at least one admission due item");
       return;
     }
+    setIsConfirmOpen(true);
+  };
 
+  // Called only from the confirmation modal
+  const performAdmissionSave = async () => {
+    if (isLoading) return;
     try {
       const result = await collectBill({
         branchId,
@@ -128,6 +140,7 @@ export default function PayDueModal({
           note: note.trim() || undefined,
         },
       }).unwrap();
+      setIsConfirmOpen(false);
 
       toast.success(
         result.payment.invoiceNo
@@ -148,6 +161,7 @@ export default function PayDueModal({
         onClose();
       }
     } catch (err) {
+      setIsConfirmOpen(false);
       const apiError = err as { data?: { message?: string } };
       toast.error(apiError.data?.message || "Failed to collect admission due");
     }
@@ -478,6 +492,53 @@ export default function PayDueModal({
         </div>
       </div>
 
+      {/* Admission due confirmation */}
+      <BillConfirmModal
+        isOpen={isConfirmOpen}
+        title="Confirm Admission Due Payment"
+        memberName={memberName}
+        memberDisplayId={memberDisplayId}
+        summary="Admission due"
+        sections={[
+          admissionValidItems.map((item) => ({
+            label: item.label,
+            value: `${formatCurrency(item.requestedAmount)} of ${formatCurrency(item.remainingAmount)} TK`,
+          })),
+          [
+            {
+              label: "Paid now",
+              value: `${formatCurrency(admissionTotalToPay)} TK`,
+              tone: "strong",
+            },
+            {
+              label: "Admission due left",
+              value: `${formatCurrency(
+                admissionDueItems.reduce((s, i) => s + i.remainingAmount, 0) - admissionTotalToPay,
+              )} TK`,
+            },
+          ],
+          [
+            {
+              label: "Payment method",
+              value:
+                PAYMENT_METHOD_OPTIONS.find((o) => o.value === paymentMethod)?.label ||
+                paymentMethod,
+            },
+            {
+              label: "Payment date",
+              value: paymentDate ? format(new Date(`${paymentDate}T00:00:00`), "dd MMM yyyy") : "—",
+            },
+            ...(note.trim()
+              ? [{ label: "Note", value: note.trim(), tone: "muted" as const }]
+              : []),
+          ],
+        ]}
+        confirmLabel={`Confirm ${formatCurrency(admissionTotalToPay)} TK`}
+        isLoading={isLoading}
+        onConfirm={performAdmissionSave}
+        onClose={() => setIsConfirmOpen(false)}
+      />
+
       {/* Due Payment Details Modal */}
       {selectedDuePayment && (
         <DuePaymentDetailsModal
@@ -485,6 +546,8 @@ export default function PayDueModal({
           onClose={() => setSelectedDuePayment(null)}
           branchId={branchId}
           memberId={memberId}
+          memberName={memberName}
+          memberDisplayId={memberDisplayId}
           duePaymentSummary={selectedDuePayment}
         />
       )}

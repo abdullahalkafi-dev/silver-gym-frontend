@@ -22,6 +22,7 @@ import {
 import PayDueModal from "@/components/modals/PayDueModal";
 import DeactivateMemberModal from "@/components/modals/DeactivateMemberModal";
 import Modal from "@/components/ui/modal";
+import BillConfirmModal, { type BillConfirmRow } from "@/components/modals/BillConfirmModal";
 import type {
   CollectBillContext,
   CollectBillDueItem,
@@ -574,8 +575,108 @@ export default function CreateBillWorkspace({
     transitionToMonthly?.suggestedDiscountAmount,
   ]);
 
-  // Save
-  const handleSave = async (printAfterSave = false) => {
+  // Confirmation step: Save / Save & Print only open the review modal;
+  // the API is called from performSave once the admin confirms.
+  const [pendingSave, setPendingSave] = useState<{ printAfterSave: boolean } | null>(null);
+
+  const confirmDetails = useMemo(() => {
+    const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const sortedMonths = [...monthlyMonths].sort((a, b) => toIndex(a) - toIndex(b));
+    const monthLabels = sortedMonths.map((m) => `${MONTH_SHORT[m.month]} ${m.year}`);
+
+    const typeLabel =
+      collectionMode === "monthly"
+        ? "Monthly"
+        : selectedPackage?.title || "Package";
+    const periodStart = collectionMode === "monthly" ? monthlyStartDate : packageStart;
+    const periodLabel =
+      collectionMode === "monthly"
+        ? monthLabels.join(", ") || "—"
+        : formatExactWindowLabel(packageStart, projectedNextPaymentDate);
+    const methodLabel =
+      PAYMENT_METHOD_OPTIONS.find((opt) => opt.value === paymentMethod)?.label || paymentMethod;
+    const formatLongDate = (value?: Date) =>
+      value && !Number.isNaN(value.getTime()) ? format(value, "dd MMM yyyy") : "—";
+
+    const billRows: BillConfirmRow[] = [
+      { label: "Type", value: typeLabel },
+      {
+        label: collectionMode === "monthly" ? `Months (${monthLabels.length})` : "Period",
+        value: periodLabel,
+        tone: "strong",
+      },
+      { label: "Next payment date", value: formatLongDate(projectedNextPaymentDate) },
+    ];
+    if (collectionMode === "monthly" && useCustomMonthlyFee && effectiveMonthlyFee > 0) {
+      billRows.push({ label: "Custom monthly fee", value: `${formatCurrency(effectiveMonthlyFee)} TK` });
+    }
+
+    const amountRows: BillConfirmRow[] = [
+      { label: "Sub total", value: `${formatCurrency(subTotal)} TK` },
+      { label: "Discount", value: `${formatCurrency(appliedDiscount)} TK` },
+      { label: "Bill amount", value: `${formatCurrency(billableAmount)} TK`, tone: "strong" },
+      { label: "Paid now", value: `${formatCurrency(paidTotalFinal)} TK`, tone: "strong" },
+      exchangeAmount > 0
+        ? { label: "Exchange (return)", value: `${formatCurrency(exchangeAmount)} TK` }
+        : {
+            label: "Due after this bill",
+            value: `${formatCurrency(dueAmount)} TK`,
+            tone: dueAmount > 0 ? "danger" : "default",
+          },
+    ];
+
+    const paymentRows: BillConfirmRow[] = [
+      { label: "Payment method", value: methodLabel },
+      { label: "Payment date", value: formatLongDate(parseInputDate(paymentDate)) },
+    ];
+    if (note.trim()) {
+      paymentRows.push({ label: "Note", value: note.trim(), tone: "muted" });
+    }
+
+    const warnings: string[] = [];
+    if (lastSavedBill) {
+      warnings.push(
+        `A bill (${lastSavedBill.payment.invoiceNo || "just now"}) was already saved for this member a moment ago. Only continue if this is a second, separate payment.`,
+      );
+    }
+    const oneMonthFromToday = addMonths(new Date(), 1);
+    if (periodStart > oneMonthFromToday) {
+      warnings.push(
+        `This bill starts on ${formatLongDate(periodStart)}, more than a month from today. Make sure the member is really paying in advance for this period.`,
+      );
+    }
+    if (paidTotalFinal <= 0 && billableAmount > 0) {
+      warnings.push("Paid amount is 0. The full bill amount will be added to the member's due.");
+    }
+
+    return {
+      summary: `${typeLabel} · ${periodLabel}`,
+      sections: [billRows, amountRows, paymentRows],
+      warnings,
+    };
+  }, [
+    appliedDiscount,
+    billableAmount,
+    collectionMode,
+    dueAmount,
+    effectiveMonthlyFee,
+    exchangeAmount,
+    lastSavedBill,
+    monthlyMonths,
+    monthlyStartDate,
+    note,
+    packageStart,
+    paidTotalFinal,
+    paymentDate,
+    paymentMethod,
+    projectedNextPaymentDate,
+    selectedPackage?.title,
+    subTotal,
+    useCustomMonthlyFee,
+  ]);
+
+  // Validate the form, then open the confirmation modal
+  const handleSave = (printAfterSave = false) => {
     if (collectionMode === "monthly" && effectiveMonthlyFee <= 0) {
       toast.error("Monthly fee is not configured for this member or branch");
       return;
@@ -610,6 +711,14 @@ export default function CreateBillWorkspace({
       return;
     }
 
+    setPendingSave({ printAfterSave });
+  };
+
+  // Called only from the confirmation modal
+  const performSave = async () => {
+    if (!pendingSave || isCollecting) return;
+    const { printAfterSave } = pendingSave;
+
     const payload = {
       memberId,
       collectionMode,
@@ -638,6 +747,7 @@ export default function CreateBillWorkspace({
 
     try {
       const result = await collectBill({ branchId, payload }).unwrap();
+      setPendingSave(null);
       setLastSavedBill(result);
       setDiscount("");
       setPaidTotal("");
@@ -680,6 +790,7 @@ export default function CreateBillWorkspace({
         });
       }
     } catch (error) {
+      setPendingSave(null);
       const apiError = error as { data?: { message?: string } };
       toast.error(apiError.data?.message || "Failed to collect bill");
     }
@@ -1341,6 +1452,20 @@ export default function CreateBillWorkspace({
         </div>
       </div>
 
+      {/* Bill confirmation */}
+      <BillConfirmModal
+        isOpen={!!pendingSave}
+        memberName={member.fullName}
+        memberDisplayId={memberDisplayId}
+        summary={confirmDetails.summary}
+        sections={confirmDetails.sections}
+        warnings={confirmDetails.warnings}
+        confirmLabel={pendingSave?.printAfterSave ? "Confirm & Print" : "Confirm & Save"}
+        isLoading={isCollecting}
+        onConfirm={performSave}
+        onClose={() => setPendingSave(null)}
+      />
+
       {/* Pay Due Modal */}
       {showPayDueModal && (
         <PayDueModal
@@ -1348,6 +1473,8 @@ export default function CreateBillWorkspace({
           onClose={() => setShowPayDueModal(false)}
           branchId={branchId}
           memberId={memberId}
+          memberName={member.fullName}
+          memberDisplayId={memberDisplayId}
           admissionDueItems={admissionDueItems}
           duePayments={duePayments}
         />

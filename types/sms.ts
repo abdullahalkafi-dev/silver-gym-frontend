@@ -41,6 +41,8 @@ export interface SmsTemplateInfo {
   text: string;
   example: string;
   units: number;
+  /** Most credits one message of this kind may ever cost (longer ones are skipped, never sent). */
+  maxCredits?: number;
   placeholders: string[];
   whenSent: string;
   whoReceives: string;

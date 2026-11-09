@@ -68,7 +68,13 @@ export default function SmsSendPanel({ payload, actionLabel = "Send SMS", onSent
     setConfirmOpen(false);
     try {
       const result = await sendSms({ businessId, branchId, payload }).unwrap();
-      toast.success(result.message);
+      if (result.sent === 0 && result.failed > 0) {
+        toast.error("Nothing was sent. The SMS provider did not accept the message. Open History to see the reason and retry.");
+      } else if (result.failed > 0) {
+        toast.warning(`${result.sent} sent, ${result.failed} failed. Open History to retry the failed ones.`);
+      } else {
+        toast.success(result.message);
+      }
       onSent?.();
     } catch (error) {
       toast.error(extractApiErrorMessage(error));

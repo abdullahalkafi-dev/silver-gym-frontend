@@ -273,7 +273,7 @@ export default function SmsAutoPage() {
               <dl className="space-y-1 text-gray-600">
                 <div className="flex gap-2"><dt className="w-24 shrink-0 text-gray-500">When</dt><dd>{viewing.whenSent}</dd></div>
                 <div className="flex gap-2"><dt className="w-24 shrink-0 text-gray-500">Who gets it</dt><dd>{viewing.whoReceives}</dd></div>
-                <div className="flex gap-2"><dt className="w-24 shrink-0 text-gray-500">Cost</dt><dd>{viewing.units} SMS credit{viewing.units === 1 ? "" : "s"} per member</dd></div>
+                <div className="flex gap-2"><dt className="w-24 shrink-0 text-gray-500">Cost</dt><dd>{viewing.units} SMS credit{viewing.units === 1 ? "" : "s"} per member (never more than {viewing.maxCredits ?? 2}; a member whose name makes it longer is skipped)</dd></div>
               </dl>
             </div>
           ) : null}

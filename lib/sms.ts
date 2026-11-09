@@ -1,10 +1,19 @@
 import type { SmsHistoryStatus } from "@/types/sms";
 
-export const CUSTOM_MESSAGE_MAX_CHARS = 306;
+/**
+ * Credit rules (same as the server, see sms.templates.ts):
+ * 1 SMS = 1 credit = up to 160 English characters (70 if a member's name is not English).
+ * A custom message is limited to ONE SMS, so it can never cost more than 1 credit per member.
+ */
+export const CUSTOM_MESSAGE_MAX_CHARS = 160;
+export const ONE_CREDIT_CHARS = 160;
+export const ONE_CREDIT_CHARS_NON_ENGLISH = 70;
+/** The counter turns amber from here, so the admin sees the limit coming. */
+export const CUSTOM_MESSAGE_WARN_CHARS = 150;
 
 export const isPlainSmsText = (value: string) => /^[\x20-\x7E\r\n]*$/.test(value);
 
-/** Same rule the server uses: 160 characters for the first SMS, then 153 per extra part. */
+/** Same rule the server uses: 160 characters for one SMS, then 153 per extra part. */
 export const estimateCredits = (message: string) => {
   const length = Array.from(message).length;
   if (length === 0) return 0;

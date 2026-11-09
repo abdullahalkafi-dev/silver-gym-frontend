@@ -289,17 +289,19 @@ const MemberTable: React.FC<MemberTableProps> = ({
                             className="text-purple"
                           />
                         </button>
-                        <button
-                          onClick={(e) => handleSMSClick(e, member)}
-                          className={`inline-flex items-center justify-center p-2 hover:bg-gray-100 rounded-lg transition-colors ${onSendSMS ? "" : "hidden"}`}
-                          title="Send SMS"
-                        >
-                          <HugeiconsIcon
-                            icon={MailSend01Icon}
-                            size={20}
-                            className="text-gray-600"
-                          />
-                        </button>
+                        {onSendSMS ? (
+                          <button
+                            onClick={(e) => handleSMSClick(e, member)}
+                            className="inline-flex items-center justify-center p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Send SMS"
+                          >
+                            <HugeiconsIcon
+                              icon={MailSend01Icon}
+                              size={20}
+                              className="text-gray-600"
+                            />
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

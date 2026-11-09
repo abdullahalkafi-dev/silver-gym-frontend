@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Suspense, useDeferredValue, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
 import SmsSendPanel from "@/components/dashboard/SMS/SmsSendPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,9 +13,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSmsAccess } from "@/hooks/useSmsAccess";
 import {
   CUSTOM_MESSAGE_MAX_CHARS,
+  CUSTOM_MESSAGE_WARN_CHARS,
   estimateCredits,
   formatNumber,
   isPlainSmsText,
+  ONE_CREDIT_CHARS,
+  ONE_CREDIT_CHARS_NON_ENGLISH,
 } from "@/lib/sms";
 import { isBangladeshPhone } from "@/lib/bangladeshPhone";
 import { useGetBranchMembersQuery } from "@/redux/features/member/memberApi";
@@ -94,7 +96,7 @@ function SendFlow() {
       ? !isPlainSmsText(message)
         ? "Use English letters, numbers and normal punctuation only."
         : message.length > CUSTOM_MESSAGE_MAX_CHARS
-          ? `Too long. The limit is ${CUSTOM_MESSAGE_MAX_CHARS} characters (2 SMS).`
+          ? `Too long. One SMS holds ${CUSTOM_MESSAGE_MAX_CHARS} characters. Please shorten it.`
           : null
       : null;
 
@@ -254,6 +256,10 @@ function SendFlow() {
               <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-700">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Example</p>
                 <p className="mt-2">{dueTemplate?.example}</p>
+                <p className="mt-3 text-xs text-gray-500">
+                  Costs {dueTemplate?.units ?? 1} credit per member. If a member&apos;s name is not in English it can cost
+                  up to {dueTemplate?.maxCredits ?? 2} credits.
+                </p>
               </div>
             ) : (
               <>
@@ -263,14 +269,38 @@ function SendFlow() {
                   className="min-h-40"
                   placeholder="Example: Dear {Member_Name}, we have a new offer at Silver Gym. Visit us for details."
                 />
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
                   <span className={messageError ? "text-red-600" : ""}>
                     {messageError ?? "English letters, numbers and normal punctuation only."}
                   </span>
-                  <span>
-                    {message.length}/{CUSTOM_MESSAGE_MAX_CHARS} characters - about {estimateCredits(message)} credit
-                    {estimateCredits(message) === 1 ? "" : "s"} each
+                  <span
+                    data-testid="sms-char-counter"
+                    className={`shrink-0 font-semibold ${
+                      message.length > CUSTOM_MESSAGE_MAX_CHARS
+                        ? "text-red-600"
+                        : message.length >= CUSTOM_MESSAGE_WARN_CHARS
+                          ? "text-amber-600"
+                          : "text-gray-600"
+                    }`}
+                  >
+                    {message.length}/{CUSTOM_MESSAGE_MAX_CHARS} characters -{" "}
+                    {message.length > CUSTOM_MESSAGE_MAX_CHARS
+                      ? "too long for 1 SMS"
+                      : `${estimateCredits(message)} credit${estimateCredits(message) === 1 ? "" : "s"} per member`}
                   </span>
+                </div>
+                <div className="rounded-xl bg-gray-50 p-3 text-xs text-gray-600" data-testid="sms-credit-note">
+                  <p className="font-semibold text-gray-700">How credits work</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    <li>1 SMS = up to {ONE_CREDIT_CHARS} English characters = 1 credit.</li>
+                    <li>
+                      If a member&apos;s name is not in English, only {ONE_CREDIT_CHARS_NON_ENGLISH} characters fit in 1 SMS.
+                    </li>
+                    <li>
+                      {"{Member_Name}"} is replaced by each member&apos;s real name, so the final text can be a little
+                      longer. A member whose message would not fit in 1 SMS is skipped, so you are never charged double.
+                    </li>
+                  </ul>
                 </div>
               </>
             )}
@@ -290,10 +320,7 @@ function SendFlow() {
         <SmsSendPanel
           payload={payload}
           onBack={() => setStep(2)}
-          onSent={() => {
-            toast.success("Done. You can see it in History.");
-            router.push("/dashboard/sms/history");
-          }}
+          onSent={() => router.push("/dashboard/sms/history")}
         />
       ) : null}
 

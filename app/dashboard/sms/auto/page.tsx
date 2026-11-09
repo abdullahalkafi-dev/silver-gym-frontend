@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useSmsAccess } from "@/hooks/useSmsAccess";
 import { isBangladeshPhone } from "@/lib/bangladeshPhone";
+import { formatTaka } from "@/lib/sms";
 import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
 import {
   useGetSmsSettingsQuery,
@@ -43,7 +44,7 @@ export default function SmsAutoPage() {
   const [updateSettings, { isLoading: isSaving }] = useUpdateSmsSettingsMutation();
   const [sendTest, { isLoading: isTesting }] = useSendTestSmsMutation();
 
-  const [senderDraft, setSenderDraft] = useState<string | null>(null);
+  const [confirmSender, setConfirmSender] = useState<"masking" | "nonMasking" | null>(null);
   const [confirmToggle, setConfirmToggle] = useState<{ template: SmsTemplateInfo; next: boolean } | null>(null);
   const [confirmMaster, setConfirmMaster] = useState<boolean | null>(null);
   const [viewing, setViewing] = useState<SmsTemplateInfo | null>(null);
@@ -66,7 +67,7 @@ export default function SmsAutoPage() {
   if (isLoading || !settings) return <p className="text-sm text-gray-500">Loading...</p>;
 
   const s = settings.smsSettings;
-  const senderValue = senderDraft ?? s.maskingSender ?? "";
+  const usingMasking = s.senderType !== "nonMasking";
 
   const save = async (payload: Parameters<typeof updateSettings>[0]["payload"], success: string) => {
     try {
@@ -117,29 +118,25 @@ export default function SmsAutoPage() {
             />
           </div>
 
-          <div className="space-y-2 border-t border-gray-100 pt-4">
-            <label className="text-sm font-medium text-gray-700">Sender name</label>
-            <div className="flex gap-2">
-              <Input
-                value={senderValue}
-                onChange={(event) => setSenderDraft(event.target.value)}
-                placeholder="The name members see, e.g. SILVERGYM"
-                maxLength={32}
+          <div className="border-t border-gray-100 pt-4" data-testid="sms-sender-style">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Use masking (brand name)</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {usingMasking
+                    ? `Members see "${settings.senders.masking.id}" as the sender. Costs ${formatTaka(settings.senders.masking.pricePerSms)} per SMS.`
+                    : `Members see the number ${settings.senders.nonMasking.id} as the sender. Costs ${formatTaka(settings.senders.nonMasking.pricePerSms)} per SMS (cheaper).`}
+                </p>
+              </div>
+              <Switch
+                checked={usingMasking}
+                disabled={isSaving}
+                onCheckedChange={(checked) => setConfirmSender(checked ? "masking" : "nonMasking")}
+                aria-label="Use masking name on or off"
               />
-              <Button
-                variant="outline"
-                disabled={isSaving || senderValue.trim() === (s.maskingSender ?? "")}
-                onClick={async () => {
-                  if (await save({ maskingSender: senderValue.trim() || null }, "Sender name saved")) {
-                    setSenderDraft(null);
-                  }
-                }}
-              >
-                Save
-              </Button>
             </div>
-            <p className="text-xs text-gray-500">
-              Must match the sender name approved by your SMS provider, or messages will be rejected.
+            <p className="mt-2 text-xs text-gray-500">
+              The sender names are fixed for the whole app. Each branch only chooses masking or non-masking.
             </p>
           </div>
         </CardContent>
@@ -225,6 +222,35 @@ export default function SmsAutoPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* masking on / off confirmation */}
+      <AlertDialog open={Boolean(confirmSender)} onOpenChange={(open) => !open && setConfirmSender(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmSender === "masking" ? "Turn masking on?" : "Turn masking off?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmSender === "masking"
+                ? `Messages from this branch will show "${settings.senders.masking.id}" as the sender. Each SMS costs ${formatTaka(settings.senders.masking.pricePerSms)}.`
+                : `Messages from this branch will show the number ${settings.senders.nonMasking.id} as the sender. Each SMS costs ${formatTaka(settings.senders.nonMasking.pricePerSms)}. Check on your own phone that these messages arrive.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              onClick={async () => {
+                const next = confirmSender;
+                setConfirmSender(null);
+                if (!next) return;
+                await save({ senderType: next }, next === "masking" ? "Masking is on" : "Masking is off");
+              }}
+            >
+              Yes
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* per-message confirmation */}
       <AlertDialog open={Boolean(confirmToggle)} onOpenChange={(open) => !open && setConfirmToggle(null)}>
         <AlertDialogContent>
@@ -234,7 +260,7 @@ export default function SmsAutoPage() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmToggle?.next
-                ? `${confirmToggle.template.whenSent}. Goes to: ${confirmToggle.template.whoReceives.toLowerCase()}. Each message uses SMS credits.`
+                ? `${confirmToggle.template.whenSent}. Goes to: ${confirmToggle.template.whoReceives.toLowerCase()}. Each message costs ${formatTaka(settings.sender.pricePerSms)} (${settings.sender.label.toLowerCase()}).`
                 : "This message will stop being sent automatically."}
             </AlertDialogDescription>
           </AlertDialogHeader>

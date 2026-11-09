@@ -72,6 +72,11 @@ export default function SmsHistoryTable({
                   {record.renderedMessage}
                 </p>
                 {record.reason ? <p className="mt-1 text-xs text-amber-700">{record.reason}</p> : null}
+                {record.senderType && record.status !== "skipped" ? (
+                  <p className="mt-1 text-xs text-gray-400">
+                    {record.senderType === "masking" ? "Masking" : "Non-masking"} - {record.units} SMS
+                  </p>
+                ) : null}
               </td>
             </tr>
           ))}

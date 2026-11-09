@@ -106,7 +106,9 @@ export default function SmsHistoryPage() {
                         {batch.failed > 0 ? <b className="ml-2 text-red-600">{batch.failed} failed</b> : null}
                         {batch.skipped > 0 ? <span className="ml-2 text-amber-700">{batch.skipped} skipped</span> : null}
                       </p>
-                      <p className="text-xs text-gray-500">{batch.credits} credits</p>
+                      <p className="text-xs text-gray-500">
+                        {batch.credits} SMS{batch.senderType ? ` - ${batch.senderType === "masking" ? "Masking" : "Non-masking"}` : ""}
+                      </p>
                     </div>
                   </button>
                 </li>

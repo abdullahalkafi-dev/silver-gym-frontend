@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useSmsAccess } from "@/hooks/useSmsAccess";
-import { formatNumber } from "@/lib/sms";
+import { formatNumber, formatTaka } from "@/lib/sms";
 import { formatBdDateTime } from "@/lib/utils";
 import {
   useGetSmsBalanceQuery,
@@ -53,7 +53,7 @@ export default function SmsHomePage() {
           <p className="text-lg font-semibold text-gray-900">SMS is off for this branch</p>
           <p className="text-sm text-gray-600">
             {canManage
-              ? "Turn SMS on and set your sender name to start sending messages."
+              ? "Turn SMS on to start sending messages."
               : "Ask the owner or an admin to turn SMS on."}
           </p>
           {canManage ? (
@@ -79,11 +79,16 @@ export default function SmsHomePage() {
                 Test mode - nothing is really sent
               </span>
             ) : null}
-            <p className="mt-2 text-sm text-gray-500">Sender name: {smsSettings.maskingSender}</p>
+            <p className="mt-2 text-sm text-gray-500" data-testid="sms-home-sender">
+              Sending as: {settings.sender.id} ({settings.sender.label.toLowerCase()}, {formatTaka(settings.sender.pricePerSms)} per SMS)
+            </p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-500">SMS credits left</p>
-            <p className="text-3xl font-semibold text-gray-900">{formatNumber(balance?.maskingBalance)}</p>
+            <p className="text-sm text-gray-500">SMS balance</p>
+            <p className="text-3xl font-semibold text-gray-900" data-testid="sms-home-balance">{formatTaka(balance?.maskingBalance)}</p>
+            {balance?.messagesLeft !== undefined ? (
+              <p className="text-xs text-gray-500">about {formatNumber(balance.messagesLeft)} messages</p>
+            ) : null}
           </div>
         </CardContent>
       </Card>

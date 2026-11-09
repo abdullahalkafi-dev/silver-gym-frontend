@@ -22,6 +22,12 @@ export const estimateCredits = (message: string) => {
 
 export const formatNumber = (value?: number | null) => Number(value || 0).toLocaleString();
 
+/** Taka with up to 2 decimals, e.g. ৳9.65 */
+export const formatTaka = (value?: number | null) =>
+  `৳${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+
+export const SENDER_LABEL = { masking: "Masking", nonMasking: "Non-masking" } as const;
+
 /** "6-8 Jun" / "16 Dec" / "30 Dec-2 Jan" (matches the SMS that is sent). */
 export const formatHolidayDates = (from: string, to: string) => {
   const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) =>

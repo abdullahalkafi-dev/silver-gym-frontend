@@ -16,16 +16,34 @@ export type SmsAudience = "due" | "selected" | "active" | "inactive" | "all";
 
 export type SmsHistoryStatus = "simulated" | "sent" | "blocked" | "failed" | "skipped";
 
+/** masking = brand name (costs more); nonMasking = the approved number (cheaper). */
+export type SmsSenderType = "masking" | "nonMasking";
+
+export interface SmsSenderInfo {
+  type: SmsSenderType;
+  /** What the member sees as the sender. */
+  id: string;
+  label: string;
+  /** Taka per SMS. */
+  pricePerSms: number;
+}
+
 export interface SmsBalance {
+  /** Provider balance in taka (the field name is historical). */
   maskingBalance: number | null;
   nonMaskingBalance: number;
   fetchedAt: string;
   dryRun: boolean;
+  senderType?: SmsSenderType;
+  senderName?: string;
+  pricePerSms?: number;
+  /** One-part messages the balance covers at this branch's price. */
+  messagesLeft?: number;
 }
 
 export interface SmsSettings {
   enabled: boolean;
-  maskingSender: string | null;
+  senderType: SmsSenderType;
   reminderDayOfMonth: number;
   reminderHour: number;
   birthdayHour: number;
@@ -54,13 +72,17 @@ export interface SmsSettingsSnapshot {
   branchId: string;
   branchName: string;
   smsSettings: SmsSettings;
+  /** The sender this branch uses now. */
+  sender: SmsSenderInfo;
+  /** Both fixed sender IDs of the app, for the masking switch. */
+  senders: { masking: SmsSenderInfo; nonMasking: SmsSenderInfo };
   templates: SmsTemplateInfo[];
   dryRun: boolean;
 }
 
 export type UpdateSmsSettingsPayload = Partial<{
   enabled: boolean;
-  maskingSender: string | null;
+  senderType: SmsSenderType;
   reminderDayOfMonth: number;
   reminderHour: number;
   birthdayHour: number;
@@ -114,7 +136,14 @@ export interface SmsPreviewSummary {
   readyRecipients: number;
   skippedRecipients: number;
   requiredUnits: number;
+  /** Taka this send will cost at the branch's sender price. */
+  requiredCost: number;
+  pricePerSms: number;
+  senderType: SmsSenderType;
+  senderName: string;
+  /** Taka. */
   availableBalance: number;
+  /** Taka. */
   remainingBalance: number;
   insufficientBalance: boolean;
   canSend: boolean;
@@ -183,6 +212,7 @@ export interface SmsHistoryRecord {
   status: SmsHistoryStatus;
   reason?: string;
   units: number;
+  senderType?: SmsSenderType;
   createdAt: string;
 }
 
@@ -203,6 +233,7 @@ export interface SmsBatch {
   retryable: number;
   skipped: number;
   credits: number;
+  senderType?: SmsSenderType;
   simulated: number;
 }
 

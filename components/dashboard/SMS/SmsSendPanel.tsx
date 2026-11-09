@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useSmsAccess } from "@/hooks/useSmsAccess";
-import { formatNumber } from "@/lib/sms";
+import { formatNumber, formatTaka } from "@/lib/sms";
 import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
 import { usePreviewSmsMutation, useSendSmsMutation } from "@/redux/features/sms/smsApi";
 import type { SendSmsPayload, SmsPreviewResponse } from "@/types/sms";
@@ -118,22 +118,25 @@ export default function SmsSendPanel({ payload, actionLabel = "Send SMS", onSent
         </p>
         <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
           <div className="rounded-xl bg-gray-50 px-4 py-3">
-            <p className="text-gray-500">SMS credits needed</p>
-            <p className="font-semibold text-gray-900">{formatNumber(summary.requiredUnits)}</p>
+            <p className="text-gray-500">This send will cost</p>
+            <p className="font-semibold text-gray-900" data-testid="sms-cost">{formatTaka(summary.requiredCost)}</p>
+            <p className="text-xs text-gray-500">
+              {formatNumber(summary.requiredUnits)} SMS x {formatTaka(summary.pricePerSms)}
+            </p>
           </div>
           <div className="rounded-xl bg-gray-50 px-4 py-3">
-            <p className="text-gray-500">Credits you have</p>
-            <p className="font-semibold text-gray-900">{formatNumber(summary.availableBalance)}</p>
+            <p className="text-gray-500">Your SMS balance</p>
+            <p className="font-semibold text-gray-900">{formatTaka(summary.availableBalance)}</p>
           </div>
           <div className="rounded-xl bg-gray-50 px-4 py-3">
             <p className="text-gray-500">Left after sending</p>
-            <p className="font-semibold text-gray-900">{formatNumber(summary.remainingBalance)}</p>
+            <p className="font-semibold text-gray-900">{formatTaka(summary.remainingBalance)}</p>
           </div>
         </div>
 
         {summary.insufficientBalance ? (
           <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            You do not have enough SMS credits for this message. Top up your SMS balance or choose fewer members.
+            Your SMS balance is too low for this message. Top up your SMS balance or choose fewer members.
           </p>
         ) : null}
 
@@ -152,6 +155,10 @@ export default function SmsSendPanel({ payload, actionLabel = "Send SMS", onSent
             </button>
           </div>
         ) : null}
+      </div>
+
+      <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700" data-testid="sms-sending-as">
+        Sending as <b>{summary.senderName}</b> ({summary.senderType === "masking" ? "masking" : "non-masking"}).
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5">
@@ -186,7 +193,7 @@ export default function SmsSendPanel({ payload, actionLabel = "Send SMS", onSent
               Send to {formatNumber(summary.readyRecipients)} {summary.readyRecipients === 1 ? "member" : "members"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will use {formatNumber(summary.requiredUnits)} SMS credits.
+              This will cost about {formatTaka(summary.requiredCost)} ({formatNumber(summary.requiredUnits)} SMS).
               {dryRun ? " Test mode is on, so nothing is really sent." : " It cannot be undone."}
             </AlertDialogDescription>
           </AlertDialogHeader>

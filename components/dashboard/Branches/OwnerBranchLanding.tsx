@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useUser } from "@/hooks/useUser";
+import { resolveUploadAssetUrl } from "@/lib/assetUrl";
 import { useAppDispatch } from "@/redux/hooks";
 import { setActiveBranchId } from "@/redux/features/auth/authSlice";
 import { extractApiErrorMessage } from "@/redux/features/auth/authMappers";
@@ -131,6 +132,9 @@ function BranchPreviewCard({
   const { data: todaySummary, isLoading } = useGetBranchTodaySummaryQuery({
     branchId: branch.id,
   });
+  const logoUrl = resolveUploadAssetUrl(branch.logo);
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+  const showLogo = Boolean(logoUrl) && failedLogoUrl !== logoUrl;
 
   return (
     <div className="relative">
@@ -163,8 +167,18 @@ function BranchPreviewCard({
       }`}
     >
       <div className={`flex items-center gap-3 ${onEdit ? "pr-8" : ""}`}>
-        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#24135A] text-base font-semibold text-[#5DF0D4]">
-          {getBranchInitials(branch.branchName) || "BR"}
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#24135A] text-base font-semibold text-[#5DF0D4]">
+          {showLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt={`${branch.branchName} logo`}
+              className="h-full w-full object-cover"
+              onError={() => setFailedLogoUrl(logoUrl ?? null)}
+            />
+          ) : (
+            getBranchInitials(branch.branchName) || "BR"
+          )}
         </div>
         <div className="min-w-0">
           <h3 className="truncate text-[36px]/[44px] font-semibold text-[#4A4A4A] md:text-[22px]/[28px]">
@@ -254,6 +268,18 @@ export default function OwnerBranchLanding() {
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [editForm, setEditForm] = useState({ branchName: "", branchAddress: "" });
   const [editLogo, setEditLogo] = useState<File | null>(null);
+  const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null);
+  const [currentLogoFailed, setCurrentLogoFailed] = useState(false);
+
+  // Sets (or clears) the picked logo and its local preview URL, revoking the
+  // previous one so object URLs do not pile up.
+  const replaceEditLogo = (file: File | null) => {
+    if (editLogoPreview) {
+      URL.revokeObjectURL(editLogoPreview);
+    }
+    setEditLogo(file);
+    setEditLogoPreview(file ? URL.createObjectURL(file) : null);
+  };
 
   const {
     data: branches = [],
@@ -392,7 +418,8 @@ export default function OwnerBranchLanding() {
       branchName: branch.branchName,
       branchAddress: branch.branchAddress || "",
     });
-    setEditLogo(null);
+    replaceEditLogo(null);
+    setCurrentLogoFailed(false);
     setEditingBranch(branch);
   };
 
@@ -401,7 +428,7 @@ export default function OwnerBranchLanding() {
       return;
     }
     setEditingBranch(null);
-    setEditLogo(null);
+    replaceEditLogo(null);
   };
 
   const handleSaveEditBranch = async () => {
@@ -450,7 +477,7 @@ export default function OwnerBranchLanding() {
       }
 
       setEditingBranch(null);
-      setEditLogo(null);
+      replaceEditLogo(null);
       toast.success("Branch updated successfully.");
     } catch (error) {
       toast.error(extractApiErrorMessage(error));
@@ -668,6 +695,40 @@ export default function OwnerBranchLanding() {
               <label className="text-sm font-medium text-[#4A4A4A]">
                 Logo <span className="font-normal text-[#8A8A8A]">(optional)</span>
               </label>
+              {(() => {
+                const newLogoPreview = editLogo ? editLogoPreview : null;
+                const currentLogoUrl = currentLogoFailed
+                  ? undefined
+                  : resolveUploadAssetUrl(editingBranch?.logo);
+                const previewSrc = newLogoPreview || currentLogoUrl;
+
+                return (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#24135A] text-lg font-semibold text-[#5DF0D4]">
+                      {previewSrc ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={previewSrc}
+                          alt="Logo preview"
+                          className="h-full w-full object-cover"
+                          onError={() => {
+                            if (!newLogoPreview) setCurrentLogoFailed(true);
+                          }}
+                        />
+                      ) : (
+                        getBranchInitials(editForm.branchName) || "BR"
+                      )}
+                    </div>
+                    <p className="text-xs text-[#8A8A8A]">
+                      {newLogoPreview
+                        ? "New logo preview. It is saved when you press Save Changes."
+                        : currentLogoUrl
+                          ? "Current logo. Choose a file below to replace it."
+                          : "No logo yet. Choose an image to add one."}
+                    </p>
+                  </div>
+                );
+              })()}
               <Input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
@@ -677,10 +738,10 @@ export default function OwnerBranchLanding() {
                   if (file && file.size > 5 * 1024 * 1024) {
                     toast.error("Logo must be 5 MB or smaller.");
                     event.target.value = "";
-                    setEditLogo(null);
+                    replaceEditLogo(null);
                     return;
                   }
-                  setEditLogo(file);
+                  replaceEditLogo(file);
                 }}
               />
             </div>

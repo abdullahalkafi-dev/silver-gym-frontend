@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { MoreVertical, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useUser } from "@/hooks/useUser";
 import { useAppDispatch } from "@/redux/hooks";
 import { setActiveBranchId } from "@/redux/features/auth/authSlice";
@@ -23,6 +29,7 @@ import {
   useCreateOwnerBranchMutation,
   useGetOwnerBranchesQuery,
   useLazyGetOwnerDefaultBranchQuery,
+  useUpdateOwnerBranchMutation,
 } from "@/redux/features/branch/branchApi";
 import { useGetBranchTodaySummaryQuery } from "@/redux/features/analytics/analyticsApi";
 import type { Branch, CreateBranchPayload } from "@/types/branch";
@@ -113,16 +120,39 @@ function BranchPreviewCard({
   branch,
   isSelected,
   onOpen,
+  onEdit,
 }: {
   branch: Branch;
   isSelected: boolean;
   onOpen: () => void;
+  /** Only passed for the account owner. When missing, no menu is rendered. */
+  onEdit?: () => void;
 }) {
   const { data: todaySummary, isLoading } = useGetBranchTodaySummaryQuery({
     branchId: branch.id,
   });
 
   return (
+    <div className="relative">
+    {onEdit && (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Options for ${branch.branchName}`}
+            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[#6C6C6C] transition-colors hover:bg-[#E4E4E4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            <MoreVertical className="h-5 w-5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={onEdit}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit branch
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )}
     <button
       type="button"
       onClick={onOpen}
@@ -132,7 +162,7 @@ function BranchPreviewCard({
           : "border-[#E1E1E1] bg-[#F2F2F2] hover:border-primary/30"
       }`}
     >
-      <div className="flex items-center gap-3">
+      <div className={`flex items-center gap-3 ${onEdit ? "pr-8" : ""}`}>
         <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#24135A] text-base font-semibold text-[#5DF0D4]">
           {getBranchInitials(branch.branchName) || "BR"}
         </div>
@@ -193,13 +223,14 @@ function BranchPreviewCard({
         )}
       </div>
     </button>
+    </div>
   );
 }
 
 export default function OwnerBranchLanding() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { user, activeBranchId } = useUser();
+  const { user, activeBranchId, isOwner } = useUser();
 
   const businessId = user?.businessProfile?.id;
 
@@ -220,6 +251,10 @@ export default function OwnerBranchLanding() {
     monthlyFeeAmount: "",
   });
 
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [editForm, setEditForm] = useState({ branchName: "", branchAddress: "" });
+  const [editLogo, setEditLogo] = useState<File | null>(null);
+
   const {
     data: branches = [],
     isFetching: isBranchesFetching,
@@ -230,6 +265,8 @@ export default function OwnerBranchLanding() {
   const [fetchDefaultBranch] = useLazyGetOwnerDefaultBranchQuery();
   const [createOwnerBranch, { isLoading: isCreatingBranch }] =
     useCreateOwnerBranchMutation();
+  const [updateOwnerBranch, { isLoading: isUpdatingBranch }] =
+    useUpdateOwnerBranchMutation();
 
   useEffect(() => {
     if (!businessId) {
@@ -350,6 +387,76 @@ export default function OwnerBranchLanding() {
     }
   };
 
+  const handleOpenEditBranch = (branch: Branch) => {
+    setEditForm({
+      branchName: branch.branchName,
+      branchAddress: branch.branchAddress || "",
+    });
+    setEditLogo(null);
+    setEditingBranch(branch);
+  };
+
+  const handleCloseEditBranch = () => {
+    if (isUpdatingBranch) {
+      return;
+    }
+    setEditingBranch(null);
+    setEditLogo(null);
+  };
+
+  const handleSaveEditBranch = async () => {
+    if (!businessId || !editingBranch) {
+      return;
+    }
+
+    const branchName = editForm.branchName.trim();
+    const branchAddress = editForm.branchAddress.trim();
+
+    if (branchName.length < 2) {
+      toast.error("Branch name must be at least 2 characters.");
+      return;
+    }
+
+    const isDuplicateName = branches.some(
+      (branch) =>
+        branch.id !== editingBranch.id &&
+        branch.branchName.trim().toLowerCase() === branchName.toLowerCase()
+    );
+    if (isDuplicateName) {
+      toast.error("Another branch already uses this name.");
+      return;
+    }
+
+    const isUnchanged =
+      branchName === editingBranch.branchName &&
+      branchAddress === (editingBranch.branchAddress || "") &&
+      !editLogo;
+    if (isUnchanged) {
+      handleCloseEditBranch();
+      return;
+    }
+
+    try {
+      await updateOwnerBranch({
+        businessId,
+        branchId: editingBranch.id,
+        payload: { branchName, branchAddress, logo: editLogo },
+      }).unwrap();
+
+      // The header and sidebar read the active branch name from Redux/cookies,
+      // so refresh it when the renamed branch is the one currently active.
+      if (editingBranch.id === activeBranchId) {
+        dispatch(setActiveBranchId({ id: editingBranch.id, name: branchName }));
+      }
+
+      setEditingBranch(null);
+      setEditLogo(null);
+      toast.success("Branch updated successfully.");
+    } catch (error) {
+      toast.error(extractApiErrorMessage(error));
+    }
+  };
+
   const handleOpenBranchDashboard = (branch: Branch | null) => {
     if (!branch) {
       toast.error("Select a branch before opening branch dashboard.");
@@ -429,6 +536,7 @@ export default function OwnerBranchLanding() {
                   branch={branch}
                   isSelected={isSelected}
                   onOpen={() => handleOpenBranchDashboard(branch)}
+                  onEdit={isOwner ? () => handleOpenEditBranch(branch) : undefined}
                 />
               );
             })}
@@ -505,6 +613,89 @@ export default function OwnerBranchLanding() {
             </Button>
             <Button onClick={handleCreateBranch} disabled={isCreatingBranch}>
               {isCreatingBranch ? "Creating..." : "Save Branch"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editingBranch !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCloseEditBranch();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Branch</DialogTitle>
+            <DialogDescription>
+              Change the branch name, address or logo. Fees, members and
+              reports are not affected.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[#4A4A4A]">Branch Name</label>
+              <Input
+                value={editForm.branchName}
+                onChange={(event) =>
+                  setEditForm((previous) => ({
+                    ...previous,
+                    branchName: event.target.value,
+                  }))
+                }
+                placeholder="Enter branch name"
+                disabled={isUpdatingBranch}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[#4A4A4A]">Branch Address</label>
+              <Input
+                value={editForm.branchAddress}
+                onChange={(event) =>
+                  setEditForm((previous) => ({
+                    ...previous,
+                    branchAddress: event.target.value,
+                  }))
+                }
+                placeholder="Enter branch address"
+                disabled={isUpdatingBranch}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[#4A4A4A]">
+                Logo <span className="font-normal text-[#8A8A8A]">(optional)</span>
+              </label>
+              <Input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={isUpdatingBranch}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  if (file && file.size > 5 * 1024 * 1024) {
+                    toast.error("Logo must be 5 MB or smaller.");
+                    event.target.value = "";
+                    setEditLogo(null);
+                    return;
+                  }
+                  setEditLogo(file);
+                }}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCloseEditBranch}
+              disabled={isUpdatingBranch}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEditBranch} disabled={isUpdatingBranch}>
+              {isUpdatingBranch ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

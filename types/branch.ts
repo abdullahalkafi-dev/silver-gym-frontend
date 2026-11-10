@@ -25,6 +25,13 @@ export interface CreateBranchPayload {
   admissionFeeAmount?: number;
 }
 
+export interface UpdateBranchPayload {
+  branchName: string;
+  branchAddress: string;
+  /** Optional new logo image. Omit to keep the current logo. */
+  logo?: File | null;
+}
+
 export interface BranchMonthlyFee {
   branchId: string;
   branchName: string;

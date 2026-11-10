@@ -8,6 +8,7 @@ import type {
   BranchMonthlyFee,
   BranchStartingBalance,
   CreateBranchPayload,
+  UpdateBranchPayload,
 } from "@/types/branch";
 import { DEFAULT_AUTO_DEACTIVATE_AFTER_UNPAID_MONTHS } from "@/types/branch";
 
@@ -228,6 +229,34 @@ export const branchApi = baseApi.injectEndpoints({
       ],
     }),
 
+    updateOwnerBranch: builder.mutation<
+      Branch,
+      BranchFeeQueryArgs & { payload: UpdateBranchPayload }
+    >({
+      query: ({ businessId, branchId, payload }) => {
+        const { logo, ...fields } = payload;
+        const url = `/branches/${businessId}/branches/${branchId}`;
+
+        if (logo) {
+          const formData = new FormData();
+          formData.append("image", logo);
+          formData.append("data", JSON.stringify(fields));
+
+          return { url, method: "PATCH", body: formData, headers: undefined };
+        }
+
+        return { url, method: "PATCH", body: { data: fields } };
+      },
+      transformResponse: (response: ApiSuccessResponse<RawBranch>) => {
+        return normalizeBranch(response.data);
+      },
+      invalidatesTags: (_result, _error, { businessId, branchId }) => [
+        { type: "Branch", id: branchId },
+        { type: "Branch", id: `LIST-${businessId}` },
+        { type: "Branch", id: `DEFAULT-${businessId}` },
+      ],
+    }),
+
     getBranchMonthlyFee: builder.query<BranchMonthlyFee, BranchFeeQueryArgs>({
       query: ({ businessId, branchId }) => ({
         url: `/branches/${businessId}/branches/${branchId}/monthly-fee`,
@@ -429,6 +458,7 @@ export const {
   useGetOwnerDefaultBranchQuery,
   useLazyGetOwnerDefaultBranchQuery,
   useCreateOwnerBranchMutation,
+  useUpdateOwnerBranchMutation,
   useGetBranchMonthlyFeeQuery,
   useUpdateBranchMonthlyFeeMutation,
   useGetBranchAdmissionFeeQuery,

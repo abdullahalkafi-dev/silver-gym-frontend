@@ -27,6 +27,7 @@ import {
   useGetBranchMembersQuery,
   useGetDashboardSummaryQuery,
 } from "@/redux/features/member/memberApi";
+import { useGetPendingRequestMemberIdsQuery } from "@/redux/features/memberUpdateRequest/memberUpdateRequestApi";
 
 const PAGE_SIZE_STORAGE_KEY = "members.pageSize";
 
@@ -88,6 +89,8 @@ export default function MembersPage() {
     useState<MemberListPaymentFilter>("all");
   const [billingFilter, setBillingFilter] =
     useState<MemberListBillingFilter>("all");
+  // Show only members whose profile-update request is waiting for review.
+  const [onlyPendingRequests, setOnlyPendingRequests] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(readStoredPageSize);
@@ -130,6 +133,7 @@ export default function MembersPage() {
     ...(statusFilter === "inactive" ? { isActive: "false" as const } : {}),
     ...(paymentFilter !== "all" ? { paymentStatus: paymentFilter } : {}),
     ...(billingFilter !== "all" ? { billingPlan: billingFilter } : {}),
+    ...(onlyPendingRequests ? { updateRequest: "pending" as const } : {}),
     ...(memberIdSort
       ? { sortBy: "memberId" as const, sortOrder: memberIdSort }
       : {}),
@@ -144,6 +148,15 @@ export default function MembersPage() {
   } = useGetBranchMembersQuery(queryArgs, {
     skip: !activeBranchId,
   });
+
+  // Who has a request waiting. Refetches by itself after a review (same
+  // "UpdateRequest" tag the review mutation invalidates), so resolved members
+  // drop out of the count, the row badge and the filtered list.
+  const { data: pendingRequestIds = [] } = useGetPendingRequestMemberIdsQuery(
+    activeBranchId || "",
+    { skip: !activeBranchId },
+  );
+  const pendingRequestIdSet = new Set(pendingRequestIds);
 
   const { data: dashboardSummary, isLoading: dashboardLoading } =
     useGetDashboardSummaryQuery(
@@ -192,6 +205,11 @@ export default function MembersPage() {
 
   const handleBillingFilterSelect = (nextFilter: MemberListBillingFilter) => {
     setBillingFilter(nextFilter);
+    setCurrentPage(1);
+  };
+
+  const handleTogglePendingRequests = () => {
+    setOnlyPendingRequests((current) => !current);
     setCurrentPage(1);
   };
 
@@ -303,6 +321,37 @@ export default function MembersPage() {
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 />
               </div>
+
+              {/* Update requests: gray when none, purple with a count when some wait */}
+              <button
+                type="button"
+                onClick={handleTogglePendingRequests}
+                title={
+                  onlyPendingRequests
+                    ? "Showing members with a pending update request. Click to show everyone."
+                    : "Show only members who asked to update their profile"
+                }
+                className={`px-4 py-2 border rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${
+                  onlyPendingRequests
+                    ? "border-purple bg-purple text-white hover:bg-[#6527e0]"
+                    : pendingRequestIds.length > 0
+                      ? "border-purple text-purple bg-purple/5 hover:bg-purple/10"
+                      : "border-gray-300 text-gray-400 hover:bg-gray-50"
+                }`}
+              >
+                Update Requests
+                <span
+                  className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold ${
+                    onlyPendingRequests
+                      ? "bg-white text-purple"
+                      : pendingRequestIds.length > 0
+                        ? "bg-purple text-white"
+                        : "bg-gray-100 text-gray-400"
+                  }`}
+                >
+                  {pendingRequestIds.length}
+                </span>
+              </button>
 
               {/* Filter */}
               <div ref={filterPanelRef} className="relative">
@@ -418,6 +467,7 @@ export default function MembersPage() {
             isLoading={membersLoading || membersFetching}
             memberIdSort={memberIdSort}
             onToggleMemberIdSort={handleToggleMemberIdSort}
+            pendingRequestIds={pendingRequestIdSet}
           />
 
           {/* Pagination */}

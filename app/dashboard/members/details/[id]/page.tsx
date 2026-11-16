@@ -23,6 +23,8 @@ import {
 import DeactivateMemberModal from "@/components/modals/DeactivateMemberModal";
 import EditMemberModal from "@/components/modals/EditMemberModal";
 import MemberImageViewModal from "@/components/modals/MemberImageViewModal";
+import MemberUpdateRequestModal from "@/components/modals/MemberUpdateRequestModal";
+import { useGetMemberUpdateRequestQuery } from "@/redux/features/memberUpdateRequest/memberUpdateRequestApi";
 import PaymentHistoryTable from "@/components/dashboard/Members/PaymentHistoryTable";
 import MemberActivitiesCalendar from "@/components/dashboard/Members/MemberActivitiesCalendar";
 import SmsHistoryTable from "@/components/dashboard/SMS/SmsHistoryTable";
@@ -76,6 +78,16 @@ export default function MemberDetailsPage() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [imageToView, setImageToView] = useState<string>("");
+  const [showRequestModal, setShowRequestModal] = useState(false);
+
+  // Profile update request sent by the member from the portal (null = none waiting)
+  const { data: updateRequest } = useGetMemberUpdateRequestQuery(
+    { branchId: activeBranchId || "", memberId },
+    { skip: !activeBranchId || !memberId },
+  );
+  const pendingRequestCount =
+    (updateRequest?.fields.length ?? 0) + (updateRequest?.photo ? 1 : 0);
+  const hasPendingRequest = pendingRequestCount > 0;
 
   const {
     data: member,
@@ -282,6 +294,26 @@ export default function MemberDetailsPage() {
                     Send SMS
                   </button>
                 )}
+                <button
+                  onClick={() => setShowRequestModal(true)}
+                  title={
+                    hasPendingRequest
+                      ? "This member asked to update their profile"
+                      : "No pending profile update request"
+                  }
+                  className={`relative rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    hasPendingRequest
+                      ? "border-purple bg-purple text-white hover:bg-[#6527e0]"
+                      : "border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100"
+                  }`}
+                >
+                  Update Request
+                  {hasPendingRequest ? (
+                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-white px-1 text-[10px] font-semibold text-purple">
+                      {pendingRequestCount}
+                    </span>
+                  ) : null}
+                </button>
                 <button
                   onClick={() => setShowEditModal(true)}
                   className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
@@ -558,6 +590,16 @@ export default function MemberDetailsPage() {
           onClose={() => setShowEditModal(false)}
           member={member}
           branchId={activeBranchId}
+        />
+      )}
+
+      {showRequestModal && activeBranchId && (
+        <MemberUpdateRequestModal
+          isOpen={showRequestModal}
+          onClose={() => setShowRequestModal(false)}
+          branchId={activeBranchId}
+          memberId={memberId}
+          memberName={member.fullName}
         />
       )}
 

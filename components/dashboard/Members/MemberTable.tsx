@@ -14,6 +14,8 @@ interface MemberTableProps {
   /** null = default list order (newest first). */
   memberIdSort?: "asc" | "desc" | null;
   onToggleMemberIdSort?: () => void;
+  /** Member ids that have a profile-update request waiting for review. */
+  pendingRequestIds?: ReadonlySet<string>;
 }
 
 const MemberIdSortIcon = ({ sort }: { sort?: "asc" | "desc" | null }) => (
@@ -57,6 +59,7 @@ const MemberTable: React.FC<MemberTableProps> = ({
   isLoading,
   memberIdSort,
   onToggleMemberIdSort,
+  pendingRequestIds,
 }) => {
   const router = useRouter();
 
@@ -195,6 +198,11 @@ const MemberTable: React.FC<MemberTableProps> = ({
                             {isImportedMember && (
                               <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                                 Imported
+                              </span>
+                            )}
+                            {pendingRequestIds?.has(member._id) && (
+                              <span className="inline-flex rounded-full bg-purple/10 px-2 py-0.5 text-[11px] font-medium text-purple">
+                                Update request
                               </span>
                             )}
                           </div>

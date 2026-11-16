@@ -274,6 +274,8 @@ export interface MemberQueryArgs {
   includeInactive?: "true";
   paymentStatus?: MemberPaymentQueryStatus;
   billingPlan?: MemberBillingQueryPlan;
+  /** "pending" = only members with a profile-update request waiting for review. */
+  updateRequest?: "pending";
   page?: number;
   limit?: number;
   sort?: string;

@@ -95,7 +95,11 @@ export const trainerApi = baseApi.injectEndpoints({
         url: `/trainers/${branchId}/${trainerId}`,
         method: "DELETE",
       }),
-      invalidatesTags: (_r, _e, { branchId }) => [{ type: "Trainer", id: branchId }],
+      // Deleting a trainer also closes their waiting plan requests.
+      invalidatesTags: (_r, _e, { branchId }) => [
+        { type: "Trainer", id: branchId },
+        { type: "TrainerPlan", id: branchId },
+      ],
     }),
   }),
 });

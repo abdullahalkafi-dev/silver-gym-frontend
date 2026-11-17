@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MoreVertical } from "lucide-react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Delete02Icon,
   Edit02Icon,
+  Task01Icon,
   UserAdd01Icon,
   UserBlock01Icon,
   UserCheck01Icon,
@@ -32,6 +35,7 @@ import {
   useUpdateTrainerMutation,
   type Trainer,
 } from "@/redux/features/trainer/trainerApi";
+import { useGetTrainerPlanSummaryQuery } from "@/redux/features/trainerPlan/trainerPlanApi";
 
 const formatDate = (value?: string | null) => {
   if (!value) return "Never";
@@ -45,8 +49,12 @@ const formatDate = (value?: string | null) => {
 };
 
 export default function TrainersPage() {
+  const router = useRouter();
   const { activeBranchId, activeBranchName } = useUser();
   const { data: trainers = [], isLoading } = useGetTrainersQuery(activeBranchId || "", {
+    skip: !activeBranchId,
+  });
+  const { data: planSummary = {} } = useGetTrainerPlanSummaryQuery(activeBranchId || "", {
     skip: !activeBranchId,
   });
   const [createTrainer] = useCreateTrainerMutation();
@@ -162,7 +170,7 @@ export default function TrainersPage() {
             <table className="w-full border-separate border-spacing-y-2 rounded-lg border border-border-2 p-2">
               <thead>
                 <tr>
-                  {["Name", "Username", "Phone", "Last Login", "Status", "Action"].map((h) => (
+                  {["Name", "Username", "Phone", "Plan Requests", "Last Login", "Status", "Action"].map((h) => (
                     <th
                       key={h}
                       className="border-b px-6 pb-5 pt-3 text-left text-base font-semibold text-text-primary"
@@ -175,13 +183,13 @@ export default function TrainersPage() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-500">
+                    <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500">
                       Loading trainers...
                     </td>
                   </tr>
                 ) : trainers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-500">
+                    <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500">
                       No trainers yet. Click &quot;Add Trainer&quot; to create the first one.
                     </td>
                   </tr>
@@ -194,11 +202,35 @@ export default function TrainersPage() {
                       }`}
                     >
                       <td className="rounded-l-md px-6 py-4 text-sm font-medium text-gray-900">
-                        {trainer.displayName}
+                        <Link
+                          href={`/dashboard/trainers/${trainer.id}`}
+                          className="hover:text-primary hover:underline"
+                        >
+                          {trainer.displayName}
+                        </Link>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700">{trainer.username}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {trainer.phone || "Not added"}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {(() => {
+                          const c = planSummary[trainer.id];
+                          if (!c?.total) return <span className="text-gray-400">None yet</span>;
+                          return (
+                            <Link
+                              href={`/dashboard/trainers/${trainer.id}`}
+                              className="inline-flex items-center gap-2 hover:underline"
+                            >
+                              <span className="font-medium text-gray-900">{c.total}</span>
+                              {c.pending ? (
+                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                                  {c.pending} waiting
+                                </span>
+                              ) : null}
+                            </Link>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {formatDate(trainer.lastLogin)}
@@ -222,6 +254,13 @@ export default function TrainersPage() {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/dashboard/trainers/${trainer.id}`)}
+                              className="cursor-pointer"
+                            >
+                              <HugeiconsIcon icon={Task01Icon} className="text-black" />
+                              View activity
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => openEdit(trainer)}
                               className="cursor-pointer"
